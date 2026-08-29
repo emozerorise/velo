@@ -23,8 +23,53 @@ permissions:
   contents: write
 
 jobs:
+  # Runs once, before the matrix. `gh release upload` needs the release to
+  # already exist, and a fresh tag has none -- the v0.1.1 release only worked
+  # because it was created by hand while the build was still running. Doing it
+  # in its own job also avoids two matrix legs racing to create it.
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Create the release if it does not exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; leaving its notes alone."
+            exit 0
+          fi
+
+          # Notes come from the changelog section matching the tag, so they
+          # never have to be written twice.
+          python3 - "$TAG" > notes.md <<'PY'
+          import pathlib, re, sys
+
+          version = sys.argv[1].lstrip("v")
+          text = pathlib.Path("CHANGELOG.md").read_text()
+          match = re.search(
+              rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+              text,
+              re.S | re.M,
+          )
+          if not match:
+              sys.exit(f"No [{version}] section in CHANGELOG.md")
+          print(match.group(1).strip())
+          PY
+
+          cat .github/release-footer.md >> notes.md
+          gh release create "$TAG" --verify-tag \
+            --title "Velo ${TAG#v}" --notes-file notes.md
+
   build:
     name: ${{ matrix.label }}
+    needs: prepare
     strategy:
       # One architecture failing should not throw away an installer that did
       # build.
