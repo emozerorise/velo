@@ -1,4 +1,8 @@
+// Each backend links frameworks that only exist on its own platform, so the
+// modules must not be compiled anywhere else.
+#[cfg(target_os = "macos")]
 pub mod macos;
+#[cfg(target_os = "windows")]
 pub mod windows;
 
 #[cfg(target_os = "macos")]
