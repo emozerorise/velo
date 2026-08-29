@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="veloGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="50%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <!-- Background squircle -->
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="#121218" stroke="#242432" stroke-width="8" />
+  <!-- Dynamic Play Chevron / Speed Icon -->
+  <path d="M200 156 L356 256 L200 356 Z" fill="url(#veloGrad)" filter="url(#glow)" />
+  <path d="M160 176 L260 256 L160 336 Z" fill="url(#veloGrad)" opacity="0.4" />
+</svg>

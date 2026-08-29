@@ -1,0 +1,38 @@
+{
+  "name": "velo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "format": "prettier --write src/",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lucide/vue": "^1.37.0",
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
+    "lucide-vue-next": "^0.477.0",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "prettier": "^3.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7",
+    "vue-tsc": "^2.2.8"
+  }
+}

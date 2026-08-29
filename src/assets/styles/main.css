@@ -1,0 +1,91 @@
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global window chrome & dragging utilities.
+   The window is transparent-capable so the native mpv surface can show
+   through, but we only actually go transparent once a video is loaded --
+   otherwise the desktop shows through the empty player. */
+html, body, #app {
+  background: #0a0a0f;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
+}
+
+/* While a file is loaded the video is a native window sitting *behind* this
+   one, so every layer here has to be see-through for it to be visible. */
+html.video-surface-active,
+html.video-surface-active body,
+html.video-surface-active #app {
+  background: transparent;
+}
+
+[data-tauri-drag-region] {
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+
+button, input, [role="button"], .no-drag {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+
+/* Custom smooth glass scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Volume slider. The fill is painted by an inline gradient so it works
+   without `accent-color`, which renders inconsistently over a transparent
+   window. */
+input[type="range"].velo-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 9999px;
+  cursor: pointer;
+  outline: none;
+}
+
+input[type="range"].velo-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  background: #fff;
+  border: none;
+  margin-top: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+input[type="range"].velo-range:hover::-webkit-slider-thumb,
+input[type="range"].velo-range:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+input[type="range"].velo-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
