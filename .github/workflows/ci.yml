@@ -40,5 +40,10 @@ jobs:
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Cargo Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+      # Linking needs libmpv, which is installed above on macOS only. The
+      # Windows runner has no libmpv package, so it is limited to the
+      # check-only steps until Windows is genuinely supported and the crate
+      # has Rust tests worth linking for.
       - name: Cargo Test
+        if: runner.os == 'macOS'
         run: cargo test --manifest-path src-tauri/Cargo.toml

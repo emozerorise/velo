@@ -57,6 +57,12 @@
   การรวม `if` เข้ากับ match guard, `Default` ของ struct ที่มี `new()`
   และเอกสาร `# Safety` ของฟังก์ชัน `unsafe` ที่เปิด public
 - ลบ `EventLoop::new()` ที่ไม่มีใครเรียกออก
+- `platform::macos` และ `platform::windows` ถูกประกาศแบบไม่มี cfg ทำให้
+  `macos.rs` ถูกคอมไพล์บน Windows แล้วพังที่ `#[link(kind = "framework")]`
+  ซึ่งมีเฉพาะบน Apple — gate ตาม target ทั้งสองโมดูล รวมถึง `player::render`
+  ที่เรียก `dlopen`/`dlsym`
+- CI: ข้าม `cargo test` บน Windows runner เพราะไม่มี libmpv ให้ link
+  (ยังรัน `cargo fmt --check` และ `cargo clippy` ซึ่งไม่ต้อง link)
 
 ### สถาปัตยกรรม
 
