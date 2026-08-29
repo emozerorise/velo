@@ -118,7 +118,9 @@ jobs:
           APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
         run: |
           set -euo pipefail
-          version=$(node -p "require('./package.json').version")
+          # Same source Tauri stamps into the app, so the file name cannot
+          # drift from the version inside the bundle.
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
           dmg="Velo_${version}_${{ matrix.arch }}.dmg"
           stage=$(mktemp -d)
           cp -R "$APP" "$stage/"

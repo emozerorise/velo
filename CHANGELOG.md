@@ -5,9 +5,10 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [0.1.1] - 2026-08-30
 
-งานหลังจาก 0.1.0 ถูก tag ไปแล้ว จะรวมอยู่ในเวอร์ชันถัดไป
+รุ่นเก็บงานเครื่องมือและเอกสาร ตัวโปรแกรมทำงานเหมือน 0.1.0
+เพิ่มไฟล์ติดตั้ง Intel และแก้ไฟล์ macOS ให้เปิดได้โดยไม่ต้องมี Homebrew
 
 ### เพิ่มเข้ามา
 
@@ -127,4 +128,5 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.1.1]: https://github.com/emozerorise/velo/releases/tag/v0.1.1
 [0.1.0]: https://github.com/emozerorise/velo/releases/tag/v0.1.0
