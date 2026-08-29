@@ -17,6 +17,10 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      # package.json, tauri.conf.json, Cargo.toml and Cargo.lock all carry the
+      # version, and Tauri stamps the app from tauri.conf.json. They drifted
+      # once; nothing else would catch it before a release went out.
+      - run: npm run version:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test

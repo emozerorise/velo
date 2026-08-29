@@ -7,6 +7,15 @@
 
 ## [ยังไม่เผยแพร่]
 
+### เพิ่มเข้ามา
+
+- `npm run release <version>` แก้เลขเวอร์ชันทั้ง 4 ไฟล์ (package.json,
+  tauri.conf.json, Cargo.toml, Cargo.lock) แล้วเลื่อนหัวข้อ
+  `[ยังไม่เผยแพร่]` ใน CHANGELOG เป็นเวอร์ชันพร้อมวันที่ให้ในคำสั่งเดียว
+- `npm run version:check` ใน CI ทำให้ PR แดงถ้าเลขเวอร์ชันทั้ง 4 ไฟล์
+  ไม่ตรงกัน — รอบ 0.1.1 มีการแก้แค่ `package.json` ที่เดียว ซึ่งจะได้ไฟล์
+  ชื่อ 0.1.1 ที่ข้างในเป็นแอป 0.1.0 เพราะ Tauri ใช้ค่าจาก tauri.conf.json
+
 ### แก้ไข
 
 - Workflow ปล่อยรุ่นใช้ `gh release upload` ซึ่งต้องมี release อยู่ก่อน
