@@ -65,6 +65,28 @@ Velo uses a **Layered Hybrid Architecture**: a native GPU rendering surface sits
 
 ## 🚀 Getting Started
 
+### Download a build
+
+Disk images for macOS are attached to each
+[release](https://github.com/emozerorise/velo/releases). They carry their own
+copy of libmpv, so nothing else needs installing.
+
+They are **not signed with an Apple Developer certificate**, so macOS blocks
+the first launch with "Apple could not verify Velo is free of malware." The
+app is fine; macOS simply cannot tell who built it. To open it:
+
+1. Drag **Velo** into Applications and double-click it.
+2. When the warning appears, click **Done**.
+3. Open **System Settings → Privacy & Security**, scroll to **Security**, and
+   click **Open Anyway** next to the message about Velo.
+4. Confirm with Touch ID or your password.
+
+macOS remembers the choice, so this is only needed once. On macOS 15 and
+later the older right-click → Open shortcut no longer works.
+
+Prefer to skip all of that? Build from source below — locally built apps are
+not quarantined.
+
 ### Prerequisites
 
 * **Node.js**: v18+ (Node 20+ recommended)
