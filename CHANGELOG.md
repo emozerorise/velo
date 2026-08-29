@@ -5,6 +5,39 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
+## [ยังไม่เผยแพร่]
+
+งานหลังจาก 0.1.0 ถูก tag ไปแล้ว จะรวมอยู่ในเวอร์ชันถัดไป
+
+### เพิ่มเข้ามา
+
+- ตั้ง ESLint (flat config) พร้อม `typescript-eslint` และ `eslint-plugin-vue`
+  แล้วต่อเข้า CI — `npm run lint` เดิมเรียก eslint ที่ไม่ได้ติดตั้งและไม่มี config
+  จึงพังมาตลอด และ CONTRIBUTING ก็ไม่เคยพูดถึง lint เลย
+- workflow `release.yml` บิลด์ตัวติดตั้ง macOS แล้วแนบเข้า GitHub release
+  อัตโนมัติเมื่อ push tag `v*` โดยฝัง libmpv พร้อม dependency ทั้งกราฟ
+  (47 dylib) เข้าไปในบันเดิลด้วย `dylibbundler` — ถ้าไม่ทำ ไบนารีจะชี้ไปที่
+  path ของ Homebrew บนเครื่องที่บิลด์ แล้วเปิดไม่ขึ้นบนเครื่องคนอื่น
+  พร้อมขั้นตอนตรวจที่ทำให้ build แดงถ้ามีอะไรยังชี้ออกนอกบันเดิล
+- README อธิบายวิธีเปิดครั้งแรกบน macOS เพราะไฟล์ไม่ได้เซ็น Gatekeeper
+  จะบล็อกและขึ้นข้อความที่ดูเหมือนแอปพัง
+
+### แก้ไข
+
+- **คำสั่งควบคุมการเล่นไม่คืน `Promise` อีกต่อไป** — `no-floating-promises`
+  ชี้ว่ามีจุดที่เรียกแล้วไม่ `await` และไม่ `catch` ถึง 24 จุด ถ้า `invoke` พัง
+  ขึ้นมาจะเงียบสนิท ซึ่งดูเหมือนปุ่มกดไม่ติด ตอนนี้ action พวกนี้คืน `void`
+  และรายงาน error ของตัวเองผ่าน `dispatch()`
+- ข้อความ warning ตอนหา libmpv ไม่เจอ เดิมยัดข้อความหลายบรรทัดของ pkg-config
+  ลงใน directive ที่รับได้บรรทัดเดียว จึงถูกตัดกลางประโยคและไม่บอกวิธีแก้
+
+### เปลี่ยนแปลง
+
+- เปลี่ยนชื่อ `Modal.vue` → `BaseModal.vue` และ `Toast.vue` → `ToastStack.vue`
+  ตาม Vue style guide (`vue/multi-word-component-names`)
+- Intel runner เปลี่ยนจาก `macos-13` ที่ GitHub เลิกให้บริการแล้ว
+  (job ค้างคิว 70 นาทีโดยไม่เคยได้ runner) เป็น `macos-15-intel`
+
 ## [0.1.0] - 2026-08-29
 
 รุ่นแรกของ Velo — ตัวเล่นวิดีโอที่สร้างด้วย Tauri v2, Vue 3 และ libmpv
@@ -63,22 +96,6 @@
   ที่เรียก `dlopen`/`dlsym`
 - CI: ข้าม `cargo test` บน Windows runner เพราะไม่มี libmpv ให้ link
   (ยังรัน `cargo fmt --check` และ `cargo clippy` ซึ่งไม่ต้อง link)
-- เพิ่ม workflow `release.yml` บิลด์ตัวติดตั้ง macOS (Apple Silicon และ Intel)
-  แล้วแนบเข้า GitHub release อัตโนมัติเมื่อ push tag `v*` โดยฝัง libmpv
-  พร้อม dependency ทั้งกราฟ (48 dylib) เข้าไปในบันเดิลด้วย `dylibbundler`
-  — ถ้าไม่ทำ ไบนารีจะชี้ไปที่ path ของ Homebrew บนเครื่องที่บิลด์
-  แล้วเปิดไม่ขึ้นบนเครื่องคนอื่น
-- ข้อความ warning ตอนหา libmpv ไม่เจอ เดิมยัดข้อความหลายบรรทัดของ pkg-config
-  ลงใน directive ที่รับได้บรรทัดเดียว จึงถูกตัดกลางประโยคและไม่บอกวิธีแก้
-- ตั้ง ESLint (flat config) พร้อม `typescript-eslint` และ `eslint-plugin-vue`
-  แล้วต่อเข้า CI — `npm run lint` เดิมเรียก eslint ที่ไม่ได้ติดตั้งและไม่มี config
-  จึงพังมาตลอด และ CONTRIBUTING ก็ไม่เคยพูดถึง lint เลย
-- **คำสั่งควบคุมการเล่นไม่คืน `Promise` อีกต่อไป** — `no-floating-promises`
-  ชี้ว่ามีจุดที่เรียกแล้วไม่ `await` และไม่ `catch` ถึง 24 จุด ถ้า `invoke` พัง
-  ขึ้นมาจะเงียบสนิท ซึ่งดูเหมือนปุ่มกดไม่ติด (อาการเดียวกับที่ไล่จับกันทั้งวัน)
-  ตอนนี้ action พวกนี้คืน `void` และรายงาน error ของตัวเองผ่าน `dispatch()`
-- เปลี่ยนชื่อ `Modal.vue` → `BaseModal.vue` และ `Toast.vue` → `ToastStack.vue`
-  ตาม Vue style guide (`vue/multi-word-component-names`)
 
 ### สถาปัตยกรรม
 
