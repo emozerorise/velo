@@ -35,7 +35,9 @@ jobs:
             label: macOS (Apple Silicon)
             target: aarch64-apple-darwin
             arch: aarch64
-          - os: macos-13
+          # macos-13 was retired: jobs sat queued without ever being assigned
+          # a runner. macos-15-intel is the current Intel image.
+          - os: macos-15-intel
             label: macOS (Intel)
             target: x86_64-apple-darwin
             arch: x64
