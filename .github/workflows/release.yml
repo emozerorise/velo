@@ -34,9 +34,11 @@ jobs:
           - os: macos-14
             label: macOS (Apple Silicon)
             target: aarch64-apple-darwin
+            arch: aarch64
           - os: macos-13
             label: macOS (Intel)
             target: x86_64-apple-darwin
+            arch: x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -56,25 +58,76 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Install libmpv
-        run: brew install mpv pkg-config
+      - name: Install build dependencies
+        run: brew install mpv pkg-config dylibbundler
 
       - run: npm ci
 
-      # Unsigned: without an Apple Developer certificate in the repository
-      # secrets, Gatekeeper will warn on first launch and the user has to
-      # allow the app by hand. Set APPLE_CERTIFICATE and friends to change
-      # that.
-      - name: Build and upload installers
-        uses: tauri-apps/tauri-action@v0
+      # Only the .app: `tauri bundle --bundles dmg` cleans and regenerates the
+      # .app first, which would throw away the dylib fixes below.
+      - name: Build app bundle
+        run: npm run tauri build -- --bundles app --target ${{ matrix.target }}
+
+      # Velo links libmpv dynamically, so a plain build points at the build
+      # machine's Homebrew prefix and cannot start anywhere else. Copy the
+      # whole dependency graph into the bundle and rewrite the install names.
+      - name: Bundle libmpv and its dependencies
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.event.inputs.tag || github.ref_name }}
-          releaseName: Velo __VERSION__
-          releaseBody: See CHANGELOG.md for what changed in this release.
-          # The tag already carries a published release; attach to it rather
-          # than opening a draft alongside.
-          releaseDraft: false
-          prerelease: false
-          args: --target ${{ matrix.target }}
+          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
+        run: |
+          set -euo pipefail
+          dylibbundler --overwrite-dir --bundle-deps --no-codesign \
+            --fix-file "$APP/Contents/MacOS/Velo" \
+            --dest-dir "$APP/Contents/Frameworks" \
+            --install-path "@executable_path/../Frameworks/"
+
+          # dylibbundler re-adds an rpath that Tauri already set, and dyld
+          # refuses to load a binary carrying a duplicate LC_RPATH.
+          for f in "$APP/Contents/MacOS/Velo" "$APP/Contents/Frameworks"/*.dylib; do
+            while dup=$(otool -l "$f" | grep -A2 LC_RPATH | grep 'path ' \
+                        | sed 's/^ *path //;s/ (offset.*//' | sort | uniq -d | head -1); \
+                  [ -n "$dup" ]; do
+              install_name_tool -delete_rpath "$dup" "$f" || break
+            done
+          done
+
+          codesign --force --deep --sign - "$APP"
+
+      - name: Verify the bundle is self-contained
+        env:
+          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
+        run: |
+          set -euo pipefail
+          leaks=0
+          for f in "$APP/Contents/MacOS/Velo" "$APP/Contents/Frameworks"/*.dylib; do
+            if otool -L "$f" | tail -n +2 \
+               | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)'; then
+              echo "::error::$f still references a build-machine library"
+              leaks=$((leaks + 1))
+            fi
+          done
+          [ "$leaks" -eq 0 ] || exit 1
+          echo "Bundled $(ls "$APP/Contents/Frameworks" | wc -l | tr -d ' ') libraries"
+
+      # Built by hand rather than by the Tauri bundler, which would rebuild
+      # the .app and undo the step above.
+      - name: Package disk image
+        env:
+          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          dmg="Velo_${version}_${{ matrix.arch }}.dmg"
+          stage=$(mktemp -d)
+          cp -R "$APP" "$stage/"
+          ln -s /Applications "$stage/Applications"
+          hdiutil create -volname Velo -srcfolder "$stage" -ov -format UDZO "$dmg"
+          echo "DMG=$dmg" >> "$GITHUB_ENV"
+
+      # Unsigned and un-notarized: Gatekeeper will warn on first launch until
+      # an Apple Developer certificate is added to the repository secrets.
+      - name: Attach to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" "$DMG" --clobber
