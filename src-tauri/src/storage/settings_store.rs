@@ -136,7 +136,8 @@ mod tests {
     fn test_settings_json_roundtrip() {
         let original = AppSettings::default();
         let json = serde_json::to_string(&original).expect("Serialization failed");
-        let deserialized: AppSettings = serde_json::from_str(&json).expect("Deserialization failed");
+        let deserialized: AppSettings =
+            serde_json::from_str(&json).expect("Deserialization failed");
         assert_eq!(deserialized.version, original.version);
         assert_eq!(deserialized.general.theme, original.general.theme);
     }

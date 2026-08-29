@@ -24,12 +24,6 @@ pub struct EventLoop {
 }
 
 impl EventLoop {
-    pub fn new() -> Self {
-        Self {
-            running: Arc::new(AtomicBool::new(true)),
-        }
-    }
-
     pub fn start(core: Arc<MpvCore>, app_handle: AppHandle) -> Self {
         let running = Arc::new(AtomicBool::new(true));
         let running_clone = running.clone();
@@ -74,7 +68,9 @@ impl EventLoop {
 
                                 let media_info = MediaInfo {
                                     path: core.get_property_string("path").unwrap_or_default(),
-                                    file_name: core.get_property_string("filename").unwrap_or_default(),
+                                    file_name: core
+                                        .get_property_string("filename")
+                                        .unwrap_or_default(),
                                     duration: current_duration,
                                     width: core.get_property_int("width").unwrap_or(0),
                                     height: core.get_property_int("height").unwrap_or(0),
@@ -85,14 +81,16 @@ impl EventLoop {
                                 };
 
                                 let _ = app_handle.emit("velo://media-loaded", &media_info);
-                                let _ = app_handle.emit("velo://player-state", PlaybackState::Playing);
-                                
+                                let _ =
+                                    app_handle.emit("velo://player-state", PlaybackState::Playing);
+
                                 // Fetch tracks
                                 Self::emit_tracks(&core, &app_handle);
                             }
                             mpv_event_id::MPV_EVENT_END_FILE => {
                                 debug!("mpv end file");
-                                let _ = app_handle.emit("velo://player-state", PlaybackState::Ended);
+                                let _ =
+                                    app_handle.emit("velo://player-state", PlaybackState::Ended);
                                 let _ = app_handle.emit("velo://playback-ended", ());
                             }
                             mpv_event_id::MPV_EVENT_PROPERTY_CHANGE => {
@@ -113,13 +111,16 @@ impl EventLoop {
                                                 } else {
                                                     PlaybackState::Playing
                                                 };
-                                                let _ = app_handle.emit("velo://player-state", state);
+                                                let _ =
+                                                    app_handle.emit("velo://player-state", state);
                                             }
                                         }
                                         "time-pos" => {
                                             if prop.format == mpv_format::MPV_FORMAT_DOUBLE {
                                                 let now = Instant::now();
-                                                if now.duration_since(last_time_pos_emit) >= time_pos_interval {
+                                                if now.duration_since(last_time_pos_emit)
+                                                    >= time_pos_interval
+                                                {
                                                     last_time_pos_emit = now;
                                                     let current_time = *(prop.data as *const f64);
                                                     let percent = if current_duration > 0.0 {
@@ -133,7 +134,8 @@ impl EventLoop {
                                                         duration: current_duration,
                                                         percent,
                                                     };
-                                                    let _ = app_handle.emit("velo://time-update", update);
+                                                    let _ = app_handle
+                                                        .emit("velo://time-update", update);
                                                 }
                                             }
                                         }
@@ -145,20 +147,20 @@ impl EventLoop {
                                         "volume" => {
                                             if prop.format == mpv_format::MPV_FORMAT_DOUBLE {
                                                 let vol = *(prop.data as *const f64);
-                                                let _ = app_handle.emit("velo://volume-changed", vol);
+                                                let _ =
+                                                    app_handle.emit("velo://volume-changed", vol);
                                             }
                                         }
                                         "mute" => {
                                             if prop.format == mpv_format::MPV_FORMAT_FLAG {
                                                 let is_muted = *(prop.data as *const c_int) != 0;
-                                                let _ = app_handle.emit("velo://mute-changed", is_muted);
+                                                let _ = app_handle
+                                                    .emit("velo://mute-changed", is_muted);
                                             }
                                         }
-                                        "speed" => {
-                                            if prop.format == mpv_format::MPV_FORMAT_DOUBLE {
-                                                let spd = *(prop.data as *const f64);
-                                                let _ = app_handle.emit("velo://speed-changed", spd);
-                                            }
+                                        "speed" if prop.format == mpv_format::MPV_FORMAT_DOUBLE => {
+                                            let spd = *(prop.data as *const f64);
+                                            let _ = app_handle.emit("velo://speed-changed", spd);
                                         }
                                         _ => {}
                                     }
@@ -167,12 +169,10 @@ impl EventLoop {
                             mpv_event_id::MPV_EVENT_TRACKS_CHANGED => {
                                 Self::emit_tracks(&core, &app_handle);
                             }
-                            mpv_event_id::MPV_EVENT_LOG_MESSAGE => {
-                                if !event.data.is_null() {
-                                    let msg = &*(event.data as *const mpv_event_log_message);
-                                    let text = CStr::from_ptr(msg.text).to_string_lossy();
-                                    debug!("mpv log: {}", text.trim());
-                                }
+                            mpv_event_id::MPV_EVENT_LOG_MESSAGE if !event.data.is_null() => {
+                                let msg = &*(event.data as *const mpv_event_log_message);
+                                let text = CStr::from_ptr(msg.text).to_string_lossy();
+                                debug!("mpv log: {}", text.trim());
                             }
                             _ => {}
                         }

@@ -45,6 +45,11 @@ extern "C" {
 
 /// Creates the render context. The caller's GL context must be current on the
 /// calling thread, and `mpv` must already be initialized.
+///
+/// # Safety
+///
+/// `mpv` must be a live, initialized mpv handle, and the OpenGL context the
+/// video will be drawn into must be current on the calling thread.
 pub unsafe fn create(mpv: *mut mpv_handle) -> Result<()> {
     if !RENDER_CONTEXT.load(Ordering::Acquire).is_null() {
         return Ok(());
@@ -84,6 +89,11 @@ pub unsafe fn create(mpv: *mut mpv_handle) -> Result<()> {
 
 /// Registers the callback mpv fires (from an arbitrary thread) when a new
 /// frame is ready to be drawn.
+///
+/// # Safety
+///
+/// `callback` may be invoked from any thread for as long as the render
+/// context lives, so it must be safe to call concurrently.
 pub unsafe fn set_update_callback(callback: unsafe extern "C" fn(*mut c_void)) {
     let ctx = RENDER_CONTEXT.load(Ordering::Acquire);
     if !ctx.is_null() {
@@ -93,6 +103,11 @@ pub unsafe fn set_update_callback(callback: unsafe extern "C" fn(*mut c_void)) {
 
 /// Draws the current frame into `fbo` at the given pixel size. Must run with
 /// the target GL context current.
+///
+/// # Safety
+///
+/// The GL context owning `fbo` must be current on the calling thread, and
+/// `width`/`height` must match that framebuffer's real pixel size.
 pub unsafe fn render(fbo: c_int, width: c_int, height: c_int) -> bool {
     let ctx = RENDER_CONTEXT.load(Ordering::Acquire);
     if ctx.is_null() {
@@ -127,6 +142,11 @@ pub unsafe fn render(fbo: c_int, width: c_int, height: c_int) -> bool {
 }
 
 /// Tells mpv the frame reached the screen, so it can pace playback.
+///
+/// # Safety
+///
+/// Must be called only after the buffer just rendered has actually been
+/// swapped to the screen.
 pub unsafe fn report_swap() {
     let ctx = RENDER_CONTEXT.load(Ordering::Acquire);
     if !ctx.is_null() {
@@ -135,6 +155,11 @@ pub unsafe fn report_swap() {
 }
 
 /// Must be called before the mpv handle is destroyed.
+///
+/// # Safety
+///
+/// No render call may be in flight, and the GL context used to create the
+/// render context must still be alive.
 pub unsafe fn destroy() {
     let ctx = RENDER_CONTEXT.swap(ptr::null_mut(), Ordering::AcqRel);
     if !ctx.is_null() {

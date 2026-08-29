@@ -179,8 +179,7 @@ unsafe fn video_view_class() -> *mut c_void {
     }
 
     let superclass = get_class(b"NSOpenGLView\0");
-    let cls =
-        objc_allocateClassPair(superclass, b"VeloVideoView\0".as_ptr() as *const c_char, 0);
+    let cls = objc_allocateClassPair(superclass, c"VeloVideoView".as_ptr(), 0);
     if cls.is_null() {
         return superclass;
     }
@@ -189,19 +188,19 @@ unsafe fn video_view_class() -> *mut c_void {
         cls,
         get_sel(b"drawRect:\0"),
         video_view_draw_rect as *const c_void,
-        b"v@:{CGRect={CGPoint=dd}{CGSize=dd}}\0".as_ptr() as *const c_char,
+        c"v@:{CGRect={CGPoint=dd}{CGSize=dd}}".as_ptr(),
     );
     class_addMethod(
         cls,
         get_sel(b"veloRequestRedraw\0"),
         video_view_request_redraw as *const c_void,
-        b"v@:\0".as_ptr() as *const c_char,
+        c"v@:".as_ptr(),
     );
     class_addMethod(
         cls,
         get_sel(b"hitTest:\0"),
         video_view_hit_test as *const c_void,
-        b"@@:{CGPoint=dd}\0".as_ptr() as *const c_char,
+        c"@@:{CGPoint=dd}".as_ptr(),
     );
 
     objc_registerClassPair(cls);
@@ -236,6 +235,12 @@ pub struct MacosPlatform {
     sleep_assertion_id: u32,
 }
 
+impl Default for MacosPlatform {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MacosPlatform {
     pub fn new() -> Self {
         Self {
@@ -246,6 +251,11 @@ impl MacosPlatform {
     /// Creates the OpenGL view mpv renders into and inserts it underneath the
     /// webview, inside the app's own window. Leaves the view's GL context
     /// current, which is what `mpv_render_context_create` needs.
+    ///
+    /// # Safety
+    ///
+    /// `ns_window_ptr` must be a live `NSWindow`, and this must run on the
+    /// main thread -- it touches AppKit and leaves a GL context current.
     pub unsafe fn create_video_surface(ns_window_ptr: *mut c_void) -> Result<()> {
         if ns_window_ptr.is_null() {
             return Err(VeloError::Platform("NSWindow pointer is null".into()));
@@ -333,6 +343,11 @@ impl MacosPlatform {
     /// Keeps the video surface filling the window. The autoresizing mask
     /// normally handles this; re-applying the frame covers what it misses
     /// (fullscreen transitions, display scale changes).
+    ///
+    /// # Safety
+    ///
+    /// `ns_window_ptr` must be a live `NSWindow`, and this must run on the
+    /// main thread.
     pub unsafe fn sync_video_surface(ns_window_ptr: *mut c_void) {
         let view = VIDEO_VIEW.load(Ordering::Acquire);
         if view.is_null() || ns_window_ptr.is_null() {
@@ -353,19 +368,19 @@ impl MacosPlatform {
 
     /// Asks the view to redraw. Safe to call from any thread -- mpv's render
     /// update callback arrives on one of its own.
+    ///
+    /// # Safety
+    ///
+    /// Safe to call from any thread, but only while the app is running: it
+    /// messages a view that lives until the process exits.
     pub unsafe fn request_redraw() {
         let view = VIDEO_VIEW.load(Ordering::Acquire);
         if view.is_null() {
             return;
         }
 
-        let perform: unsafe extern "C" fn(
-            *mut c_void,
-            *mut c_void,
-            *mut c_void,
-            *mut c_void,
-            i8,
-        ) = std::mem::transmute(objc_msgSend as *const ());
+        let perform: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, *mut c_void, i8) =
+            std::mem::transmute(objc_msgSend as *const ());
         perform(
             view,
             get_sel(b"performSelectorOnMainThread:withObject:waitUntilDone:\0"),
@@ -392,12 +407,12 @@ impl MacosPlatform {
                     let type_str = msg_send_str(
                         class_nsstring,
                         sel_str_with_utf8,
-                        b"NoDisplaySleepAssertion\0".as_ptr() as *const c_char,
+                        c"NoDisplaySleepAssertion".as_ptr(),
                     );
                     let name_str = msg_send_str(
                         class_nsstring,
                         sel_str_with_utf8,
-                        b"Velo Video Playback\0".as_ptr() as *const c_char,
+                        c"Velo Video Playback".as_ptr(),
                     );
 
                     let res = IOPMAssertionCreateWithName(

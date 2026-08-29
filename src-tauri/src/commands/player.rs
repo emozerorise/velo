@@ -52,26 +52,17 @@ pub async fn player_seek_absolute(
 }
 
 #[tauri::command]
-pub async fn player_set_volume(
-    player: State<'_, Arc<PlayerManager>>,
-    volume: f64,
-) -> Result<()> {
+pub async fn player_set_volume(player: State<'_, Arc<PlayerManager>>, volume: f64) -> Result<()> {
     player.set_volume(volume)
 }
 
 #[tauri::command]
-pub async fn player_set_mute(
-    player: State<'_, Arc<PlayerManager>>,
-    muted: bool,
-) -> Result<()> {
+pub async fn player_set_mute(player: State<'_, Arc<PlayerManager>>, muted: bool) -> Result<()> {
     player.set_mute(muted)
 }
 
 #[tauri::command]
-pub async fn player_set_speed(
-    player: State<'_, Arc<PlayerManager>>,
-    speed: f64,
-) -> Result<()> {
+pub async fn player_set_speed(player: State<'_, Arc<PlayerManager>>, speed: f64) -> Result<()> {
     player.set_speed(speed)
 }
 

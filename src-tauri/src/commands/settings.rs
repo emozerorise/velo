@@ -1,8 +1,8 @@
 //! Tauri IPC commands for settings and history persistence.
 
 use crate::errors::Result;
-use crate::storage::settings_store::AppSettings;
 use crate::storage::history_store::{HistoryData, PlaybackHistoryItem};
+use crate::storage::settings_store::AppSettings;
 use crate::storage::{HistoryStore, SettingsStore};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -20,10 +20,7 @@ pub async fn settings_get_all(storage: State<'_, StorageState>) -> Result<AppSet
 }
 
 #[tauri::command]
-pub async fn settings_save(
-    storage: State<'_, StorageState>,
-    settings: AppSettings,
-) -> Result<()> {
+pub async fn settings_save(storage: State<'_, StorageState>, settings: AppSettings) -> Result<()> {
     storage.settings.save(&settings)
 }
 
@@ -43,6 +40,8 @@ pub async fn history_record(
     if history.recent_files.len() > 25 {
         history.recent_files.truncate(25);
     }
-    history.resume_positions.insert(item.path, item.last_position);
+    history
+        .resume_positions
+        .insert(item.path, item.last_position);
     storage.history.save(&history)
 }

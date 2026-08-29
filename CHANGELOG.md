@@ -48,6 +48,16 @@
 - ทุกพื้นผิวของ UI เป็นสีทึบล้วน ไม่มี blur, gradient หรือเงาฟุ้งที่แผ่ลงบนวิดีโอ
 - ปุ่มข้ามคลิปจะจางลงเองเมื่อไม่มีคลิปก่อนหน้า/ถัดไป
 
+### เครื่องมือและงานภายใน
+
+- `.gitignore` ไม่ครอบฝั่ง Rust เลย ทำให้ `src-tauri/target/` (สองหมื่นกว่าไฟล์)
+  จะถูกเก็บเข้า git — เพิ่ม `/src-tauri/target/` และ `/src-tauri/gen/schemas/`
+- จัดรูปแบบโค้ด Rust ทั้งหมดด้วย `cargo fmt` และแก้ `cargo clippy` ให้ผ่านแบบ
+  `-D warnings` ตามที่ CI บังคับ (20 ข้อ) ครอบคลุมการใช้ c-string literal,
+  การรวม `if` เข้ากับ match guard, `Default` ของ struct ที่มี `new()`
+  และเอกสาร `# Safety` ของฟังก์ชัน `unsafe` ที่เปิด public
+- ลบ `EventLoop::new()` ที่ไม่มีใครเรียกออก
+
 ### สถาปัตยกรรม
 
 - **ย้ายการแสดงผลวิดีโอบน macOS ไปใช้ mpv render API**

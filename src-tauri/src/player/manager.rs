@@ -32,12 +32,15 @@ impl PlayerManager {
     /// where mpv can embed itself; macOS passes `None` and renders through the
     /// render API instead.
     pub fn initialize(&self, app_handle: AppHandle, wid: Option<i64>) -> Result<()> {
-        info!("Initializing PlayerManager with native window wid={:?}", wid);
+        info!(
+            "Initializing PlayerManager with native window wid={:?}",
+            wid
+        );
         self.core.initialize(wid)?;
-        
+
         let event_loop = EventLoop::start(self.core.clone(), app_handle);
         *self._event_loop.lock() = Some(event_loop);
-        
+
         Ok(())
     }
 
@@ -49,14 +52,15 @@ impl PlayerManager {
     pub fn load_file(&self, path: &str, start_time: Option<f64>) -> Result<()> {
         info!("Loading file: {}", path);
         *self.state.lock() = PlaybackState::Loading;
-        
+
         if let Some(pos) = start_time {
             let start_arg = format!("start={}", pos);
-            self.core.command(&["loadfile", path, "replace", &start_arg])?;
+            self.core
+                .command(&["loadfile", path, "replace", &start_arg])?;
         } else {
             self.core.command(&["loadfile", path, "replace"])?;
         }
-        
+
         self.platform.lock().prevent_sleep(true);
         Ok(())
     }
@@ -117,7 +121,8 @@ impl PlayerManager {
     }
 
     pub fn set_aspect_ratio(&self, ratio: &str) -> Result<()> {
-        self.core.set_property_string("video-aspect-override", ratio)
+        self.core
+            .set_property_string("video-aspect-override", ratio)
     }
 
     pub fn select_audio_track(&self, id: i64) -> Result<()> {

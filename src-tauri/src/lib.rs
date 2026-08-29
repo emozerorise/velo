@@ -30,12 +30,12 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let handle = app.handle();
-            
+
             // Initialize storage
             let settings_store = Arc::new(SettingsStore::new(handle)?);
             let history_store = Arc::new(HistoryStore::new(handle)?);
             let history_data = history_store.load();
-            
+
             let storage_state = StorageState {
                 settings: settings_store,
                 history: history_store,
@@ -82,15 +82,16 @@ pub fn run() {
 
             #[cfg(not(target_os = "macos"))]
             {
-                let wid = app
-                    .get_webview_window("main")
-                    .and_then(|main_window| match native_video_surface(&main_window) {
-                        Ok(wid) => wid,
-                        Err(e) => {
-                            tracing::warn!("Native window surface setup warning: {}", e);
-                            None
-                        }
-                    });
+                let wid =
+                    app.get_webview_window("main").and_then(
+                        |main_window| match native_video_surface(&main_window) {
+                            Ok(wid) => wid,
+                            Err(e) => {
+                                tracing::warn!("Native window surface setup warning: {}", e);
+                                None
+                            }
+                        },
+                    );
                 player.initialize(handle.clone(), wid)?;
             }
 
@@ -140,9 +141,11 @@ fn native_video_surface(
     {
         let hwnd_ptr = window.hwnd()?;
         unsafe {
-            return Ok(Some(platform::windows::WindowsPlatform::setup_video_surface(
-                hwnd_ptr.0 as *mut std::ffi::c_void,
-            )?));
+            return Ok(Some(
+                platform::windows::WindowsPlatform::setup_video_surface(
+                    hwnd_ptr.0 as *mut std::ffi::c_void,
+                )?,
+            ));
         }
     }
 
