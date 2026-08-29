@@ -139,14 +139,10 @@ fn native_video_surface(
 ) -> std::result::Result<Option<i64>, Box<dyn std::error::Error>> {
     #[cfg(target_os = "windows")]
     {
-        let hwnd_ptr = window.hwnd()?;
-        unsafe {
-            return Ok(Some(
-                platform::windows::WindowsPlatform::setup_video_surface(
-                    hwnd_ptr.0 as *mut std::ffi::c_void,
-                )?,
-            ));
-        }
+        let hwnd = window.hwnd()?;
+        // `hwnd.0` is already the `*mut c_void` mpv wants as `wid`.
+        let wid = unsafe { platform::windows::WindowsPlatform::setup_video_surface(hwnd.0)? };
+        Ok(Some(wid))
     }
 
     #[cfg(not(target_os = "windows"))]
