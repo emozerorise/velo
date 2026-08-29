@@ -1,5 +1,5 @@
 <template>
-  <Modal
+  <BaseModal
     :is-open="settingsStore.isMediaInfoOpen"
     title="Media Information"
     @close="settingsStore.isMediaInfoOpen = false"
@@ -52,11 +52,11 @@
     <div v-else class="py-8 text-center text-white/40 text-sm italic">
       No media file currently loaded
     </div>
-  </Modal>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
-import Modal from '@/components/common/Modal.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatTime } from '@/utils/formatters';

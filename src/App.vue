@@ -4,7 +4,7 @@
     :class="{ 'cursor-none': !areControlsVisible && playerStore.state === 'playing' }"
   >
     <!-- Toast HUD -->
-    <Toast />
+    <ToastStack />
 
     <!-- TopBar (auto-hiding) -->
     <Transition name="fade-bar">
@@ -100,7 +100,7 @@ import ControlOverlay from '@/components/player/ControlOverlay.vue';
 import PlaylistDrawer from '@/components/playlist/PlaylistDrawer.vue';
 import SettingsModal from '@/components/settings/SettingsModal.vue';
 import MediaInfoModal from '@/components/player/MediaInfoModal.vue';
-import Toast from '@/components/common/Toast.vue';
+import ToastStack from '@/components/common/ToastStack.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';

@@ -67,6 +67,15 @@
   แล้วแนบเข้า GitHub release อัตโนมัติเมื่อ push tag `v*`
 - ข้อความ warning ตอนหา libmpv ไม่เจอ เดิมยัดข้อความหลายบรรทัดของ pkg-config
   ลงใน directive ที่รับได้บรรทัดเดียว จึงถูกตัดกลางประโยคและไม่บอกวิธีแก้
+- ตั้ง ESLint (flat config) พร้อม `typescript-eslint` และ `eslint-plugin-vue`
+  แล้วต่อเข้า CI — `npm run lint` เดิมเรียก eslint ที่ไม่ได้ติดตั้งและไม่มี config
+  จึงพังมาตลอด และ CONTRIBUTING ก็ไม่เคยพูดถึง lint เลย
+- **คำสั่งควบคุมการเล่นไม่คืน `Promise` อีกต่อไป** — `no-floating-promises`
+  ชี้ว่ามีจุดที่เรียกแล้วไม่ `await` และไม่ `catch` ถึง 24 จุด ถ้า `invoke` พัง
+  ขึ้นมาจะเงียบสนิท ซึ่งดูเหมือนปุ่มกดไม่ติด (อาการเดียวกับที่ไล่จับกันทั้งวัน)
+  ตอนนี้ action พวกนี้คืน `void` และรายงาน error ของตัวเองผ่าน `dispatch()`
+- เปลี่ยนชื่อ `Modal.vue` → `BaseModal.vue` และ `Toast.vue` → `ToastStack.vue`
+  ตาม Vue style guide (`vue/multi-word-component-names`)
 
 ### สถาปัตยกรรม
 

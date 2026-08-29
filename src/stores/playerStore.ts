@@ -69,61 +69,69 @@ export const usePlayerStore = defineStore('player', () => {
     unlistenFunctions = [];
   }
 
-  async function loadFile(path: string, startTime?: number) {
-    try {
-      state.value = 'loading';
-      await playerService.loadFile(path, startTime);
-    } catch (e) {
+  /// Playback commands are fire-and-forget: nothing awaits them, so they
+  /// report their own failures instead of returning a promise that would
+  /// reject into nowhere. A silently dropped `invoke` is indistinguishable
+  /// from a dead button.
+  function dispatch(action: string, run: () => Promise<void>): void {
+    run().catch((e: unknown) => {
+      console.error(`Player command "${action}" failed:`, e);
+    });
+  }
+
+  function loadFile(path: string, startTime?: number): void {
+    state.value = 'loading';
+    playerService.loadFile(path, startTime).catch((e: unknown) => {
       state.value = 'error';
       console.error('Failed to load file:', e);
-    }
+    });
   }
 
-  async function togglePlay() {
-    await playerService.togglePause();
+  function togglePlay(): void {
+    dispatch('togglePlay', () => playerService.togglePause());
   }
 
-  async function play() {
-    await playerService.play();
+  function play(): void {
+    dispatch('play', () => playerService.play());
   }
 
-  async function pause() {
-    await playerService.pause();
+  function pause(): void {
+    dispatch('pause', () => playerService.pause());
   }
 
-  async function seek(seconds: number, exact = true) {
-    await playerService.seek(seconds, exact);
+  function seek(seconds: number, exact = true): void {
+    dispatch('seek', () => playerService.seek(seconds, exact));
   }
 
-  async function seekAbsolute(seconds: number) {
-    await playerService.seekAbsolute(seconds);
+  function seekAbsolute(seconds: number): void {
+    dispatch('seekAbsolute', () => playerService.seekAbsolute(seconds));
   }
 
-  async function setVolume(vol: number) {
+  function setVolume(vol: number): void {
     volume.value = vol;
-    await playerService.setVolume(vol);
+    dispatch('setVolume', () => playerService.setVolume(vol));
   }
 
-  async function toggleMute() {
+  function toggleMute(): void {
     muted.value = !muted.value;
-    await playerService.setMute(muted.value);
+    dispatch('setMute', () => playerService.setMute(muted.value));
   }
 
-  async function setSpeed(newSpeed: number) {
+  function setSpeed(newSpeed: number): void {
     speed.value = newSpeed;
-    await playerService.setSpeed(newSpeed);
+    dispatch('setSpeed', () => playerService.setSpeed(newSpeed));
   }
 
-  async function selectAudioTrack(id: number) {
-    await playerService.selectAudioTrack(id);
+  function selectAudioTrack(id: number): void {
+    dispatch('selectAudioTrack', () => playerService.selectAudioTrack(id));
   }
 
-  async function selectSubtitleTrack(id: number) {
-    await playerService.selectSubtitleTrack(id);
+  function selectSubtitleTrack(id: number): void {
+    dispatch('selectSubtitleTrack', () => playerService.selectSubtitleTrack(id));
   }
 
-  async function addSubtitleFile(path: string) {
-    await playerService.addSubtitleFile(path);
+  function addSubtitleFile(path: string): void {
+    dispatch('addSubtitleFile', () => playerService.addSubtitleFile(path));
   }
 
   return {

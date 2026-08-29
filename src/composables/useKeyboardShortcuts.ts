@@ -39,7 +39,7 @@ export function useKeyboardShortcuts() {
       });
 
       if (selected && typeof selected === 'string') {
-        playlist.addDirectory(selected);
+        await playlist.addDirectory(selected);
       }
     } catch (e) {
       console.error('Failed to open directory dialog:', e);
@@ -71,9 +71,9 @@ export function useKeyboardShortcuts() {
     if (isCmdOrCtrl && e.key.toLowerCase() === 'o') {
       e.preventDefault();
       if (e.shiftKey) {
-        openDirectoryDialog();
+        void openDirectoryDialog();
       } else {
-        openFileDialog();
+        void openFileDialog();
       }
       return;
     }
@@ -126,7 +126,7 @@ export function useKeyboardShortcuts() {
 
       case 'KeyF':
         e.preventDefault();
-        toggleFullscreen();
+        void toggleFullscreen();
         break;
 
       case 'BracketLeft': {

@@ -53,6 +53,7 @@ Before submitting a pull request, please ensure all checks pass:
 
 ```bash
 # Frontend
+npm run lint
 npm run typecheck
 npm run test
 
@@ -61,6 +62,21 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+`npm run lint:fix` applies what ESLint can fix on its own, and
+`npm run format` runs Prettier. Formatting rules are left to Prettier, so
+ESLint only reports things it can reason about.
+
+One rule is worth knowing before it surprises you:
+`@typescript-eslint/no-floating-promises`. An `invoke` call that is never
+awaited and never catches will fail silently, which looks exactly like a
+button that does nothing. Actions meant to be fire-and-forget therefore
+return `void` and report their own errors -- see `dispatch()` in
+`src/stores/playerStore.ts`. Follow that shape rather than adding `void`
+at the call site, unless the promise genuinely cannot reject.
+
+Note that `cargo test` runs on macOS in CI only: the Windows runner has no
+libmpv to link against, so it is limited to `cargo fmt` and `cargo clippy`.
 
 ---
 

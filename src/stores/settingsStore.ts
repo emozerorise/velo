@@ -50,14 +50,12 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  async function saveSettings(newSettings: AppSettings) {
-    try {
-      settings.value = newSettings;
-      applyTheme(newSettings.general.theme);
-      await settingsService.save(newSettings);
-    } catch (e) {
+  function saveSettings(newSettings: AppSettings): void {
+    settings.value = newSettings;
+    applyTheme(newSettings.general.theme);
+    settingsService.save(newSettings).catch((e: unknown) => {
       console.error('Failed to save settings:', e);
-    }
+    });
   }
 
   async function recordPlayback(item: HistoryItem) {
