@@ -1,5 +1,5 @@
 <template>
-  <Modal
+  <BaseModal
     :is-open="settingsStore.isMediaInfoOpen ? false : settingsStore.isSettingsOpen"
     title="Preferences"
     @close="settingsStore.isSettingsOpen = false"
@@ -138,12 +138,12 @@
         </div>
       </div>
     </div>
-  </Modal>
+  </BaseModal>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
-import Modal from '@/components/common/Modal.vue';
+import BaseModal from '@/components/common/BaseModal.vue';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 
