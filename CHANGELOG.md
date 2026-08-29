@@ -64,7 +64,10 @@
 - CI: ข้าม `cargo test` บน Windows runner เพราะไม่มี libmpv ให้ link
   (ยังรัน `cargo fmt --check` และ `cargo clippy` ซึ่งไม่ต้อง link)
 - เพิ่ม workflow `release.yml` บิลด์ตัวติดตั้ง macOS (Apple Silicon และ Intel)
-  แล้วแนบเข้า GitHub release อัตโนมัติเมื่อ push tag `v*`
+  แล้วแนบเข้า GitHub release อัตโนมัติเมื่อ push tag `v*` โดยฝัง libmpv
+  พร้อม dependency ทั้งกราฟ (48 dylib) เข้าไปในบันเดิลด้วย `dylibbundler`
+  — ถ้าไม่ทำ ไบนารีจะชี้ไปที่ path ของ Homebrew บนเครื่องที่บิลด์
+  แล้วเปิดไม่ขึ้นบนเครื่องคนอื่น
 - ข้อความ warning ตอนหา libmpv ไม่เจอ เดิมยัดข้อความหลายบรรทัดของ pkg-config
   ลงใน directive ที่รับได้บรรทัดเดียว จึงถูกตัดกลางประโยคและไม่บอกวิธีแก้
 - ตั้ง ESLint (flat config) พร้อม `typescript-eslint` และ `eslint-plugin-vue`
