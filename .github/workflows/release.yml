@@ -1,0 +1,80 @@
+name: Release
+
+# Builds installers for a tag and attaches them to its GitHub release.
+# Runs on tag push, and can be started by hand to rebuild a tag's assets.
+#
+# macOS only for now. Windows needs libmpv, which has no package there: the
+# dev files come from the mpv-winbuild releases, MSVC needs an import library
+# generated from mpv.def with lib.exe, and libmpv-2.dll has to be bundled as a
+# resource or the installed app cannot start. None of that is exercised yet,
+# so shipping a Windows installer that fails to launch would be worse than
+# shipping none.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    strategy:
+      # One architecture failing should not throw away an installer that did
+      # build.
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            label: macOS (Apple Silicon)
+            target: aarch64-apple-darwin
+          - os: macos-13
+            label: macOS (Intel)
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install libmpv
+        run: brew install mpv pkg-config
+
+      - run: npm ci
+
+      # Unsigned: without an Apple Developer certificate in the repository
+      # secrets, Gatekeeper will warn on first launch and the user has to
+      # allow the app by hand. Set APPLE_CERTIFICATE and friends to change
+      # that.
+      - name: Build and upload installers
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: Velo __VERSION__
+          releaseBody: See CHANGELOG.md for what changed in this release.
+          # The tag already carries a published release; attach to it rather
+          # than opening a draft alongside.
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }}

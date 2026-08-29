@@ -63,6 +63,10 @@
   ที่เรียก `dlopen`/`dlsym`
 - CI: ข้าม `cargo test` บน Windows runner เพราะไม่มี libmpv ให้ link
   (ยังรัน `cargo fmt --check` และ `cargo clippy` ซึ่งไม่ต้อง link)
+- เพิ่ม workflow `release.yml` บิลด์ตัวติดตั้ง macOS (Apple Silicon และ Intel)
+  แล้วแนบเข้า GitHub release อัตโนมัติเมื่อ push tag `v*`
+- ข้อความ warning ตอนหา libmpv ไม่เจอ เดิมยัดข้อความหลายบรรทัดของ pkg-config
+  ลงใน directive ที่รับได้บรรทัดเดียว จึงถูกตัดกลางประโยคและไม่บอกวิธีแก้
 
 ### สถาปัตยกรรม
 
