@@ -43,7 +43,8 @@ export default tseslint.config(
   },
 
   {
-    files: ['tests/**/*.ts'],
+    // Tooling that runs under Node, not in the webview.
+    files: ['tests/**/*.ts', 'scripts/**/*.mjs', '*.config.js'],
     languageOptions: {
       globals: globals.node,
     },

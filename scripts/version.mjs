@@ -111,4 +111,8 @@ function bump(next) {
 }
 
 const [, , requested] = process.argv;
-requested ? bump(requested) : check();
+if (requested) {
+  bump(requested);
+} else {
+  check();
+}
