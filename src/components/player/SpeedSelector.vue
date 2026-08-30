@@ -1,8 +1,8 @@
 <template>
   <div ref="rootRef" class="relative">
     <button
-      class="px-2.5 py-1.5 rounded-lg text-xs font-mono tabular-nums font-medium text-white/75 hover:text-white hover:bg-white/10 transition-colors no-drag"
-      :title="'Playback Speed: ' + playerStore.speed + 'x'"
+      class="px-2.5 py-1.5 rounded-lg text-xs font-mono tabular-nums font-medium text-fg/75 hover:text-fg hover:bg-fg/10 transition-colors no-drag"
+      :title="t('controls.speedTooltip', { speed: playerStore.speed })"
       @click="toggle"
     >
       {{ playerStore.speed }}x
@@ -11,10 +11,10 @@
     <!-- Dropdown Menu -->
     <div
       v-if="isOpen"
-      class="absolute bottom-12 right-0 w-36 p-1.5 bg-[#15151b] border border-white/10 rounded-xl z-50 flex flex-col gap-0.5 text-xs text-white"
+      class="absolute bottom-12 right-0 w-36 p-1.5 bg-surface border border-fg/10 rounded-xl z-50 flex flex-col gap-0.5 text-xs text-fg"
     >
-      <div class="px-2 py-1 text-[10px] font-semibold text-white/40 uppercase tracking-wider border-b border-white/10">
-        Speed
+      <div class="px-2 py-1 text-[10px] font-semibold text-fg/40 uppercase tracking-wider border-b border-fg/10">
+        {{ t('controls.speedTitle') }}
       </div>
 
       <button
@@ -23,8 +23,8 @@
         :class="[
           'w-full px-2.5 py-1.5 text-left rounded-md flex items-center justify-between font-mono transition-colors',
           playerStore.speed === preset
-            ? 'bg-blue-500/15 text-blue-400 font-semibold'
-            : 'text-white/80 hover:bg-white/10',
+            ? 'bg-blue-500/15 text-accent font-semibold'
+            : 'text-fg/80 hover:bg-fg/10',
         ]"
         @click="selectSpeed(preset)"
       >
@@ -39,8 +39,10 @@
 import { useDismissable } from '@/composables/useDismissable';
 import { Check } from '@lucide/vue';
 import { usePlayerStore } from '@/stores/playerStore';
+import { useI18n } from '@/composables/useI18n';
 
 const playerStore = usePlayerStore();
+const { t } = useI18n();
 const { isOpen, rootRef, toggle, close } = useDismissable();
 
 const speedPresets = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];

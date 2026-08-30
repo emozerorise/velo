@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { settingsService, type HistoryItem, type HistoryData } from '@/services/settingsService';
 import type { AppSettings } from '@/types/settings';
+import { setLocale } from '@/composables/useI18n';
 
 export const useSettingsStore = defineStore('settings', () => {
   const isSettingsOpen = ref<boolean>(false);
@@ -30,6 +31,10 @@ export const useSettingsStore = defineStore('settings', () => {
       font_size: 48,
       subtitle_delay_step: 0.1,
     },
+    transcript: {
+      language: 'auto',
+      prompt: '',
+    },
   });
 
   const history = ref<HistoryData>({
@@ -42,6 +47,7 @@ export const useSettingsStore = defineStore('settings', () => {
       const s = await settingsService.getAll();
       settings.value = s;
       applyTheme(s.general.theme);
+      applyLanguage(s.general.language);
 
       const h = await settingsService.getHistory();
       history.value = h;
@@ -53,6 +59,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function saveSettings(newSettings: AppSettings): void {
     settings.value = newSettings;
     applyTheme(newSettings.general.theme);
+    applyLanguage(newSettings.general.language);
     settingsService.save(newSettings).catch((e: unknown) => {
       console.error('Failed to save settings:', e);
     });
@@ -75,6 +82,10 @@ export const useSettingsStore = defineStore('settings', () => {
       .catch((e: unknown) => {
         console.error('Failed to record history:', e);
       });
+  }
+
+  function applyLanguage(language: string) {
+    document.documentElement.lang = setLocale(language);
   }
 
   function applyTheme(theme: string) {
@@ -107,5 +118,6 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings,
     recordPlayback,
     applyTheme,
+    applyLanguage,
   };
 });

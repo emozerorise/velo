@@ -8,12 +8,12 @@
   >
     <!-- Track -->
     <div
-      class="relative w-full h-[3px] group-hover/track:h-[5px] bg-white/25 rounded-full overflow-hidden transition-[height] duration-150"
+      class="relative w-full h-[3px] group-hover/track:h-[5px] bg-fg/25 rounded-full overflow-hidden transition-[height] duration-150"
     >
       <!-- Hover scrub hint -->
       <div
         v-if="hoverTime !== null"
-        class="absolute inset-y-0 left-0 bg-white/25"
+        class="absolute inset-y-0 left-0 bg-fg/25"
         :style="{ width: `${hoverPercent}%` }"
       />
       <!-- Played -->
@@ -25,7 +25,7 @@
 
     <!-- Thumb -->
     <div
-      class="absolute w-3 h-3 -translate-x-1/2 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.6)] opacity-0 scale-50 group-hover/track:opacity-100 group-hover/track:scale-100 transition-all duration-150"
+      class="absolute w-3 h-3 -translate-x-1/2 rounded-full bg-fg shadow-[0_1px_4px_rgba(0,0,0,0.6)] opacity-0 scale-50 group-hover/track:opacity-100 group-hover/track:scale-100 transition-all duration-150"
       :class="{ 'opacity-100 scale-110': isDragging }"
       :style="{ left: `${displayPercent}%` }"
     />
@@ -33,7 +33,7 @@
     <!-- Hover time -->
     <div
       v-if="hoverTime !== null"
-      class="absolute -top-8 px-2 py-1 rounded-md bg-[#15151b] border border-white/10 text-[11px] font-mono tabular-nums text-white/90 -translate-x-1/2 pointer-events-none whitespace-nowrap"
+      class="absolute -top-8 px-2 py-1 rounded-md bg-surface border border-fg/10 text-[11px] font-mono tabular-nums text-fg/90 -translate-x-1/2 pointer-events-none whitespace-nowrap"
       :style="{ left: `${hoverPercent}%` }"
     >
       {{ formatTime(hoverTime) }}

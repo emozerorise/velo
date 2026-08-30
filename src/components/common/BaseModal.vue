@@ -7,15 +7,15 @@
         @click.self="$emit('close')"
       >
         <div
-          class="relative w-full max-w-lg overflow-hidden bg-[#15151b] border border-white/10 rounded-2xl shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)] text-white animate-in fade-in zoom-in-95 duration-150"
+          class="relative w-full max-w-lg overflow-hidden bg-surface border border-fg/10 rounded-2xl shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)] text-fg animate-in fade-in zoom-in-95 duration-150"
         >
           <!-- Header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
-            <h3 class="text-[15px] font-semibold text-white">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-fg/10">
+            <h3 class="text-[15px] font-semibold text-fg">
               {{ title }}
             </h3>
             <button
-              class="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+              class="p-1 rounded-lg text-fg/50 hover:text-fg hover:bg-fg/10 transition-colors"
               @click="$emit('close')"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,18 +2,18 @@
   <Transition name="slide">
     <div
       v-if="playlistStore.isDrawerOpen"
-      class="fixed inset-y-0 right-0 z-40 w-80 bg-[#15151b] border-l border-white/10 flex flex-col pointer-events-auto"
+      class="fixed inset-y-0 right-0 z-40 w-80 bg-surface border-l border-fg/10 flex flex-col pointer-events-auto"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between px-4 py-3.5 border-b border-white/10">
+      <div class="flex items-center justify-between px-4 py-3.5 border-b border-fg/10">
         <div class="flex items-center gap-2">
-          <ListVideo class="w-4 h-4 text-blue-400" />
-          <span class="text-sm font-medium text-white/90">Playlist</span>
-          <span class="text-xs text-white/40 font-mono">({{ playlistStore.items.length }})</span>
+          <ListVideo class="w-4 h-4 text-accent" />
+          <span class="text-sm font-medium text-fg/90">{{ t('playlist.title') }}</span>
+          <span class="text-xs text-fg/40 font-mono">({{ playlistStore.items.length }})</span>
         </div>
 
         <button
-          class="p-1 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+          class="p-1 rounded-lg text-fg/50 hover:text-fg hover:bg-fg/10 transition-colors"
           @click="playlistStore.isDrawerOpen = false"
         >
           <X class="w-4 h-4" />
@@ -21,19 +21,19 @@
       </div>
 
       <!-- Controls & Action Toolbar -->
-      <div class="flex items-center justify-between px-4 py-2 border-b border-white/5 bg-black/20 text-xs">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-fg/5 bg-inset/20 text-xs">
         <div class="flex items-center gap-1">
           <button
-            class="px-2 py-1 rounded bg-blue-600/30 hover:bg-blue-600/40 text-blue-400 font-medium transition-colors"
+            class="px-2 py-1 rounded bg-blue-600/30 hover:bg-blue-600/40 text-accent font-medium transition-colors"
             @click="openFileDialog"
           >
-            + File
+            {{ t('playlist.addFile') }}
           </button>
           <button
-            class="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-white/80 transition-colors"
+            class="px-2 py-1 rounded bg-fg/10 hover:bg-fg/15 text-fg/80 transition-colors"
             @click="openDirectoryDialog"
           >
-            + Folder
+            {{ t('playlist.addFolder') }}
           </button>
         </div>
 
@@ -42,9 +42,9 @@
           <button
             :class="[
               'p-1.5 rounded transition-colors',
-              playlistStore.shuffle ? 'text-blue-400 bg-blue-600/20' : 'text-white/40 hover:text-white',
+              playlistStore.shuffle ? 'text-accent bg-blue-600/20' : 'text-fg/40 hover:text-fg',
             ]"
-            title="Shuffle"
+            :title="t('playlist.shuffle')"
             @click="playlistStore.shuffle = !playlistStore.shuffle"
           >
             <Shuffle class="w-3.5 h-3.5" />
@@ -54,9 +54,9 @@
           <button
             :class="[
               'p-1.5 rounded transition-colors',
-              playlistStore.loopMode !== 'off' ? 'text-blue-400 bg-blue-600/20' : 'text-white/40 hover:text-white',
+              playlistStore.loopMode !== 'off' ? 'text-accent bg-blue-600/20' : 'text-fg/40 hover:text-fg',
             ]"
-            :title="'Loop: ' + playlistStore.loopMode"
+            :title="t('playlist.loop', { mode: playlistStore.loopMode })"
             @click="toggleLoopMode"
           >
             <Repeat1 v-if="playlistStore.loopMode === 'single'" class="w-3.5 h-3.5" />
@@ -66,8 +66,8 @@
           <!-- Clear -->
           <button
             v-if="playlistStore.items.length > 0"
-            class="p-1.5 rounded text-white/40 hover:text-red-400 transition-colors"
-            title="Clear Playlist"
+            class="p-1.5 rounded text-fg/40 hover:text-danger transition-colors"
+            :title="t('playlist.clear')"
             @click="playlistStore.clear()"
           >
             <Trash2 class="w-3.5 h-3.5" />
@@ -89,11 +89,11 @@
 
         <div
           v-if="playlistStore.items.length === 0"
-          class="h-full flex flex-col items-center justify-center text-center p-6 text-white/40 gap-2"
+          class="h-full flex flex-col items-center justify-center text-center p-6 text-fg/40 gap-2"
         >
           <FolderOpen class="w-8 h-8 opacity-40" />
-          <p class="text-xs">Playlist is empty</p>
-          <p class="text-[10px] text-white/30">Drag files here or click + File</p>
+          <p class="text-xs">{{ t('playlist.empty') }}</p>
+          <p class="text-[10px] text-fg/30">{{ t('playlist.emptyHint') }}</p>
         </div>
       </div>
     </div>
@@ -113,8 +113,10 @@ import {
 import PlaylistItem from '@/components/playlist/PlaylistItem.vue';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
+import { useI18n } from '@/composables/useI18n';
 
 const playlistStore = usePlaylistStore();
+const { t } = useI18n();
 const { openFileDialog, openDirectoryDialog } = useKeyboardShortcuts();
 
 function toggleLoopMode() {

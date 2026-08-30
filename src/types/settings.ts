@@ -24,10 +24,17 @@ export interface SubtitleSettings {
   subtitle_delay_step: number;
 }
 
+export interface TranscriptSettings {
+  language: string;
+  /** Domain vocabulary fed to whisper as its initial prompt. */
+  prompt: string;
+}
+
 export interface AppSettings {
   version: number;
   general: GeneralSettings;
   video: VideoSettings;
   audio: AudioSettings;
   subtitle: SubtitleSettings;
+  transcript: TranscriptSettings;
 }

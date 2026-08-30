@@ -1,7 +1,7 @@
 <template>
   <div ref="rootRef" class="relative">
     <IconButton
-      title="Subtitles"
+      :title="t('controls.subtitles')"
       size="md"
       :active="isOpen || hasActiveSubtitle"
       @click="toggle"
@@ -12,15 +12,15 @@
     <!-- Dropdown Menu -->
     <div
       v-if="isOpen"
-      class="absolute bottom-12 right-0 w-64 p-2 bg-[#15151b] border border-white/10 rounded-xl z-50 flex flex-col gap-1 text-sm text-white"
+      class="absolute bottom-12 right-0 w-64 p-2 bg-surface border border-fg/10 rounded-xl z-50 flex flex-col gap-1 text-sm text-fg"
     >
-      <div class="px-3 py-1.5 text-xs font-semibold text-white/40 uppercase tracking-wider border-b border-white/10 flex items-center justify-between">
-        <span>Subtitles</span>
+      <div class="px-3 py-1.5 text-xs font-semibold text-fg/40 uppercase tracking-wider border-b border-fg/10 flex items-center justify-between">
+        <span>{{ t('controls.subtitles') }}</span>
         <button
-          class="text-[10px] text-blue-400 hover:underline uppercase tracking-normal"
+          class="text-[10px] text-accent hover:underline uppercase tracking-normal"
           @click="addExternalSubtitle"
         >
-          + Add File
+          {{ t('controls.addSubtitleFile') }}
         </button>
       </div>
 
@@ -30,12 +30,12 @@
           :class="[
             'w-full px-3 py-2 text-left rounded-lg text-xs flex items-center justify-between transition-colors',
             !hasActiveSubtitle
-              ? 'bg-blue-500/15 text-blue-400 font-medium'
-              : 'text-white/80 hover:bg-white/10',
+              ? 'bg-blue-500/15 text-accent font-medium'
+              : 'text-fg/80 hover:bg-fg/10',
           ]"
           @click="selectTrack(0)"
         >
-          <span>Off</span>
+          <span>{{ t('controls.subtitlesOff') }}</span>
           <Check v-if="!hasActiveSubtitle" class="w-3.5 h-3.5 flex-shrink-0" />
         </button>
 
@@ -46,8 +46,8 @@
           :class="[
             'w-full px-3 py-2 text-left rounded-lg text-xs flex items-center justify-between transition-colors',
             track.selected
-              ? 'bg-blue-500/15 text-blue-400 font-medium'
-              : 'text-white/80 hover:bg-white/10',
+              ? 'bg-blue-500/15 text-accent font-medium'
+              : 'text-fg/80 hover:bg-fg/10',
           ]"
           @click="selectTrack(track.id)"
         >
@@ -67,8 +67,10 @@ import { open } from '@tauri-apps/plugin-dialog';
 import IconButton from '@/components/common/IconButton.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { formatTrackLabel } from '@/utils/formatters';
+import { useI18n } from '@/composables/useI18n';
 
 const playerStore = usePlayerStore();
+const { t } = useI18n();
 const { isOpen, rootRef, toggle, close } = useDismissable();
 
 const hasActiveSubtitle = computed(() => {
@@ -86,7 +88,7 @@ async function addExternalSubtitle() {
       multiple: false,
       filters: [
         {
-          name: 'Subtitle Files',
+          name: t('dialog.subtitleFiles'),
           extensions: ['srt', 'ass', 'ssa', 'vtt', 'sub'],
         },
       ],

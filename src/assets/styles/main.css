@@ -9,7 +9,7 @@
    through, but we only actually go transparent once a video is loaded --
    otherwise the desktop shows through the empty player. */
 html, body, #app {
-  background: #0a0a0f;
+  background: rgb(var(--velo-bg));
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
@@ -48,12 +48,12 @@ button, input, [role="button"], .no-drag {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgb(var(--velo-fg) / 0.15);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgb(var(--velo-fg) / 0.3);
 }
 
 /* Volume slider. The fill is painted by an inline gradient so it works
@@ -74,7 +74,7 @@ input[type="range"].velo-range::-webkit-slider-thumb {
   width: 11px;
   height: 11px;
   border-radius: 9999px;
-  background: #fff;
+  background: rgb(var(--velo-fg));
   border: none;
   margin-top: 0;
   opacity: 0;
