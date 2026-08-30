@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { PlaylistItem, LoopMode } from '@/types/playlist';
 import { usePlayerStore } from './playerStore';
+import { useSettingsStore } from './settingsStore';
 
 export const usePlaylistStore = defineStore('playlist', () => {
   const items = ref<PlaylistItem[]>([]);
@@ -31,6 +32,8 @@ export const usePlaylistStore = defineStore('playlist', () => {
   });
 
   function addFiles(paths: string[]) {
+    const { history } = useSettingsStore();
+
     for (const path of paths) {
       const fileName = path.split('/').pop()?.split('\\').pop() || path;
       // Avoid duplicate addition of exact same path
@@ -39,6 +42,9 @@ export const usePlaylistStore = defineStore('playlist', () => {
           id: crypto.randomUUID(),
           path,
           fileName,
+          // Loaded with the settings at startup; undefined when the file has
+          // never been played, which starts it from the beginning.
+          lastPosition: history.resume_positions[path],
         });
       }
     }

@@ -106,6 +106,7 @@ import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
+import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
 
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
@@ -113,6 +114,7 @@ const settingsStore = useSettingsStore();
 
 const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
 const { areControlsVisible } = useAutoHideControls();
+usePlaybackHistory();
 
 let clickTimeout: number | null = null;
 
