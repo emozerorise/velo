@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatTime, formatTrackLabel } from '@/utils/formatters';
+import { formatBytes, formatTime, formatTrackLabel } from '@/utils/formatters';
 
 describe('formatTime', () => {
   it('formats 0 seconds as 00:00', () => {
@@ -56,5 +56,25 @@ describe('formatTrackLabel', () => {
       default: false,
     };
     expect(formatTrackLabel(track)).toBe('Track 3');
+  });
+});
+
+describe('formatBytes', () => {
+  it('rounds large sizes to whole megabytes', () => {
+    expect(formatBytes(574_041_195)).toBe('547 MB');
+  });
+
+  it('keeps a decimal below 10 MB, where whole numbers would look stalled', () => {
+    expect(formatBytes(5 * 1024 * 1024)).toBe('5.0 MB');
+  });
+
+  it('falls back to kilobytes under a megabyte', () => {
+    expect(formatBytes(200 * 1024)).toBe('200 KB');
+  });
+
+  it('handles zero and invalid values gracefully', () => {
+    expect(formatBytes(0)).toBe('0 MB');
+    expect(formatBytes(NaN)).toBe('0 MB');
+    expect(formatBytes(-5)).toBe('0 MB');
   });
 });

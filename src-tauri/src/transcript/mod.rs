@@ -1,13 +1,14 @@
-//! Offline transcription: extract audio with mpv, run whisper.cpp over it,
+//! Offline transcription: extract audio with mpv, run it through whisper.cpp,
 //! and cache the timestamped result next to the rest of Velo's state.
 
 pub mod audio;
 pub mod engine;
+pub mod model;
 pub mod store;
 pub mod types;
 
 pub use store::TranscriptStore;
-pub use types::{EngineStatus, Transcript, TranscriptProgress, TranscriptSegment};
+pub use types::{EngineStatus, ModelProgress, Transcript, TranscriptProgress, TranscriptSegment};
 
 use crate::errors::{Result, VeloError};
 use parking_lot::Mutex;
@@ -21,8 +22,10 @@ use tracing::{info, warn};
 pub struct TranscriptState {
     pub store: Arc<TranscriptStore>,
     pub app_data_dir: PathBuf,
-    /// The one job allowed to run at a time, with its cancel flag.
+    /// The one transcription allowed to run at a time, with its cancel flag.
     pub active: Mutex<Option<ActiveJob>>,
+    /// Set while the model is downloading, with its own cancel flag.
+    pub download: Mutex<Option<Arc<AtomicBool>>>,
 }
 
 #[derive(Clone)]
@@ -31,7 +34,7 @@ pub struct ActiveJob {
     pub cancel: Arc<AtomicBool>,
 }
 
-/// Serialized in `velo://transcript-error`.
+/// Serialized in `velo://transcript-error` and `velo://transcript-model-error`.
 #[derive(serde::Serialize, Clone)]
 struct TranscriptError {
     path: String,
@@ -50,16 +53,68 @@ impl TranscriptState {
             store: Arc::new(TranscriptStore::new(app_handle)?),
             app_data_dir,
             active: Mutex::new(None),
+            download: Mutex::new(None),
         })
     }
 
     pub fn engine_status(&self) -> EngineStatus {
-        engine::status(&self.app_data_dir)
+        let model_path = model::resolve(&self.app_data_dir);
+        EngineStatus {
+            ready: model_path.is_some(),
+            model_path: model_path.map(|p| p.to_string_lossy().into_owned()),
+            model_name: model::MODEL_FILE.to_string(),
+            model_bytes: model::MODEL_BYTES,
+            downloading: self.download.lock().is_some(),
+        }
     }
 
     pub fn cancel(&self) {
         if let Some(job) = self.active.lock().as_ref() {
             job.cancel.store(true, Ordering::Relaxed);
+        }
+    }
+
+    pub fn cancel_download(&self) {
+        if let Some(cancel) = self.download.lock().as_ref() {
+            cancel.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Fetch the model, reporting bytes as they arrive. Errors if one is
+    /// already on its way, so two panels cannot race for the same file.
+    pub async fn download_model(&self, app: AppHandle) -> Result<()> {
+        let cancel = {
+            let mut download = self.download.lock();
+            if download.is_some() {
+                return Err(VeloError::InvalidParameter(
+                    "The model is already downloading".into(),
+                ));
+            }
+            let cancel = Arc::new(AtomicBool::new(false));
+            *download = Some(cancel.clone());
+            cancel
+        };
+
+        let progress_app = app.clone();
+        let result = model::download(&self.app_data_dir, cancel, move |received, total| {
+            let _ = progress_app.emit(
+                "velo://transcript-model-progress",
+                ModelProgress { received, total },
+            );
+        })
+        .await;
+
+        *self.download.lock() = None;
+
+        match result {
+            Ok(_) => {
+                let _ = app.emit("velo://transcript-model-ready", ());
+                Ok(())
+            }
+            Err(e) => {
+                warn!("model download failed: {}", e);
+                Err(e)
+            }
         }
     }
 
@@ -81,17 +136,9 @@ impl TranscriptState {
             )));
         }
 
-        let status = engine::status(&self.app_data_dir);
-        let (bin, model) = match (status.whisper_bin, status.model_path) {
-            (Some(bin), Some(model)) => (PathBuf::from(bin), PathBuf::from(model)),
-            _ => {
-                return Err(VeloError::InvalidParameter(
-                    "whisper-cli or the model file was not found. Set VELO_WHISPER_BIN and \
-                     VELO_WHISPER_MODEL, or drop a ggml .bin into the app's whisper/ folder."
-                        .into(),
-                ))
-            }
-        };
+        let model = model::resolve(&self.app_data_dir).ok_or_else(|| {
+            VeloError::InvalidParameter("The speech model has not been downloaded yet".into())
+        })?;
 
         let cancel = Arc::new(AtomicBool::new(false));
         *active = Some(ActiveJob {
@@ -110,7 +157,6 @@ impl TranscriptState {
                 let result = run_job(
                     &app,
                     &store,
-                    &bin,
                     &model,
                     &media_path,
                     &language,
@@ -160,7 +206,6 @@ fn app_state(app: &AppHandle) -> Option<tauri::State<'_, TranscriptState>> {
 fn run_job(
     app: &AppHandle,
     store: &TranscriptStore,
-    bin: &std::path::Path,
     model: &std::path::Path,
     media_path: &str,
     language: &str,
@@ -168,25 +213,38 @@ fn run_job(
     wav: &std::path::Path,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Transcript> {
-    let emit = |stage: &str, progress: f64| {
-        let _ = app.emit(
-            "velo://transcript-progress",
-            TranscriptProgress {
-                path: media_path.to_string(),
-                stage: stage.to_string(),
-                progress,
-            },
-        );
+    let emit = {
+        let app = app.clone();
+        let path = media_path.to_string();
+        move |stage: &str, progress: f64| {
+            let _ = app.emit(
+                "velo://transcript-progress",
+                TranscriptProgress {
+                    path: path.clone(),
+                    stage: stage.to_string(),
+                    progress,
+                },
+            );
+        }
     };
 
     emit("extracting", -1.0);
     audio::extract(media_path, wav, cancel, &|p| emit("extracting", p))?;
+    let samples = audio::read_samples(wav)?;
 
     emit("transcribing", -1.0);
-    let (detected, segments) =
-        engine::transcribe(bin, model, wav, language, prompt, cancel, &|p| {
-            emit("transcribing", p)
-        })?;
+    let transcribe_progress: engine::ProgressFn = {
+        let emit = emit.clone();
+        Arc::new(move |p| emit("transcribing", p))
+    };
+    let (detected, segments) = engine::transcribe(
+        model,
+        &samples,
+        language,
+        prompt,
+        cancel,
+        transcribe_progress,
+    )?;
 
     let transcript = Transcript {
         path: media_path.to_string(),

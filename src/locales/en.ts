@@ -92,11 +92,12 @@ export const en = {
 
   'transcript.title': 'Transcript',
   'transcript.openFirst': 'Open a video first',
-  'transcript.engineMissing': 'Speech engine not found',
-  'transcript.engineMissingDesc':
-    'The prototype runs whisper.cpp locally. Point Velo at a binary and a model:',
-  'transcript.engineMissingHint':
-    "Or drop a ggml .bin into the app's whisper/ folder. Nothing leaves this machine.",
+  'transcript.modelMissing': 'One-time setup',
+  'transcript.modelExplain':
+    'Velo transcribes on this machine, using a speech model it downloads once ({size}).',
+  'transcript.modelPrivacy': 'The recording is never uploaded anywhere.',
+  'transcript.download': 'Download speech model',
+  'transcript.downloading': 'Downloading speech model',
   'transcript.extracting': 'Extracting audio',
   'transcript.transcribing': 'Transcribing',
   'transcript.runningNote': 'Runs offline. A long meeting takes a while — playback is unaffected.',

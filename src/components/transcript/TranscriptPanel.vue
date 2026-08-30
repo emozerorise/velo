@@ -31,17 +31,56 @@
         <p class="text-xs">{{ t('transcript.openFirst') }}</p>
       </div>
 
-      <!-- Engine missing -->
-      <div v-else-if="engineMissing" class="flex-1 overflow-y-auto p-5 text-[12px] leading-relaxed">
-        <div class="flex items-center gap-2 text-warning mb-3">
-          <AlertTriangle class="w-4 h-4" />
-          <span class="font-medium">{{ t('transcript.engineMissing') }}</span>
+      <!-- Model downloading -->
+      <div
+        v-else-if="store.isDownloading"
+        class="flex-1 flex flex-col items-center justify-center p-8 gap-4"
+      >
+        <Loader2 class="w-6 h-6 text-accent animate-spin" />
+        <div class="w-full">
+          <div class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5">
+            <span>{{ t('transcript.downloading') }}</span>
+            <span class="font-mono">{{ downloadLabel }}</span>
+          </div>
+          <div class="h-1 rounded-full bg-fg/10 overflow-hidden">
+            <div
+              class="h-full bg-blue-500 transition-[width] duration-300"
+              :style="{ width: downloadPercent }"
+            />
+          </div>
         </div>
-        <p class="text-fg/50 mb-3">{{ t('transcript.engineMissingDesc') }}</p>
-        <pre class="p-3 rounded-lg bg-inset/40 text-[11px] text-fg/70 whitespace-pre-wrap break-all">brew install whisper-cpp
-export VELO_WHISPER_BIN=$(which whisper-cli)
-export VELO_WHISPER_MODEL=/path/to/ggml-large-v3-turbo-q5_0.bin</pre>
-        <p class="text-fg/40 mt-3">{{ t('transcript.engineMissingHint') }}</p>
+        <button
+          class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
+          @click="store.cancelDownload()"
+        >
+          {{ t('transcript.cancel') }}
+        </button>
+      </div>
+
+      <!-- Model not downloaded yet -->
+      <div
+        v-else-if="needsModel"
+        class="flex-1 flex flex-col items-center justify-center text-center p-8 gap-4"
+      >
+        <Download class="w-8 h-8 text-fg/25" />
+        <div>
+          <p class="text-xs font-medium text-fg/80">{{ t('transcript.modelMissing') }}</p>
+          <p class="mt-1.5 text-[11.5px] leading-relaxed text-fg/45">
+            {{ t('transcript.modelExplain', { size: modelSize }) }}
+          </p>
+          <p class="mt-1 text-[11px] text-fg/30">{{ t('transcript.modelPrivacy') }}</p>
+        </div>
+
+        <button
+          class="w-full h-9 rounded-xl bg-blue-500 hover:bg-blue-400 active:scale-[0.98] text-white text-[13px] font-semibold transition-all"
+          @click="store.downloadModel()"
+        >
+          {{ t('transcript.download') }}
+        </button>
+
+        <p v-if="store.modelError" class="text-[11px] text-danger/90 break-words">
+          {{ store.modelError }}
+        </p>
       </div>
 
       <!-- Running -->
@@ -193,12 +232,12 @@ import {
   Check,
   RefreshCw,
   Loader2,
-  AlertTriangle,
+  Download,
 } from '@lucide/vue';
 import { useTranscriptStore, TRANSCRIPT_LANGUAGES } from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
-import { formatTime } from '@/utils/formatters';
+import { formatBytes, formatTime } from '@/utils/formatters';
 
 const store = useTranscriptStore();
 const { t } = useI18n();
@@ -210,7 +249,18 @@ const listEl = ref<HTMLElement | null>(null);
 const rows = new Map<number, HTMLElement>();
 
 const hasMedia = computed(() => player.mediaInfo !== null);
-const engineMissing = computed(() => store.engine !== null && !store.engine.ready);
+// `engine` is null only until the first status call returns; showing the
+// download prompt before then would flash it at someone who has the model.
+const needsModel = computed(() => store.engine !== null && !store.engine.ready);
+const modelSize = computed(() => formatBytes(store.engine?.model_bytes ?? 0));
+
+const downloadLabel = computed(
+  () => `${formatBytes(store.downloaded)} / ${formatBytes(store.downloadTotal)}`
+);
+const downloadPercent = computed(() => {
+  if (store.downloadTotal <= 0) return '0%';
+  return `${Math.round((store.downloaded / store.downloadTotal) * 100)}%`;
+});
 
 const stageLabel = computed(() =>
   store.stage === 'extracting' ? t('transcript.extracting') : t('transcript.transcribing')

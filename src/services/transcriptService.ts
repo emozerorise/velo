@@ -6,6 +6,14 @@ export const transcriptService = {
     return invoke('transcript_engine_status');
   },
 
+  async downloadModel(): Promise<void> {
+    return invoke('transcript_download_model');
+  },
+
+  async cancelDownload(): Promise<void> {
+    return invoke('transcript_cancel_download');
+  },
+
   async get(path: string): Promise<Transcript | null> {
     return invoke('transcript_get', { path });
   },

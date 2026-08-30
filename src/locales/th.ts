@@ -91,11 +91,12 @@ export const th: Messages = {
 
   'transcript.title': 'ถอดเสียง',
   'transcript.openFirst': 'เปิดวิดีโอก่อน',
-  'transcript.engineMissing': 'ไม่พบเอนจินถอดเสียง',
-  'transcript.engineMissingDesc':
-    'ตัวต้นแบบนี้รัน whisper.cpp ในเครื่อง ต้องชี้ให้ Velo เห็นตัวโปรแกรมและไฟล์โมเดลก่อน:',
-  'transcript.engineMissingHint':
-    'หรือวางไฟล์ ggml .bin ไว้ในโฟลเดอร์ whisper/ ของแอป ไม่มีข้อมูลออกจากเครื่องนี้',
+  'transcript.modelMissing': 'ตั้งค่าครั้งเดียวก่อนเริ่มใช้',
+  'transcript.modelExplain':
+    'Velo ถอดเสียงในเครื่องนี้ ต้องดาวน์โหลดโมเดลเสียงครั้งแรกครั้งเดียว ({size})',
+  'transcript.modelPrivacy': 'ไฟล์ประชุมไม่ถูกอัปโหลดไปไหนทั้งสิ้น',
+  'transcript.download': 'ดาวน์โหลดโมเดลเสียง',
+  'transcript.downloading': 'กำลังดาวน์โหลดโมเดลเสียง',
   'transcript.extracting': 'กำลังดึงเสียง',
   'transcript.transcribing': 'กำลังถอดเสียง',
   'transcript.runningNote': 'ทำงานแบบออฟไลน์ ประชุมยาวใช้เวลาสักพัก แต่ดูวิดีโอต่อได้ตามปกติ',

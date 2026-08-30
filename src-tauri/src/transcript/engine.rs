@@ -1,194 +1,201 @@
-//! whisper.cpp runner.
+//! In-process transcription with whisper.cpp.
 //!
-//! PROTOTYPE NOTE: this shells out to the `whisper-cli` binary and to a model
-//! file the user supplies, which keeps the app build light while the feature
-//! is being evaluated. A shipping version should link `whisper-rs` in-process
-//! and download the model on first use, so releases stay self-contained.
+//! whisper is linked into the binary rather than shelled out to, so a release
+//! only needs the model file, which `super::model` fetches on first use.
 
 use crate::errors::{Result, VeloError};
-use crate::transcript::types::{EngineStatus, TranscriptSegment};
-use serde::Deserialize;
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use crate::transcript::types::TranscriptSegment;
+use std::ffi::c_void;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::Once;
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
-const BIN_ENV: &str = "VELO_WHISPER_BIN";
-const MODEL_ENV: &str = "VELO_WHISPER_MODEL";
+const SAMPLE_RATE: usize = 16_000;
 
-/// `whisper-cli`, from the env override, the app's own model folder, or PATH.
-pub fn resolve_binary(app_data_dir: &Path) -> Option<PathBuf> {
-    if let Ok(path) = std::env::var(BIN_ENV) {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Some(path);
-        }
-    }
+/// whisper only conditions on its initial prompt for the first 30-second
+/// window, but a meeting's vocabulary matters just as much an hour in.
+/// Feeding the audio in chunks and re-supplying the prompt for each one
+/// reproduces the CLI's `--carry-initial-prompt`, which measurements on a real
+/// Thai meeting showed is where nearly all of the prompt's benefit comes from:
+/// without it, spoken English terms come back as Thai phonetic spellings
+/// almost as often as with no prompt at all.
+const CHUNK_SECONDS: usize = 300;
 
-    let bundled = app_data_dir.join("whisper").join("whisper-cli");
-    if bundled.is_file() {
-        return Some(bundled);
-    }
+/// Progress reporting has to be owned rather than borrowed: whisper-rs
+/// requires `'static` callbacks, since they are handed to C.
+pub type ProgressFn = Arc<dyn Fn(f64) + Send + Sync>;
 
-    let path_var = std::env::var("PATH").ok()?;
-    std::env::split_paths(&path_var)
-        .map(|dir| dir.join("whisper-cli"))
-        .find(|candidate| candidate.is_file())
-}
+static LOGGING_HOOK: Once = Once::new();
 
-/// A ggml model file: the env override, else the first `.bin` in the app's
-/// `whisper/` folder.
-pub fn resolve_model(app_data_dir: &Path) -> Option<PathBuf> {
-    if let Ok(path) = std::env::var(MODEL_ENV) {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-
-    let dir = app_data_dir.join("whisper");
-    let mut models: Vec<PathBuf> = std::fs::read_dir(dir)
-        .ok()?
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some("bin"))
-        .collect();
-    models.sort();
-    models.into_iter().next()
-}
-
-pub fn status(app_data_dir: &Path) -> EngineStatus {
-    let whisper_bin = resolve_binary(app_data_dir);
-    let model_path = resolve_model(app_data_dir);
-    EngineStatus {
-        ready: whisper_bin.is_some() && model_path.is_some(),
-        whisper_bin: whisper_bin.map(|p| p.to_string_lossy().into_owned()),
-        model_path: model_path.map(|p| p.to_string_lossy().into_owned()),
-    }
-}
-
-#[derive(Deserialize)]
-struct WhisperOutput {
-    result: WhisperResult,
-    transcription: Vec<WhisperSegment>,
-}
-
-#[derive(Deserialize)]
-struct WhisperResult {
-    language: String,
-}
-
-#[derive(Deserialize)]
-struct WhisperSegment {
-    offsets: WhisperOffsets,
-    text: String,
-}
-
-#[derive(Deserialize)]
-struct WhisperOffsets {
-    from: i64,
-    to: i64,
-}
-
-/// Transcribe a 16 kHz mono WAV. Returns the detected language and segments.
+/// whisper polls this between compute steps; returning true aborts the run.
 ///
-/// `prompt` is optional domain vocabulary; whisper conditions on it, which is
-/// what keeps English product terms in a Thai meeting from coming back as
-/// Thai phonetic spellings.
+/// # Safety
+/// `user_data` must be a pointer to an `AtomicBool` that outlives the
+/// `whisper_full` call it was handed to.
+unsafe extern "C" fn abort_if_cancelled(user_data: *mut c_void) -> bool {
+    if user_data.is_null() {
+        return false;
+    }
+    unsafe { (*(user_data as *const AtomicBool)).load(Ordering::Relaxed) }
+}
+
+/// Transcribe 16 kHz mono samples, reporting 0.0..1.0 overall progress.
 ///
-/// `on_progress` receives 0.0..1.0 as whisper reports it.
-#[allow(clippy::too_many_arguments)]
+/// Returns the language whisper settled on and the segments, timestamped
+/// against the start of the media rather than the start of a chunk.
 pub fn transcribe(
-    bin: &Path,
     model: &Path,
-    wav: &Path,
+    samples: &[f32],
     language: &str,
     prompt: &str,
     cancel: &Arc<AtomicBool>,
-    on_progress: &dyn Fn(f64),
+    on_progress: ProgressFn,
 ) -> Result<(String, Vec<TranscriptSegment>)> {
-    let prefix = wav.with_extension("");
-    let json_path = wav.with_extension("json");
+    transcribe_chunked(
+        model,
+        samples,
+        language,
+        prompt,
+        cancel,
+        on_progress,
+        CHUNK_SECONDS,
+    )
+}
+
+/// The body of [`transcribe`], with the chunk length exposed: it is what
+/// carries the prompt and offsets timestamps, and covering it at the real
+/// five-minute default would need a fixture longer than any test wants to be.
+#[allow(clippy::too_many_arguments)]
+pub fn transcribe_chunked(
+    model: &Path,
+    samples: &[f32],
+    language: &str,
+    prompt: &str,
+    cancel: &Arc<AtomicBool>,
+    on_progress: ProgressFn,
+    chunk_seconds: usize,
+) -> Result<(String, Vec<TranscriptSegment>)> {
+    if samples.is_empty() {
+        return Err(VeloError::Player("There is no audio to transcribe".into()));
+    }
+
+    // Without this, ggml and whisper write their own diagnostics straight to
+    // stderr, outside the app's tracing setup.
+    LOGGING_HOOK.call_once(whisper_rs::install_logging_hooks);
+
+    let ctx = WhisperContext::new_with_params(
+        model
+            .to_str()
+            .ok_or_else(|| VeloError::InvalidParameter("Non-UTF8 model path".into()))?,
+        WhisperContextParameters::default(),
+    )
+    .map_err(|e| VeloError::Player(format!("Could not load the whisper model: {}", e)))?;
+
+    let mut state = ctx
+        .create_state()
+        .map_err(|e| VeloError::Player(format!("Could not start whisper: {}", e)))?;
+
     let threads = std::thread::available_parallelism()
         .map(|n| n.get().saturating_sub(1).max(1))
         .unwrap_or(4);
 
-    let mut command = Command::new(bin);
-    command
-        .arg("-m")
-        .arg(model)
-        .arg("-f")
-        .arg(wav)
-        .arg("-l")
-        .arg(language)
-        .arg("-t")
-        .arg(threads.to_string())
-        .arg("-oj")
-        .arg("-of")
-        .arg(&prefix)
-        // Progress percentages, which are the only stderr output parsed below.
-        .arg("-pp");
+    let chunk_len = chunk_seconds.max(1) * SAMPLE_RATE;
+    let total_samples = samples.len() as f64;
+    let prompt = prompt.trim();
 
-    if !prompt.trim().is_empty() {
-        // Without carrying it, the prompt only conditions the first 30-second
-        // window -- and a meeting's vocabulary matters just as much an hour in.
-        command
-            .arg("--prompt")
-            .arg(prompt.trim())
-            .arg("--carry-initial-prompt");
-    }
+    let mut segments = Vec::new();
+    let mut detected = String::new();
 
-    let mut child = command
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| VeloError::Player(format!("Could not start whisper-cli: {}", e)))?;
+    for (index, chunk) in samples.chunks(chunk_len).enumerate() {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(VeloError::Player("Transcription cancelled".into()));
+        }
 
-    if let Some(stderr) = child.stderr.take() {
-        for line in BufReader::new(stderr)
-            .lines()
-            .map_while(std::result::Result::ok)
-        {
-            if cancel.load(Ordering::Relaxed) {
-                let _ = child.kill();
-                return Err(VeloError::Player("Transcription cancelled".into()));
+        let chunk_start = (index * chunk_len) as f64 / SAMPLE_RATE as f64;
+        let done_before = (index * chunk_len) as f64 / total_samples;
+        let chunk_share = chunk.len() as f64 / total_samples;
+
+        let mut params = FullParams::new(SamplingStrategy::BeamSearch {
+            beam_size: 5,
+            patience: -1.0,
+        });
+        params.set_n_threads(threads as i32);
+        params.set_translate(false);
+        params.set_print_special(false);
+        params.set_print_progress(false);
+        params.set_print_realtime(false);
+        params.set_print_timestamps(false);
+
+        // "auto" is a language whisper understands, and detection then happens
+        // as part of transcribing. `set_detect_language` is a different thing
+        // entirely: it makes whisper report the language and return without
+        // producing a single segment.
+        params.set_language(Some(language));
+
+        if !prompt.is_empty() {
+            params.set_initial_prompt(prompt);
+        }
+
+        let progress = on_progress.clone();
+        params.set_progress_callback_safe(move |percent: i32| {
+            let fraction = done_before + chunk_share * (percent as f64 / 100.0);
+            progress(fraction.clamp(0.0, 1.0));
+        });
+
+        // whisper checks this between compute steps, so a cancelled job stops
+        // in seconds instead of running to the end of an eight-hour file.
+        //
+        // The raw setters rather than `set_abort_callback_safe`: that helper
+        // stores a `Box<Box<dyn FnMut>>` but instantiates its trampoline for
+        // the *closure* type, so the callback reinterprets a fat pointer as
+        // the closure and whisper aborts immediately with "failed to encode".
+        // (Its progress equivalent gets this right, which is why that one is
+        // used above.)
+        unsafe {
+            params.set_abort_callback(Some(abort_if_cancelled));
+            params.set_abort_callback_user_data(Arc::as_ptr(cancel) as *mut c_void);
+        }
+
+        state
+            .full(params, chunk)
+            .map_err(|e| VeloError::Player(format!("Transcription failed: {}", e)))?;
+
+        if detected.is_empty() {
+            if let Some(lang) = whisper_rs::get_lang_str(state.full_lang_id_from_state()) {
+                detected = lang.to_string();
+            }
+        }
+
+        // whisper pads its input out to a 30-second window boundary and will
+        // happily produce segments inside that padding, timed past the end of
+        // the audio it was given. Left alone those become transcript lines
+        // that seek past the end of the video.
+        let chunk_end = chunk_start + chunk.len() as f64 / SAMPLE_RATE as f64;
+
+        for segment in state.as_iter() {
+            let text = segment
+                .to_str_lossy()
+                .map(|t| t.trim().to_string())
+                .unwrap_or_default();
+            if text.is_empty() {
+                continue;
             }
 
-            if let Some(rest) = line.split("progress =").nth(1) {
-                if let Ok(percent) = rest.trim().trim_end_matches('%').trim().parse::<f64>() {
-                    on_progress((percent / 100.0).clamp(0.0, 1.0));
-                }
+            let start = chunk_start + segment.start_timestamp() as f64 / 100.0;
+            if start >= chunk_end {
+                continue;
             }
+
+            segments.push(TranscriptSegment {
+                start,
+                end: (chunk_start + segment.end_timestamp() as f64 / 100.0).min(chunk_end),
+                text,
+            });
         }
     }
 
-    let exit = child
-        .wait()
-        .map_err(|e| VeloError::Player(format!("whisper-cli failed: {}", e)))?;
-    if !exit.success() {
-        return Err(VeloError::Player(format!(
-            "whisper-cli exited with {}",
-            exit
-        )));
-    }
-
-    let content = std::fs::read_to_string(&json_path)
-        .map_err(|e| VeloError::Player(format!("Could not read whisper output: {}", e)))?;
-    let output: WhisperOutput = serde_json::from_str(&content)
-        .map_err(|e| VeloError::Player(format!("Could not parse whisper output: {}", e)))?;
-    let _ = std::fs::remove_file(&json_path);
-
-    let segments = output
-        .transcription
-        .into_iter()
-        .map(|s| TranscriptSegment {
-            start: s.offsets.from as f64 / 1000.0,
-            end: s.offsets.to as f64 / 1000.0,
-            text: s.text.trim().to_string(),
-        })
-        .filter(|s| !s.text.is_empty())
-        .collect();
-
-    Ok((output.result.language, segments))
+    on_progress(1.0);
+    Ok((detected, segments))
 }

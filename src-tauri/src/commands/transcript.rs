@@ -10,6 +10,20 @@ pub async fn transcript_engine_status(state: State<'_, TranscriptState>) -> Resu
 }
 
 #[tauri::command]
+pub async fn transcript_download_model(
+    app: AppHandle,
+    state: State<'_, TranscriptState>,
+) -> Result<()> {
+    state.download_model(app).await
+}
+
+#[tauri::command]
+pub async fn transcript_cancel_download(state: State<'_, TranscriptState>) -> Result<()> {
+    state.cancel_download();
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn transcript_get(
     state: State<'_, TranscriptState>,
     path: String,

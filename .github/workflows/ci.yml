@@ -40,7 +40,7 @@ jobs:
           components: clippy, rustfmt
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: brew install mpv pkg-config
+        run: brew install mpv pkg-config cmake
       - name: Cargo Format Check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Cargo Clippy

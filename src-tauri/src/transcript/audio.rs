@@ -144,6 +144,78 @@ fn error_str(err: c_int) -> String {
     }
 }
 
+/// Read back a WAV written by `extract` as the f32 samples whisper wants.
+///
+/// Deliberately narrow: it accepts only the 16 kHz mono 16-bit format this
+/// module produces, so a mismatch surfaces here rather than as garbled
+/// transcription later.
+pub fn read_samples(path: &Path) -> Result<Vec<f32>> {
+    let bytes = std::fs::read(path)
+        .map_err(|e| VeloError::Storage(format!("Could not read the extracted audio: {}", e)))?;
+
+    if bytes.len() < 12 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
+        return Err(VeloError::Player("The extracted audio is not a WAV".into()));
+    }
+
+    let mut channels = 0_u16;
+    let mut sample_rate = 0_u32;
+    let mut bits = 0_u16;
+    let mut data: Option<&[u8]> = None;
+    let mut pos = 12;
+
+    while pos + 8 <= bytes.len() {
+        let id = &bytes[pos..pos + 4];
+        let size = u32::from_le_bytes([
+            bytes[pos + 4],
+            bytes[pos + 5],
+            bytes[pos + 6],
+            bytes[pos + 7],
+        ]) as usize;
+
+        let body = pos + 8;
+        let end = body.saturating_add(size).min(bytes.len());
+
+        match id {
+            b"fmt " if end >= body + 16 => {
+                channels = u16::from_le_bytes([bytes[body + 2], bytes[body + 3]]);
+                sample_rate = u32::from_le_bytes([
+                    bytes[body + 4],
+                    bytes[body + 5],
+                    bytes[body + 6],
+                    bytes[body + 7],
+                ]);
+                bits = u16::from_le_bytes([bytes[body + 14], bytes[body + 15]]);
+            }
+            b"data" => data = Some(&bytes[body..end]),
+            _ => {}
+        }
+
+        // Chunks are word-aligned, so an odd size is followed by a pad byte.
+        pos = body + size + (size & 1);
+    }
+
+    if channels != 1 || sample_rate != 16_000 || bits != 16 {
+        return Err(VeloError::Player(format!(
+            "Expected 16 kHz mono 16-bit audio, got {} Hz, {} channel(s), {}-bit",
+            sample_rate, channels, bits
+        )));
+    }
+
+    let data = data.ok_or_else(|| VeloError::Player("The extracted audio is empty".into()))?;
+    let pcm: Vec<i16> = data
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| i16::from_le_bytes(*pair))
+        .collect();
+
+    let mut samples = vec![0.0_f32; pcm.len()];
+    whisper_rs::convert_integer_to_float_audio(&pcm, &mut samples)
+        .map_err(|e| VeloError::Player(format!("Could not convert the audio: {}", e)))?;
+
+    Ok(samples)
+}
+
 /// Decode the audio of `src` into a 16 kHz mono WAV at `dest`.
 ///
 /// `on_progress` receives 0.0..1.0, or -1.0 while the duration is unknown.

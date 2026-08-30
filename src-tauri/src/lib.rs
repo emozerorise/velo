@@ -125,6 +125,8 @@ pub fn run() {
             commands::history_get,
             commands::history_record,
             commands::transcript_engine_status,
+            commands::transcript_download_model,
+            commands::transcript_cancel_download,
             commands::transcript_get,
             commands::transcript_generate,
             commands::transcript_cancel,

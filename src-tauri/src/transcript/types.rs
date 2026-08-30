@@ -34,10 +34,20 @@ pub struct TranscriptProgress {
     pub progress: f64,
 }
 
-/// Whether the machine has the pieces the prototype shells out to.
+/// What the engine has to work with. whisper itself is compiled into the
+/// binary, so the model is the only piece that can be missing.
 #[derive(Debug, Clone, Serialize)]
 pub struct EngineStatus {
-    pub whisper_bin: Option<String>,
-    pub model_path: Option<String>,
     pub ready: bool,
+    pub model_path: Option<String>,
+    pub model_name: String,
+    pub model_bytes: u64,
+    pub downloading: bool,
+}
+
+/// Emitted on `velo://transcript-model-progress` while the model downloads.
+#[derive(Debug, Clone, Serialize)]
+pub struct ModelProgress {
+    pub received: u64,
+    pub total: u64,
 }

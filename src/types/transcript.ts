@@ -29,7 +29,15 @@ export interface TranscriptError {
 }
 
 export interface TranscriptEngineStatus {
-  whisper_bin: string | null;
-  model_path: string | null;
+  /** whisper is compiled in; only the model can be missing. */
   ready: boolean;
+  model_path: string | null;
+  model_name: string;
+  model_bytes: number;
+  downloading: boolean;
+}
+
+export interface ModelProgress {
+  received: number;
+  total: number;
 }

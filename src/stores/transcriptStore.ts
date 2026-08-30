@@ -6,6 +6,7 @@ import { usePlayerStore } from './playerStore';
 import { usePlaylistStore } from './playlistStore';
 import { useSettingsStore } from './settingsStore';
 import type {
+  ModelProgress,
   Transcript,
   TranscriptEngineStatus,
   TranscriptError,
@@ -50,6 +51,13 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const stage = ref<TranscriptStage | null>(null);
   const progress = ref(-1);
   const error = ref<string | null>(null);
+
+  // The speech model is downloaded on first use rather than shipped, so the
+  // panel has a whole state of its own before it can transcribe anything.
+  const isDownloading = ref(false);
+  const downloaded = ref(0);
+  const downloadTotal = ref(0);
+  const modelError = ref<string | null>(null);
 
   let unlistenFunctions: (() => void)[] = [];
 
@@ -104,12 +112,53 @@ export const useTranscriptStore = defineStore('transcript', () => {
       resetJob();
     });
 
-    unlistenFunctions = [u1, u2, u3];
+    const u4 = await listen<ModelProgress>('velo://transcript-model-progress', (event) => {
+      isDownloading.value = true;
+      downloaded.value = event.payload.received;
+      downloadTotal.value = event.payload.total;
+    });
 
+    const u5 = await listen('velo://transcript-model-ready', () => {
+      void refreshEngine();
+    });
+
+    unlistenFunctions = [u1, u2, u3, u4, u5];
+
+    await refreshEngine();
+  }
+
+  async function refreshEngine() {
     try {
       engine.value = await transcriptService.engineStatus();
+      isDownloading.value = engine.value.downloading;
     } catch (e) {
       console.error('Failed to read transcript engine status:', e);
+    }
+  }
+
+  async function downloadModel() {
+    if (isDownloading.value) return;
+
+    modelError.value = null;
+    isDownloading.value = true;
+    downloaded.value = 0;
+    downloadTotal.value = engine.value?.model_bytes ?? 0;
+
+    try {
+      await transcriptService.downloadModel();
+    } catch (e) {
+      modelError.value = String(e);
+    } finally {
+      isDownloading.value = false;
+      await refreshEngine();
+    }
+  }
+
+  async function cancelDownload() {
+    try {
+      await transcriptService.cancelDownload();
+    } catch (e) {
+      console.error('Failed to cancel the model download:', e);
     }
   }
 
@@ -206,10 +255,17 @@ export const useTranscriptStore = defineStore('transcript', () => {
     stage,
     progress,
     error,
+    isDownloading,
+    downloaded,
+    downloadTotal,
+    modelError,
     activeIndex,
     hasTranscript,
     initListeners,
     cleanupListeners,
+    refreshEngine,
+    downloadModel,
+    cancelDownload,
     loadForCurrentMedia,
     generate,
     cancel,
