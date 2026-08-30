@@ -5,7 +5,7 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [0.3.0] - 2026-08-31
 
 ถอดเสียงประชุมในเครื่องแล้วคลิกที่บทถอดเพื่อกระโดดไปยังจุดที่พูดได้
 ที่เหลือเป็นสองตัวเลือกในหน้าตั้งค่าที่มีปุ่มให้กดมานานแล้วแต่ไม่เคยทำอะไร
@@ -224,6 +224,7 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.3.0]: https://github.com/emozerorise/velo/releases/tag/v0.3.0
 [0.2.0]: https://github.com/emozerorise/velo/releases/tag/v0.2.0
 [0.1.1]: https://github.com/emozerorise/velo/releases/tag/v0.1.1
 [0.1.0]: https://github.com/emozerorise/velo/releases/tag/v0.1.0
