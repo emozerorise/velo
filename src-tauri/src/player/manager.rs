@@ -50,7 +50,7 @@ impl PlayerManager {
     }
 
     pub fn load_file(&self, path: &str, start_time: Option<f64>) -> Result<()> {
-        info!("Loading file: {}", path);
+        info!("Loading file: {} (resume at {:?})", path, start_time);
         *self.state.lock() = PlaybackState::Loading;
 
         if let Some(pos) = start_time {

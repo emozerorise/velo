@@ -58,17 +58,23 @@ export const useSettingsStore = defineStore('settings', () => {
     });
   }
 
-  async function recordPlayback(item: HistoryItem) {
-    try {
-      await settingsService.recordHistory(item);
-      history.value.recent_files = history.value.recent_files.filter(
-        (f) => f.path !== item.path
-      );
-      history.value.recent_files.unshift(item);
-      history.value.resume_positions[item.path] = item.last_position;
-    } catch (e) {
-      console.error('Failed to record history:', e);
-    }
+  // Fire-and-forget like the playback commands: playback must not wait on a
+  // disk write, and a failure here is worth logging, not surfacing.
+  function recordPlayback(item: HistoryItem): void {
+    settingsService
+      .recordHistory(item)
+      .then(() => {
+        // Mirror what the backend just stored, so the drawer and the resume
+        // lookup stay correct without re-fetching.
+        history.value.recent_files = history.value.recent_files.filter(
+          (f) => f.path !== item.path
+        );
+        history.value.recent_files.unshift(item);
+        history.value.resume_positions[item.path] = item.last_position;
+      })
+      .catch((e: unknown) => {
+        console.error('Failed to record history:', e);
+      });
   }
 
   function applyTheme(theme: string) {
