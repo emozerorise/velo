@@ -63,8 +63,21 @@ impl PlayerManager {
 
         if let Some(pos) = start_time {
             let start_arg = format!("start={}", pos);
-            self.core
-                .command(&["loadfile", path, "replace", &start_arg])?;
+
+            // mpv 0.38 inserted a playlist index as `loadfile`'s third
+            // argument, moving per-file options to the fourth. Passing the
+            // options where the index now belongs makes mpv reject the whole
+            // command, so a file with a saved position simply refuses to open.
+            // Try the current form first and fall back for older libmpv,
+            // rather than picking one and breaking half the installs.
+            if self
+                .core
+                .command(&["loadfile", path, "replace", "-1", &start_arg])
+                .is_err()
+            {
+                self.core
+                    .command(&["loadfile", path, "replace", &start_arg])?;
+            }
         } else {
             self.core.command(&["loadfile", path, "replace"])?;
         }
