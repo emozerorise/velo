@@ -49,6 +49,14 @@ impl PlayerManager {
         self.core.raw_handle()
     }
 
+    /// True while mpv sits idle with nothing loaded. Playback commands are
+    /// no-ops then: flipping `pause` on an empty core still emits a property
+    /// change, which would announce a playback state the app is not in and
+    /// leave the UI believing a file is open.
+    fn is_idle(&self) -> bool {
+        self.core.get_property_bool("idle-active").unwrap_or(false)
+    }
+
     pub fn load_file(&self, path: &str, start_time: Option<f64>) -> Result<()> {
         info!("Loading file: {} (resume at {:?})", path, start_time);
         *self.state.lock() = PlaybackState::Loading;
@@ -66,6 +74,9 @@ impl PlayerManager {
     }
 
     pub fn play(&self) -> Result<()> {
+        if self.is_idle() {
+            return Ok(());
+        }
         self.core.set_property_bool("pause", false)?;
         self.platform.lock().prevent_sleep(true);
         *self.state.lock() = PlaybackState::Playing;
@@ -73,6 +84,9 @@ impl PlayerManager {
     }
 
     pub fn pause(&self) -> Result<()> {
+        if self.is_idle() {
+            return Ok(());
+        }
         self.core.set_property_bool("pause", true)?;
         self.platform.lock().prevent_sleep(false);
         *self.state.lock() = PlaybackState::Paused;
@@ -80,6 +94,9 @@ impl PlayerManager {
     }
 
     pub fn toggle_pause(&self) -> Result<()> {
+        if self.is_idle() {
+            return Ok(());
+        }
         let is_paused = self.core.get_property_bool("pause").unwrap_or(false);
         if is_paused {
             self.play()
@@ -96,12 +113,18 @@ impl PlayerManager {
     }
 
     pub fn seek(&self, seconds: f64, exact: bool) -> Result<()> {
+        if self.is_idle() {
+            return Ok(());
+        }
         let flag = if exact { "exact" } else { "relative" };
         let sec_str = seconds.to_string();
         self.core.command(&["seek", &sec_str, flag])
     }
 
     pub fn seek_absolute(&self, seconds: f64) -> Result<()> {
+        if self.is_idle() {
+            return Ok(());
+        }
         let sec_str = seconds.to_string();
         self.core.command(&["seek", &sec_str, "absolute+exact"])
     }
