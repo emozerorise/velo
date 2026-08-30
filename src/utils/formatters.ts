@@ -51,3 +51,22 @@ export function formatTrackLabel(track: {
 
   return parts.join(' ');
 }
+
+/**
+ * Formats a byte count for download progress. Whole numbers below 10 MB would
+ * be too coarse to look like progress, so small sizes keep a decimal.
+ */
+export function formatBytes(bytes: number): string {
+  if (!bytes || isNaN(bytes) || bytes < 0) {
+    return '0 MB';
+  }
+
+  const mb = bytes / (1024 * 1024);
+  if (mb < 1) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  if (mb < 10) {
+    return `${mb.toFixed(1)} MB`;
+  }
+  return `${Math.round(mb)} MB`;
+}

@@ -5,10 +5,10 @@
     :class="[
       'inline-flex items-center justify-center rounded-lg transition-colors duration-150 active:scale-95 no-drag',
       disabled
-        ? 'text-white/20 pointer-events-none'
+        ? 'text-fg/20 pointer-events-none'
         : active
-          ? 'text-blue-400 bg-blue-500/15'
-          : 'text-white/75 hover:text-white hover:bg-white/10',
+          ? 'text-accent bg-blue-500/15'
+          : 'text-fg/75 hover:text-fg hover:bg-fg/10',
       sizeClasses[size] || sizeClasses.md,
       customClass,
     ]"

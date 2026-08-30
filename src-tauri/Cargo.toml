@@ -1,6 +1,6 @@
 [package]
 name = "velo"
-version = "0.2.0"
+version = "0.3.0"
 description = "Fast, lightweight open-source video player"
 authors = ["Velo Contributors"]
 edition = "2021"
@@ -26,7 +26,16 @@ thiserror = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 raw-window-handle = "0.6"
+# whisper.cpp compiled into the binary, so a release needs no external tools.
+whisper-rs = "0.16"
+# Model download on first use. reqwest is already in the tree via Tauri.
+reqwest = { version = "0.13", features = ["stream"] }
+futures-util = { version = "0.3", default-features = false }
 
+
+# Metal gives the GPU path on Apple silicon; other platforms fall back to CPU.
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16", features = ["metal"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [
@@ -34,3 +43,7 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Power"
 ] }
+
+[dev-dependencies]
+# The model download is async, so its test needs a runtime to run on.
+tokio = { version = "1.38", features = ["rt-multi-thread", "macros"] }

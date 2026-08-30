@@ -6,18 +6,18 @@
     <!-- Opaque pills rather than a scrim: readable over any frame without
          veiling the video behind the window. -->
     <div
-      class="min-w-0 max-w-[46vw] px-3 py-1.5 rounded-xl bg-[#0e0e12] border border-white/10"
+      class="min-w-0 max-w-[46vw] px-3 py-1.5 rounded-xl bg-chrome border border-fg/10"
     >
-      <span class="block text-[13px] font-medium text-white truncate">
+      <span class="block text-[13px] font-medium text-fg truncate">
         {{ currentTitle }}
       </span>
     </div>
 
     <div
-      class="flex items-center gap-0.5 p-1 rounded-xl bg-[#0e0e12] border border-white/10"
+      class="flex items-center gap-0.5 p-1 rounded-xl bg-chrome border border-fg/10"
     >
       <IconButton
-        title="Media Information"
+        :title="t('topbar.mediaInfo')"
         size="md"
         @click="settingsStore.isMediaInfoOpen = true"
       >
@@ -25,7 +25,16 @@
       </IconButton>
 
       <IconButton
-        title="Playlist"
+        :title="t('topbar.transcript')"
+        size="md"
+        :active="transcriptStore.isPanelOpen"
+        @click="transcriptStore.togglePanel()"
+      >
+        <Captions class="w-[18px] h-[18px]" />
+      </IconButton>
+
+      <IconButton
+        :title="t('topbar.playlist')"
         size="md"
         :active="playlistStore.isDrawerOpen"
         @click="playlistStore.toggleDrawer()"
@@ -34,7 +43,7 @@
       </IconButton>
 
       <IconButton
-        title="Settings"
+        :title="t('topbar.settings')"
         size="md"
         @click="settingsStore.isSettingsOpen = true"
       >
@@ -46,15 +55,19 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Info, ListVideo, Settings } from '@lucide/vue';
+import { Info, ListVideo, Settings, Captions } from '@lucide/vue';
 import IconButton from '@/components/common/IconButton.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useI18n } from '@/composables/useI18n';
 
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
+const transcriptStore = useTranscriptStore();
+const { t } = useI18n();
 
 const currentTitle = computed(() => {
   if (playerStore.mediaInfo?.file_name) {

@@ -104,7 +104,14 @@ impl EventLoop {
 
                                     match prop_name.as_ref() {
                                         "pause" => {
-                                            if prop.format == mpv_format::MPV_FORMAT_FLAG {
+                                            // An idle core reports `pause`
+                                            // too; a state emitted from one
+                                            // would claim a file is playing
+                                            // when none is loaded.
+                                            if prop.format == mpv_format::MPV_FORMAT_FLAG
+                                                && core.get_property_bool("idle-active")
+                                                    != Some(true)
+                                            {
                                                 let is_paused = *(prop.data as *const c_int) != 0;
                                                 let state = if is_paused {
                                                     PlaybackState::Paused

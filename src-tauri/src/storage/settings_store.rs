@@ -37,12 +37,34 @@ pub struct SubtitleSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TranscriptSettings {
+    pub language: String,
+    /// Domain vocabulary handed to whisper as its initial prompt. Meetings
+    /// that mix Thai with English product terms transcribe far better when
+    /// the model has seen those terms spelled correctly first.
+    pub prompt: String,
+}
+
+impl Default for TranscriptSettings {
+    fn default() -> Self {
+        Self {
+            language: "auto".into(),
+            prompt: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub version: u32,
     pub general: GeneralSettings,
     pub video: VideoSettings,
     pub audio: AudioSettings,
     pub subtitle: SubtitleSettings,
+    /// Defaulted so a settings.json written before transcription existed
+    /// still loads instead of silently resetting every other preference.
+    #[serde(default)]
+    pub transcript: TranscriptSettings,
 }
 
 impl Default for AppSettings {
@@ -71,6 +93,7 @@ impl Default for AppSettings {
                 font_size: 48,
                 subtitle_delay_step: 0.1,
             },
+            transcript: TranscriptSettings::default(),
         }
     }
 }
@@ -130,6 +153,40 @@ mod tests {
         assert_eq!(settings.general.theme, "dark");
         assert!(settings.video.hardware_acceleration);
         assert_eq!(settings.audio.default_volume, 80.0);
+    }
+
+    #[test]
+    fn test_settings_load_without_transcript_section() {
+        // Settings written by an older build must keep their values.
+        let legacy = serde_json::json!({
+            "version": 1,
+            "general": {
+                "theme": "light",
+                "language": "th",
+                "remember_playback_position": false,
+                "auto_play_next": false
+            },
+            "video": { "hardware_acceleration": true, "default_aspect_ratio": "auto" },
+            "audio": {
+                "default_volume": 42.0,
+                "preferred_language": "tha",
+                "volume_step": 5.0,
+                "audio_delay_step": 0.1
+            },
+            "subtitle": {
+                "preferred_language": "tha",
+                "auto_load_external": true,
+                "font_size": 48,
+                "subtitle_delay_step": 0.1
+            }
+        });
+
+        let settings: AppSettings =
+            serde_json::from_value(legacy).expect("legacy settings should still parse");
+        assert_eq!(settings.general.theme, "light");
+        assert_eq!(settings.audio.default_volume, 42.0);
+        assert_eq!(settings.transcript.language, "auto");
+        assert!(settings.transcript.prompt.is_empty());
     }
 
     #[test]

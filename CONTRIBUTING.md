@@ -11,6 +11,10 @@ Thank you for your interest in contributing to Velo! We welcome contributions fr
 * **libmpv & pkg-config**:
   * **macOS**: `brew install mpv pkg-config`
   * **Windows**: Download prebuilt `libmpv-2.dll` and developer headers or install via Chocolatey/vcpkg.
+* **CMake**: required to build whisper.cpp, which is compiled into the binary
+  for offline transcription.
+  * **macOS**: `brew install cmake`
+  * **Windows**: install from [cmake.org](https://cmake.org/download/) or via Chocolatey.
 
 ---
 

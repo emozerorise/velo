@@ -3,7 +3,7 @@
     <!-- Fully opaque. A gradient or blurred panel would veil the video, which
          is a native window behind this one. -->
     <div
-      class="rounded-2xl bg-[#0e0e12] border border-white/10 px-4 pt-2 pb-3 flex flex-col gap-1.5"
+      class="rounded-2xl bg-chrome border border-fg/10 px-4 pt-2 pb-3 flex flex-col gap-1.5"
     >
       <TimelineBar />
 
@@ -11,7 +11,7 @@
         <!-- Playback -->
         <div class="flex items-center gap-1">
           <IconButton
-            title="Previous"
+            :title="t('controls.previous')"
             size="md"
             :disabled="!playlistStore.hasPrevious"
             @click="playlistStore.previous()"
@@ -21,7 +21,7 @@
 
           <button
             class="w-11 h-11 mx-1 rounded-full bg-blue-500 hover:bg-blue-400 active:scale-95 text-white flex items-center justify-center transition-all no-drag"
-            :title="isPlaying ? 'Pause (Space)' : 'Play (Space)'"
+            :title="isPlaying ? t('controls.pause') : t('controls.play')"
             @click="playerStore.togglePlay()"
           >
             <Pause v-if="isPlaying" class="w-[18px] h-[18px] fill-current" />
@@ -29,7 +29,7 @@
           </button>
 
           <IconButton
-            title="Next"
+            :title="t('controls.next')"
             size="md"
             :disabled="!playlistStore.hasNext"
             @click="playlistStore.next()"
@@ -40,7 +40,7 @@
           <!-- Volume -->
           <div class="flex items-center gap-2 ml-2">
             <IconButton
-              :title="playerStore.muted ? 'Unmute (M)' : 'Mute (M)'"
+              :title="playerStore.muted ? t('controls.unmute') : t('controls.mute')"
               size="md"
               @click="playerStore.toggleMute()"
             >
@@ -63,9 +63,9 @@
 
           <!-- Time -->
           <div class="ml-3 flex items-baseline gap-1.5 text-[13px] font-mono tabular-nums">
-            <span class="text-white">{{ formatTime(displayTime) }}</span>
-            <span class="text-white/30">/</span>
-            <span class="text-white/45">{{ formatTime(playerStore.duration) }}</span>
+            <span class="text-fg">{{ formatTime(displayTime) }}</span>
+            <span class="text-fg/30">/</span>
+            <span class="text-fg/45">{{ formatTime(playerStore.duration) }}</span>
           </div>
         </div>
 
@@ -76,7 +76,7 @@
           <SpeedSelector />
 
           <IconButton
-            :title="playerStore.isFullscreen ? 'Exit Fullscreen (F)' : 'Fullscreen (F)'"
+            :title="playerStore.isFullscreen ? t('controls.exitFullscreen') : t('controls.fullscreen')"
             size="md"
             @click="toggleFullscreen"
           >
@@ -110,11 +110,13 @@ import SpeedSelector from '@/components/player/SpeedSelector.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
+import { useI18n } from '@/composables/useI18n';
 import { formatTime } from '@/utils/formatters';
 
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const { toggleFullscreen } = useKeyboardShortcuts();
+const { t } = useI18n();
 
 const isPlaying = computed(() => playerStore.state === 'playing');
 const isSilent = computed(() => playerStore.muted || playerStore.volume === 0);
@@ -122,8 +124,12 @@ const volumeValue = computed(() => (playerStore.muted ? 0 : playerStore.volume))
 
 const displayTime = computed(() => playerStore.seekPreview ?? playerStore.currentTime);
 
+// Painted from the theme token rather than a literal white, so the filled
+// part of the track stays visible on a light background.
 const volumeTrackStyle = computed(() => ({
-  background: `linear-gradient(to right, #fff ${volumeValue.value}%, rgba(255,255,255,0.25) ${volumeValue.value}%)`,
+  background:
+    `linear-gradient(to right, rgb(var(--velo-fg)) ${volumeValue.value}%, ` +
+    `rgb(var(--velo-fg) / 0.25) ${volumeValue.value}%)`,
 }));
 
 function onVolumeInput(e: Event) {

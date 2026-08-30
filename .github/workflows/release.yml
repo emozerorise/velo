@@ -106,7 +106,7 @@ jobs:
           workspaces: src-tauri
 
       - name: Install build dependencies
-        run: brew install mpv pkg-config dylibbundler
+        run: brew install mpv pkg-config cmake dylibbundler
 
       - run: npm ci
 

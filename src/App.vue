@@ -33,9 +33,9 @@
           <Play class="w-6 h-6 fill-current text-white translate-x-[1px]" />
         </div>
 
-        <h1 class="text-[22px] font-semibold tracking-tight text-white">Velo</h1>
-        <p class="mt-1.5 text-[13px] leading-relaxed text-white/45">
-          Ultra-fast, hardware-accelerated video playback
+        <h1 class="text-[22px] font-semibold tracking-tight text-fg">Velo</h1>
+        <p class="mt-1.5 text-[13px] leading-relaxed text-fg/45">
+          {{ t('app.tagline') }}
         </p>
 
         <div class="mt-7 w-full flex flex-col gap-2">
@@ -44,30 +44,30 @@
             @click="openFileDialog"
           >
             <FolderOpen class="w-4 h-4" />
-            <span>Open video</span>
+            <span>{{ t('app.openVideo') }}</span>
           </button>
 
           <button
-            class="w-full h-10 px-4 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] active:scale-[0.98] text-white/85 text-[13px] font-medium transition-all flex items-center justify-center gap-2"
+            class="w-full h-10 px-4 rounded-xl bg-fg/[0.07] hover:bg-fg/[0.12] active:scale-[0.98] text-fg/85 text-[13px] font-medium transition-all flex items-center justify-center gap-2"
             @click="openDirectoryDialog"
           >
             <FolderArchive class="w-4 h-4" />
-            <span>Open folder</span>
+            <span>{{ t('app.openFolder') }}</span>
           </button>
         </div>
 
-        <div class="mt-7 flex items-center gap-3 text-[11px] text-white/30">
+        <div class="mt-7 flex items-center gap-3 text-[11px] text-fg/30">
           <span class="flex items-center gap-1.5">
-            <kbd class="px-1.5 py-0.5 rounded border border-white/15 font-mono">Space</kbd>
-            Play
+            <kbd class="px-1.5 py-0.5 rounded border border-fg/15 font-mono">Space</kbd>
+            {{ t('app.hint.play') }}
           </span>
           <span class="flex items-center gap-1.5">
-            <kbd class="px-1.5 py-0.5 rounded border border-white/15 font-mono">⌘O</kbd>
-            Open
+            <kbd class="px-1.5 py-0.5 rounded border border-fg/15 font-mono">⌘O</kbd>
+            {{ t('app.hint.open') }}
           </span>
           <span class="flex items-center gap-1.5">
-            <kbd class="px-1.5 py-0.5 rounded border border-white/15 font-mono">F</kbd>
-            Full
+            <kbd class="px-1.5 py-0.5 rounded border border-fg/15 font-mono">F</kbd>
+            {{ t('app.hint.full') }}
           </span>
         </div>
       </div>
@@ -86,6 +86,9 @@
     <!-- Side Drawer: Playlist -->
     <PlaylistDrawer />
 
+    <!-- Side Drawer: Transcript -->
+    <TranscriptPanel />
+
     <!-- Modals -->
     <SettingsModal />
     <MediaInfoModal />
@@ -98,22 +101,27 @@ import { Play, FolderOpen, FolderArchive } from '@lucide/vue';
 import TopBar from '@/components/player/TopBar.vue';
 import ControlOverlay from '@/components/player/ControlOverlay.vue';
 import PlaylistDrawer from '@/components/playlist/PlaylistDrawer.vue';
+import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
 import SettingsModal from '@/components/settings/SettingsModal.vue';
 import MediaInfoModal from '@/components/player/MediaInfoModal.vue';
 import ToastStack from '@/components/common/ToastStack.vue';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
+import { useI18n } from '@/composables/useI18n';
 
 const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
+const transcriptStore = useTranscriptStore();
 
 const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
 const { areControlsVisible } = useAutoHideControls();
+const { t } = useI18n();
 usePlaybackHistory();
 
 let clickTimeout: number | null = null;
@@ -146,14 +154,25 @@ watch(
   { immediate: true }
 );
 
+// A transcript belongs to one file, so swapping files swaps the panel's
+// contents -- cached ones load instantly, the rest show the generate prompt.
+watch(
+  () => playerStore.mediaInfo?.path,
+  () => {
+    void transcriptStore.loadForCurrentMedia();
+  }
+);
+
 onMounted(async () => {
   await playerStore.initListeners();
+  await transcriptStore.initListeners();
   await settingsStore.loadSettings();
 });
 
 onUnmounted(() => {
   document.documentElement.classList.remove('video-surface-active');
   playerStore.cleanupListeners();
+  transcriptStore.cleanupListeners();
 });
 </script>
 

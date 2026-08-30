@@ -1,21 +1,38 @@
+/* Theme tokens.
+ *
+ * Values are bare `R G B` channels rather than colours, so Tailwind's opacity
+ * modifiers keep working: `text-fg/40` resolves to `rgb(var(--velo-fg) / 0.4)`.
+ * Dark is the default and light overrides it, matching the class the settings
+ * store puts on <html>.
+ *
+ * `fg` doubles as the tint base for borders, hovers and muted text, which is
+ * why flipping it is most of what a theme switch does: white-on-dark becomes
+ * slate-on-light at the same alphas.
+ */
 :root {
-  --bg-primary: #0a0a0e;
-  --bg-secondary: #14141c;
-  --bg-overlay: rgba(18, 18, 24, 0.85);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --accent-color: #3b82f6;
-  --accent-hover: #2563eb;
+  --velo-bg: 10 10 15;
+  --velo-chrome: 14 14 18;
+  --velo-surface: 21 21 27;
+  /* Recessed areas inside a surface, always used at a low alpha. */
+  --velo-inset: 0 0 0;
+  --velo-fg: 255 255 255;
+  --velo-accent: 96 165 250;
+  --velo-success: 52 211 153;
+  --velo-warning: 251 191 36;
+  --velo-danger: 248 113 113;
 }
 
 .light {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-overlay: rgba(255, 255, 255, 0.85);
-  --border-subtle: rgba(0, 0, 0, 0.08);
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --accent-color: #2563eb;
-  --accent-hover: #1d4ed8;
+  --velo-bg: 241 243 246;
+  --velo-chrome: 255 255 255;
+  --velo-surface: 255 255 255;
+  /* Light grey rather than black: the same alphas have to read as "recessed"
+     against a white surface. */
+  --velo-inset: 148 163 184;
+  --velo-fg: 15 23 42;
+  /* Darker accents, because the 400-weights are too faint on white. */
+  --velo-accent: 37 99 235;
+  --velo-success: 5 150 105;
+  --velo-warning: 217 119 6;
+  --velo-danger: 220 38 38;
 }
