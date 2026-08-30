@@ -43,6 +43,9 @@ pub struct EngineStatus {
     pub model_name: String,
     pub model_bytes: u64,
     pub downloading: bool,
+    /// True when the model is the app's own downloaded copy, and so is the
+    /// app's to delete. False for a `VELO_WHISPER_MODEL` override.
+    pub model_managed: bool,
 }
 
 /// Emitted on `velo://transcript-model-progress` while the model downloads.

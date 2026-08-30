@@ -23,6 +23,12 @@ pub async fn transcript_cancel_download(state: State<'_, TranscriptState>) -> Re
     Ok(())
 }
 
+/// Returns the bytes freed, so the UI can report what it recovered.
+#[tauri::command]
+pub async fn transcript_remove_model(state: State<'_, TranscriptState>) -> Result<u64> {
+    state.remove_model()
+}
+
 #[tauri::command]
 pub async fn transcript_get(
     state: State<'_, TranscriptState>,

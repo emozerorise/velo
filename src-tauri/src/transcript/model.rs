@@ -43,6 +43,38 @@ pub fn resolve(app_data_dir: &Path) -> Option<PathBuf> {
     downloaded.is_file().then_some(downloaded)
 }
 
+/// The copy the app downloaded and therefore owns.
+///
+/// An override from `VELO_WHISPER_MODEL` points at a file somewhere on the
+/// user's disk that the app did not put there, so it is deliberately excluded:
+/// removing the model must never delete someone else's file.
+pub fn managed(app_data_dir: &Path) -> Option<PathBuf> {
+    let path = model_dir(app_data_dir).join(MODEL_FILE);
+    path.is_file().then_some(path)
+}
+
+/// Delete the downloaded model, along with any half-finished download.
+///
+/// Returns the number of bytes freed, so the UI can say what it recovered.
+pub fn remove(app_data_dir: &Path) -> Result<u64> {
+    let dir = model_dir(app_data_dir);
+    let mut freed = 0;
+
+    for name in [MODEL_FILE.to_string(), format!("{}.part", MODEL_FILE)] {
+        let path = dir.join(name);
+        if !path.is_file() {
+            continue;
+        }
+
+        freed += std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        std::fs::remove_file(&path)
+            .map_err(|e| VeloError::Storage(format!("Could not remove the model: {}", e)))?;
+    }
+
+    info!("removed whisper model, freed {} bytes", freed);
+    Ok(freed)
+}
+
 /// Stream the model to disk, reporting `(received, total)` as it goes.
 ///
 /// Downloads into a `.part` file and renames only on success, so an
@@ -112,4 +144,59 @@ pub async fn download(
 
     info!("whisper model ready at {}", final_path.display());
     Ok(final_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_app_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("velo-model-test-{}", name));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(model_dir(&dir)).expect("could not create test dir");
+        dir
+    }
+
+    #[test]
+    fn remove_deletes_the_model_and_any_partial_download() {
+        let dir = temp_app_dir("remove");
+        std::fs::write(model_dir(&dir).join(MODEL_FILE), b"0123456789").unwrap();
+        std::fs::write(
+            model_dir(&dir).join(format!("{}.part", MODEL_FILE)),
+            b"01234",
+        )
+        .unwrap();
+
+        let freed = remove(&dir).expect("remove failed");
+        assert_eq!(freed, 15, "should report the bytes it actually freed");
+        assert!(managed(&dir).is_none(), "the model is still there");
+        assert!(
+            std::fs::read_dir(model_dir(&dir)).unwrap().next().is_none(),
+            "a leftover file was not cleaned up"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn remove_is_harmless_when_there_is_nothing_to_remove() {
+        let dir = temp_app_dir("empty");
+        assert_eq!(remove(&dir).expect("remove failed"), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn managed_ignores_files_outside_the_app_directory() {
+        // `resolve` honours VELO_WHISPER_MODEL, but `managed` must not: it
+        // decides what the app is allowed to delete.
+        let dir = temp_app_dir("managed");
+        let elsewhere = std::env::temp_dir().join("velo-someone-elses-model.bin");
+        std::fs::write(&elsewhere, b"not ours").unwrap();
+
+        assert!(managed(&dir).is_none());
+        assert!(elsewhere.is_file(), "an unrelated file must be left alone");
+
+        let _ = std::fs::remove_file(&elsewhere);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

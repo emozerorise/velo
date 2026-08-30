@@ -35,6 +35,8 @@ export interface TranscriptEngineStatus {
   model_name: string;
   model_bytes: number;
   downloading: boolean;
+  /** True when the model is the app's own copy, and so is the app's to delete. */
+  model_managed: boolean;
 }
 
 export interface ModelProgress {

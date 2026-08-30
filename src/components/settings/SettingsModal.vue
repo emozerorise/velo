@@ -154,6 +154,54 @@
           />
         </div>
       </div>
+
+      <!-- Tab Content: Transcription -->
+      <div v-if="activeTab === 'transcript'" class="flex flex-col gap-4">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <span class="font-medium text-fg/90">{{ t('settings.model') }}</span>
+            <span class="block text-xs text-fg/50">{{ modelStatus }}</span>
+            <span v-if="isExternalModel" class="block text-xs text-fg/40 mt-1">
+              {{ t('settings.modelExternalDesc') }}
+            </span>
+          </div>
+
+          <!-- Two-step rather than a dialog: half a gigabyte is worth a
+               confirmation, but not a modal on top of a modal. -->
+          <div v-if="canRemoveModel" class="shrink-0">
+            <button
+              v-if="!confirmingRemove"
+              class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
+              @click="confirmingRemove = true"
+            >
+              {{ t('settings.modelRemove') }}
+            </button>
+
+            <div v-else class="flex items-center gap-1.5">
+              <button
+                class="px-3 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-danger text-xs font-medium transition-colors"
+                @click="removeModel"
+              >
+                {{ t('settings.modelRemoveYes') }}
+              </button>
+              <button
+                class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
+                @click="confirmingRemove = false"
+              >
+                {{ t('settings.modelRemoveNo') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="canRemoveModel" class="text-xs text-fg/40 leading-relaxed">
+          {{ t('settings.modelRemoveDesc') }}
+        </p>
+
+        <p v-if="transcriptStore.modelError" class="text-xs text-danger/90 break-words">
+          {{ transcriptStore.modelError }}
+        </p>
+      </div>
     </div>
   </BaseModal>
 </template>
@@ -164,16 +212,46 @@ import BaseModal from '@/components/common/BaseModal.vue';
 import { useSettingsStore } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
+import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useToast } from '@/composables/useToast';
+import { formatBytes } from '@/utils/formatters';
 
 const settingsStore = useSettingsStore();
+const transcriptStore = useTranscriptStore();
 const { t } = useI18n();
+const { showToast } = useToast();
 const activeTab = ref('general');
+const confirmingRemove = ref(false);
+
+const isExternalModel = computed(
+  () => transcriptStore.engine?.ready === true && !transcriptStore.engine.model_managed
+);
+
+// Only the app's own downloaded copy may be deleted; an override points at a
+// file the user owns.
+const canRemoveModel = computed(() => transcriptStore.engine?.model_managed === true);
+
+const modelStatus = computed(() => {
+  const engine = transcriptStore.engine;
+  if (!engine || !engine.ready) return t('settings.modelAbsent');
+  if (!engine.model_managed) return t('settings.modelExternal');
+  return t('settings.modelDownloaded', { size: formatBytes(engine.model_bytes) });
+});
+
+async function removeModel() {
+  confirmingRemove.value = false;
+  const freed = await transcriptStore.removeModel();
+  if (freed > 0) {
+    showToast(t('settings.modelRemoved', { size: formatBytes(freed) }));
+  }
+}
 
 // Computed so the labels follow a language change made in this very modal.
 const tabs = computed(() => [
   { id: 'general', name: t('settings.tab.general') },
   { id: 'video', name: t('settings.tab.video') },
   { id: 'subtitles', name: t('settings.tab.subtitles') },
+  { id: 'transcript', name: t('settings.tab.transcript') },
 ]);
 
 const localSettings = reactive<AppSettings>(JSON.parse(JSON.stringify(settingsStore.settings)));

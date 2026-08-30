@@ -127,6 +127,7 @@ pub fn run() {
             commands::transcript_engine_status,
             commands::transcript_download_model,
             commands::transcript_cancel_download,
+            commands::transcript_remove_model,
             commands::transcript_get,
             commands::transcript_generate,
             commands::transcript_cancel,

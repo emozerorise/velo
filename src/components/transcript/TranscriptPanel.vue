@@ -22,18 +22,9 @@
         </button>
       </div>
 
-      <!-- No media -->
-      <div
-        v-if="!hasMedia"
-        class="flex-1 flex flex-col items-center justify-center text-center p-8 gap-2 text-fg/40"
-      >
-        <FileAudio class="w-8 h-8 opacity-40" />
-        <p class="text-xs">{{ t('transcript.openFirst') }}</p>
-      </div>
-
       <!-- Model downloading -->
       <div
-        v-else-if="store.isDownloading"
+        v-if="store.isDownloading"
         class="flex-1 flex flex-col items-center justify-center p-8 gap-4"
       >
         <Loader2 class="w-6 h-6 text-accent animate-spin" />
@@ -81,6 +72,15 @@
         <p v-if="store.modelError" class="text-[11px] text-danger/90 break-words">
           {{ store.modelError }}
         </p>
+      </div>
+
+      <!-- No media -->
+      <div
+        v-else-if="!hasMedia"
+        class="flex-1 flex flex-col items-center justify-center text-center p-8 gap-2 text-fg/40"
+      >
+        <FileAudio class="w-8 h-8 opacity-40" />
+        <p class="text-xs">{{ t('transcript.openFirst') }}</p>
       </div>
 
       <!-- Running -->

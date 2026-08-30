@@ -154,6 +154,19 @@ export const useTranscriptStore = defineStore('transcript', () => {
     }
   }
 
+  /// Resolves with the bytes freed, so the caller can report the result.
+  async function removeModel(): Promise<number> {
+    modelError.value = null;
+    try {
+      const freed = await transcriptService.removeModel();
+      await refreshEngine();
+      return freed;
+    } catch (e) {
+      modelError.value = String(e);
+      return 0;
+    }
+  }
+
   async function cancelDownload() {
     try {
       await transcriptService.cancelDownload();
@@ -266,6 +279,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
     refreshEngine,
     downloadModel,
     cancelDownload,
+    removeModel,
     loadForCurrentMedia,
     generate,
     cancel,

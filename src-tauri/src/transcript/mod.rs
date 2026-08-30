@@ -65,7 +65,25 @@ impl TranscriptState {
             model_name: model::MODEL_FILE.to_string(),
             model_bytes: model::MODEL_BYTES,
             downloading: self.download.lock().is_some(),
+            model_managed: model::managed(&self.app_data_dir).is_some(),
         }
+    }
+
+    /// Delete the downloaded model. Refuses while it is in use, since the
+    /// running job would keep working off a file the user thinks is gone.
+    pub fn remove_model(&self) -> Result<u64> {
+        if self.active.lock().is_some() {
+            return Err(VeloError::InvalidParameter(
+                "A transcription is still running".into(),
+            ));
+        }
+        if self.download.lock().is_some() {
+            return Err(VeloError::InvalidParameter(
+                "The model is still downloading".into(),
+            ));
+        }
+
+        model::remove(&self.app_data_dir)
     }
 
     pub fn cancel(&self) {

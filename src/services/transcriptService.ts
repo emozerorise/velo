@@ -14,6 +14,11 @@ export const transcriptService = {
     return invoke('transcript_cancel_download');
   },
 
+  /** Resolves with the number of bytes freed. */
+  async removeModel(): Promise<number> {
+    return invoke('transcript_remove_model');
+  },
+
   async get(path: string): Promise<Transcript | null> {
     return invoke('transcript_get', { path });
   },
