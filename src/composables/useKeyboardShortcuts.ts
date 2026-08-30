@@ -3,12 +3,16 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
+import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useToast } from './useToast';
+import { useI18n } from './useI18n';
 
 export function useKeyboardShortcuts() {
   const player = usePlayerStore();
   const playlist = usePlaylistStore();
+  const transcript = useTranscriptStore();
   const { showToast } = useToast();
+  const { t } = useI18n();
 
   async function openFileDialog() {
     try {
@@ -16,7 +20,7 @@ export function useKeyboardShortcuts() {
         multiple: true,
         filters: [
           {
-            name: 'Video Files',
+            name: t('dialog.videoFiles'),
             extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'flv', 'm4v', 'ts', 'wmv'],
           },
         ],
@@ -88,10 +92,10 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         if (e.shiftKey) {
           player.seek(-30, true);
-          showToast('Seek -30s');
+          showToast(t('toast.seekBackward', { seconds: 30 }));
         } else {
           player.seek(-5, true);
-          showToast('Seek -5s');
+          showToast(t('toast.seekBackward', { seconds: 5 }));
         }
         break;
 
@@ -99,29 +103,34 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         if (e.shiftKey) {
           player.seek(30, true);
-          showToast('Seek +30s');
+          showToast(t('toast.seekForward', { seconds: 30 }));
         } else {
           player.seek(5, true);
-          showToast('Seek +5s');
+          showToast(t('toast.seekForward', { seconds: 5 }));
         }
         break;
 
       case 'ArrowUp':
         e.preventDefault();
         player.setVolume(Math.min(100, player.volume + 5));
-        showToast(`Volume: ${Math.round(player.volume)}%`);
+        showToast(t('toast.volume', { percent: Math.round(player.volume) }));
         break;
 
       case 'ArrowDown':
         e.preventDefault();
         player.setVolume(Math.max(0, player.volume - 5));
-        showToast(`Volume: ${Math.round(player.volume)}%`);
+        showToast(t('toast.volume', { percent: Math.round(player.volume) }));
         break;
 
       case 'KeyM':
         e.preventDefault();
         player.toggleMute();
-        showToast(player.muted ? 'Muted' : 'Unmuted');
+        showToast(player.muted ? t('toast.muted') : t('toast.unmuted'));
+        break;
+
+      case 'KeyT':
+        e.preventDefault();
+        transcript.togglePanel();
         break;
 
       case 'KeyF':
@@ -133,7 +142,7 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         const newSpeed = Math.max(0.25, Math.round((player.speed - 0.25) * 100) / 100);
         player.setSpeed(newSpeed);
-        showToast(`Speed: ${newSpeed}x`);
+        showToast(t('toast.speed', { speed: newSpeed }));
         break;
       }
 
@@ -141,7 +150,7 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         const newSpeed = Math.min(3.0, Math.round((player.speed + 0.25) * 100) / 100);
         player.setSpeed(newSpeed);
-        showToast(`Speed: ${newSpeed}x`);
+        showToast(t('toast.speed', { speed: newSpeed }));
         break;
       }
     }
