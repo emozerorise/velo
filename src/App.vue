@@ -109,6 +109,7 @@ import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useSummaryStore } from '@/stores/summaryStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
@@ -118,6 +119,7 @@ const playerStore = usePlayerStore();
 const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
+const summaryStore = useSummaryStore();
 
 const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
 const { areControlsVisible } = useAutoHideControls();
@@ -160,12 +162,14 @@ watch(
   () => playerStore.mediaInfo?.path,
   () => {
     void transcriptStore.loadForCurrentMedia();
+    void summaryStore.loadForCurrentMedia();
   }
 );
 
 onMounted(async () => {
   await playerStore.initListeners();
   await transcriptStore.initListeners();
+  await summaryStore.initListeners();
   await settingsStore.loadSettings();
 });
 
@@ -173,6 +177,7 @@ onUnmounted(() => {
   document.documentElement.classList.remove('video-surface-active');
   playerStore.cleanupListeners();
   transcriptStore.cleanupListeners();
+  summaryStore.cleanupListeners();
 });
 </script>
 

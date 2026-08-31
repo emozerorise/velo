@@ -39,6 +39,7 @@
 28. [Technical Risks & Mitigations](#28-technical-risks--mitigations)
 29. [Open Questions](#29-open-questions)
 30. [Definition of Done (DoD) by Phase](#30-definition-of-done-dod-by-phase)
+31. [Meeting Summarization (Phase 2)](#31-meeting-summarization-phase-2)
 
 ---
 
@@ -911,3 +912,370 @@ velo/
 * **Phase 8 DoD**: Hardware acceleration verified with 4K 60fps media on Apple Silicon and Windows 10/11; display sleep is inhibited during playback.
 * **Phase 9 DoD**: Generated `.dmg` and `.msi` installers install and launch cleanly on fresh test machines without external dependencies.
 * **Phase 10 DoD**: All documentation, CI/CD workflows, issue templates, and license files are complete and validated.
+
+---
+
+## 31. Meeting Summarization (Phase 2)
+
+> **Status**: Proposed — design only, nothing implemented.
+> **Context**: v0.3.0 shipped offline transcription (`src-tauri/src/transcript/`,
+> `src/components/transcript/TranscriptPanel.vue`). A transcript is produced
+> entirely on-device by whisper.cpp and cached per media path. Summarization is
+> the second half of that feature: turning a two-hour transcript into something
+> a person actually reads.
+
+### 31.1 Constraints That Shape Everything Below
+
+1. **One summarizer, two transports.** The first target is Ollama running
+   `qwen3:8b` on the user's own machine; a cloud API key must work later
+   without a rewrite. The pipeline is therefore written against a small
+   `ChatTransport` trait -- messages in, text deltas out -- with an Ollama
+   native implementation and an OpenAI-compatible one behind it. Measurement
+   (ADR-31.1) showed the two dialects are not interchangeable on the local
+   path, so the seam is real rather than defensive.
+2. **The default must not break the promise already on screen.** The
+   transcript panel currently states that the recording is never uploaded.
+   The default `base_url` is therefore loopback, and a non-loopback host must
+   be visibly labelled in the UI before the first request leaves.
+3. **All HTTP lives in Rust.** The webview never issues a request, so no CSP
+   or `capabilities/default.json` change is needed, and the API key is never
+   present in webview memory.
+
+### 31.2 Provider Model
+
+A provider is fully described by four fields, three of which are plain
+settings and one of which is a secret:
+
+| Field | Example | Stored in |
+| :--- | :--- | :--- |
+| `provider` | `ollama` \| `openai` | `settings.json` |
+| `base_url` | `http://localhost:11434` | `settings.json` |
+| `model` | `qwen3:8b` | `settings.json` |
+| `context_tokens` | `4096` | `settings.json` |
+| API key | *(none for Ollama)* | OS keychain |
+
+The `provider` field selects the transport explicitly. It is never inferred
+by sniffing the URL: a local LM Studio server speaks the OpenAI dialect on
+loopback, and an Ollama instance can sit behind a remote hostname, so host and
+dialect are independent facts.
+
+**ADR-31.1 — Talk to Ollama over its native `/api/chat`; keep
+`/v1/chat/completions` for everything else.**
+
+An earlier draft of this section chose the OpenAI-compatible route for both,
+to keep a single dialect. Measurement on Ollama 0.33.2 with `qwen3:8b`
+(2026-08-31, M-series, 100% GPU) overturned that:
+
+| Route | Thinking | Completion tokens for a one-line Thai summary | Wall time |
+| :--- | :--- | ---: | ---: |
+| `/v1/chat/completions` | cannot be disabled | 409 | ~20 s |
+| `/api/chat` + `"think": false` | off | 22 | 3.5 s |
+
+qwen3 is a reasoning model, and on the `/v1` route its reasoning cannot be
+turned off: `chat_template_kwargs: {enable_thinking: false}`, a `/no_think`
+line in the system prompt, and a top-level `"think": false` were each tried
+and each ignored. Reasoning then dominates generation — roughly 95% of the
+tokens in the measurement above — and map-reduce multiplies that cost by the
+chunk count. The native route also accepts `options.num_ctx`, which the
+OpenAI route has no field for.
+
+An 18x reduction in generated tokens on the primary path is worth a second
+transport implementation. The trait keeps the pipeline itself dialect-free.
+
+### 31.3 Credential Storage
+
+The key is held by the OS keychain (`keyring` crate → macOS Keychain,
+Windows Credential Manager) under service `com.velo.summary`, with the host
+of `base_url` as the account. Keying by host means switching between a local
+and a cloud provider does not require re-entering anything.
+
+The IPC surface is **write-only**: the frontend can set the key, clear it, and
+ask whether one exists. It can never read it back. The settings field renders
+as a saved-state chip plus a clear button, not as a populated password input.
+`settings.json` never contains the key, so the file stays safe to attach to a
+bug report.
+
+### 31.4 Pipeline
+
+A one-hour Thai meeting is tens of thousands of characters — far past any
+context this model will be given. The job is therefore map-reduce, and it
+reuses the structural pattern already proven in `transcript/mod.rs`: a single
+active job guarded by a `Mutex<Option<ActiveJob>>`, a worker thread, an
+`AtomicBool` cancel flag, and `velo://` events for everything else.
+
+```
+segments ──► chunk() ──► [map]  summarize each chunk ──► [reduce] merge ──► SummaryStore
+                          n requests, i/N progress       1 request, streamed
+```
+
+**Chunking.** Splits only on segment boundaries, never mid-sentence, with a
+one- to two-segment overlap so a topic spanning a boundary is not lost.
+
+The budget is counted in **bytes**, not characters. A Thai character is three
+bytes, so a budget written in characters and compared against `str::len` is
+three times tighter than intended — which is exactly the bug that split a
+40-minute meeting into two passes it did not need. Measured on a real Thai
+transcript: 32 KB of `[mm:ss] text` lines came to roughly 8,600 tokens, about
+3.8 bytes per token. The chunker assumes a conservative 3 (English sits nearer
+4) and hands the rest of the window to the instructions and the answer:
+
+```
+budget_bytes = (context_tokens - 4096) * 3
+```
+
+At the default 32768 that is 86 KB per chunk, and both 34- and 40-minute Thai
+meetings measured here fit in a single pass. No tokenizer is linked.
+
+Chunk lines are fed as `[mm:ss] text` so the model has timestamps available to
+cite.
+
+**Two properties of qwen3 the design must absorb:**
+
+* **Context is roomier than assumed.** `qwen3:8b` declares 40960 tokens, and
+  Ollama 0.33.2 was measured serving it at 32768 (`ollama ps`, CONTEXT
+  column). `context_tokens` defaults to 32768 and, on the native transport, is
+  sent as `options.num_ctx` rather than merely informing our arithmetic. A
+  40-minute meeting therefore fits in one pass — fewer boundaries, fewer
+  requests, better summaries. The value is a setting because a smaller window
+  trades quality for VRAM.
+* **The answer must be capped, or it does not end.** qwen3:8b ships with
+  `repeat_penalty 1` — no penalty at all — and Ollama's default output length
+  is unbounded. Given a 34-minute Thai transcript it restated the same points
+  for **9,000 tokens and 15 minutes**, until the client's own timeout ended
+  it. Every request therefore carries `num_predict` (2048 for a summary, 1024
+  for chunk notes) and `repeat_penalty 1.1`. The same transcript then finished
+  in 78 seconds. The OpenAI transport sends the equivalent `max_tokens`.
+* **Reasoning is disabled, not stripped.** The native transport sends
+  `"think": false`, so no reasoning is generated at all. Nothing needs
+  parsing on this path: Ollama returns reasoning in a separate `thinking`
+  field (`reasoning` on the `/v1` route, in both whole responses and stream
+  deltas), never inline in `content`. The OpenAI-compatible transport keeps a
+  defensive streaming-safe `<think>…</think>` stripper, since other servers of
+  that dialect do inline it, and shows a "thinking" state while inside a
+  block.
+
+### 31.5 Prompt & Output Contract
+
+The system prompt fixes the output language and requests Markdown under five
+headings: overview, topics discussed, decisions, action items (owner and due
+date where stated), and open questions. Every bullet is asked to carry a
+`[mm:ss]` citation.
+
+**`summary.language` defaults to `auto`, and `auto` is resolved before any
+prompt is built** — against the language whisper reported for that recording,
+which the transcript already carries. Resolving it late does not work: the
+headings shown to the model as a template are language-specific, so an
+unresolved `auto` shows English headings while asking for the meeting's
+language, and the model follows the headings. A Thai meeting summarised in
+English until this was fixed.
+
+**The citation rule is repeated after the excerpt, not only before it.** A
+transcript is tens of thousands of tokens, so by the time the model starts
+writing, the system prompt is a long way behind — and the first rule it drops
+is the one that makes the summary navigable. Measured on the same 34-minute
+meeting: with the rule only in the system prompt the summary came back with no
+timestamps at all; with it repeated after the transcript, every bullet carried
+one.
+
+The transcript vocabulary field that already exists for whisper is appended to
+the prompt: the same domain terms that fix transcription also stop the
+summarizer from mangling product names.
+
+**ADR-31.2 — Markdown out, not JSON.** An 8B model producing long Thai JSON
+fails often, and a parse failure would present as an empty panel. The raw
+Markdown is stored verbatim, and `[mm:ss]` citations are linkified by regex at
+render time. A model that ignores the citation instruction degrades to plain
+readable text instead of an error.
+
+### 31.6 Data Model & Persistence
+
+```rust
+// storage/settings_store.rs — #[serde(default)], as TranscriptSettings does,
+// so a settings.json written by 0.3.0 still loads.
+pub struct SummarySettings {
+    pub provider: String,      // "ollama" | "openai" -- selects the transport
+    pub base_url: String,      // "http://localhost:11434"
+    pub model: String,         // "qwen3:8b"
+    pub language: String,      // "th" | "en" | "auto"
+    pub instructions: String,  // user-supplied extra steering
+    pub context_tokens: u32,   // 32768; sent as num_ctx on the native transport
+}
+
+// summary/types.rs
+pub struct Summary {
+    pub path: String,
+    pub model: String,
+    pub language: String,
+    pub markdown: String,
+    pub created_at: u64,
+    pub source_segments: usize, // detects a summary older than its transcript
+}
+```
+
+Summaries are stored in `summaries/` as one JSON file per media path, using a
+`file_for()` helper identical to `TranscriptStore`'s (readable stem plus a hash
+of the full path). Keeping them out of the transcript file means a summary can
+be regenerated or deleted without rewriting an expensive transcript, and a
+`source_segments` mismatch is what tells the UI a summary is stale.
+
+### 31.7 IPC Commands & Events
+
+```
+summary_status()          -> { configured, has_key, base_url, model }
+summary_probe()           -> Vec<String>   // /api/tags or /v1/models
+summary_set_api_key(key)  -> ()
+summary_clear_api_key()   -> ()
+summary_get(path)         -> Option<Summary>
+summary_generate(path)    -> ()            // async; reports via events
+summary_cancel()          -> ()
+summary_delete(path)      -> ()
+```
+
+```
+velo://summary-progress   { path, stage: "mapping" | "reducing", done, total }
+velo://summary-delta      { path, text }    // streamed reduce output
+velo://summary-ready      Summary
+velo://summary-error      { path, message }
+```
+
+`summary_probe()` returns the models the server actually has, so the settings
+tab offers a picker instead of a free-text field that fails an hour later.
+
+### 31.8 Chained Run — "Transcribe & Summarize"
+
+The common case is a file with no transcript and a user who only wants the
+summary. Making them run two jobs by hand, the second an hour after the first,
+is the wrong shape.
+
+**A single button runs the whole chain, and the orchestration lives in the
+frontend store, not in Rust.** `transcriptStore` and a new `summaryStore` stay
+independent modules on the Rust side; the chain is a small state machine in
+`summaryStore` driven by events the backend already emits. The listeners are
+registered in `App.vue` at startup — not in the panel component — so a chained
+run survives the panel being closed.
+
+```
+        ┌── 1/4 preflight ──┐   provider unreachable → stop before transcribing
+        │                   ▼
+click ──┤   2/4 extracting ──► 3/4 transcribing ──► 4/4 summarizing ──► done
+        │        (existing transcript pipeline)      (map ─► reduce)
+        └── transcript already cached → jump straight to 4/4
+```
+
+**Preflight is the point of the design.** Before a single second of audio is
+processed, the chain calls `summary_probe()` with a short timeout. If Ollama is
+not running or the model is not pulled, the run stops immediately with an
+actionable message and a **Transcribe only** button as the fallback. Without
+this, a user discovers a stopped server after an hour of transcription.
+
+**Progress is reported as discrete steps, never as one blended percentage.**
+The stages differ in duration by orders of magnitude, so a single bar would
+lie. The panel reads `Step 3/4 · Transcribing 47%`, with the percentage coming
+from whichever stage owns it.
+
+**Rules the state machine must hold:**
+
+| Situation | Behaviour |
+| :--- | :--- |
+| Transcript already cached | Button reads "Summarize"; chain starts at step 4 |
+| Whisper model not downloaded | Existing setup card takes over; no silent 547 MB download |
+| Cancel pressed | Routed to the cancel command of the running stage, and the chained flag is cleared so a partial transcript is never auto-summarized |
+| Transcription fails | Chain aborts, transcript error surfaces, no summary request is made |
+| Summary fails after transcription succeeded | Transcript is saved and shown; retry re-runs **only** the summary — never re-transcribes |
+| App closed mid-chain | Chain state is lost, transcript is not; the user resumes with the "Summarize" button |
+
+Vocabulary and spoken language are not duplicated into the summary tab. The
+chained empty state links back to the transcript tab, which already owns those
+controls.
+
+**No automatic summarization.** A model is never invoked without a click, even
+when a transcript finishes on its own.
+
+### 31.9 UI
+
+`TranscriptPanel.vue` gains a two-tab header — **Transcript | Summary** —
+inside the existing 26rem drawer. The transcript tab is unchanged.
+
+Summary tab states:
+
+| State | Content |
+| :--- | :--- |
+| Not configured | Setup card, a link to Settings, and a copyable `ollama pull qwen3:8b` |
+| No media | "Open a video first" (mirrors the transcript tab) |
+| No transcript | Primary **Transcribe & summarize**, secondary "transcript only" |
+| Have transcript | Primary **Summarize** |
+| Running | Step label, stage percentage, streamed text as it arrives, Cancel |
+| Done | Rendered Markdown, `[mm:ss]` citations clickable into the timeline, Copy, Regenerate |
+| Stale | Banner: the transcript has changed since this summary was made |
+
+Clicking a citation calls the same `player.seekAbsolute` path the transcript
+rows use, which is what makes the summary a navigation surface rather than a
+wall of text.
+
+`SettingsModal.vue` gains an **AI** tab: preset selector, base URL, a Test
+button that populates a model picker from `summary_probe()`, the write-only
+API key field, summary language, extra instructions, and a line stating where
+data is sent.
+
+### 31.10 Error Taxonomy
+
+| Condition | Message and recovery |
+| :--- | :--- |
+| Connection refused | "Ollama is not running" + `ollama serve` |
+| 404 model not found | "Model not pulled" + `ollama pull qwen3:8b` |
+| 401 / 403 | "API key rejected" + link to the AI settings tab |
+| 429 / 5xx | Retry the failed chunk with backoff; fail the job after repeated failures |
+| Timed out | The model is too slow or looping; suggest a smaller model, and keep the partial answer on screen rather than discarding it |
+| Context overflow | Halve the chunk size and retry once, then report |
+
+Errors are per-stage: a failed reduce never discards the map results already
+computed.
+
+### 31.11 Security & Privacy
+
+* The key is never logged, never serialized into settings, and never returned
+  to the webview.
+* Requests go only to the configured `base_url`; there is no fallback host.
+* A non-loopback `base_url` is labelled in both the settings tab and the
+  summary panel before the first request.
+* Since Rust owns the socket, the existing Tauri capability set is unchanged.
+
+### 31.12 Testing
+
+* `src-tauri/tests/summary_pipeline.rs` — a mock HTTP server replaying a
+  canned stream in both dialects (Ollama streams newline-delimited JSON, the
+  OpenAI route streams SSE). Asserts request count matches chunk count,
+  cancellation stops mid-map, and each error class maps to the right event.
+  `VELO_SUMMARY_BASE_URL` points the test at the mock, mirroring
+  `VELO_WHISPER_MODEL`.
+* Rust unit tests: chunker boundary behaviour and size ceiling; the
+  OpenAI-transport `<think>` stripper, including a tag split across two chunks
+  of the stream; and that the Ollama transport always sends `think: false`.
+* Vitest: timestamp linkification, the chained state machine's transitions
+  (especially cancel-clears-chain and summary-retry-does-not-retranscribe).
+
+### 31.13 Dependencies
+
+`reqwest` is already present for the model download and needs its `json`
+feature enabled. `keyring` is the only new crate, and it links no new native
+libraries — relevant given that a deployment-target change in a native
+dependency is what broke the 0.3.0 release build.
+
+### 31.14 Delivery
+
+| Phase | Scope | DoD |
+| :--- | :--- | :--- |
+| **2A — Local** | Settings, commands, map-reduce, panel tabs, chained button, streaming, tests. Loopback only, no keychain. | A Thai meeting recording produces a readable, timestamp-linked summary from a single click with Ollama running `qwen3:8b`, and cancelling at any stage leaves no orphaned job. |
+| **2B — Keys** | `keyring`, write-only key commands, cloud preset, non-loopback labelling. | An OpenAI-compatible key entered in Settings survives a restart, never appears in `settings.json`, and the destination host is visible before the first request. |
+
+2A ships alone and answers the question that decides 2B's importance: whether
+an 8B local model summarizes Thai meetings well enough to be the primary path.
+
+### 31.15 Open Questions
+
+1. **Chunk overlap size** — one segment is cheap; three is safer across topic
+   boundaries. Decide with a real recording, not in the abstract.
+2. **Summary export** — copy-to-clipboard is in scope for 2A. Whether to write
+   `.md` next to the video file is deferred.
+3. **Per-file provider override** — currently a global setting only. Revisit
+   only if the local/cloud split turns out to be per-meeting in practice.

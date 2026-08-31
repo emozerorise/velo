@@ -18,6 +18,9 @@ pub enum VeloError {
 
     #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
+
+    #[error("{0}")]
+    Summary(String),
 }
 
 pub type Result<T> = std::result::Result<T, VeloError>;

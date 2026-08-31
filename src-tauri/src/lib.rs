@@ -5,6 +5,7 @@ pub mod errors;
 pub mod platform;
 pub mod player;
 pub mod storage;
+pub mod summary;
 pub mod transcript;
 
 use commands::settings::StorageState;
@@ -12,6 +13,7 @@ use parking_lot::Mutex;
 use player::PlayerManager;
 use std::sync::Arc;
 use storage::{HistoryStore, SettingsStore};
+use summary::SummaryState;
 use tauri::Manager;
 #[cfg(not(target_os = "macos"))]
 use tauri::WebviewWindow;
@@ -47,6 +49,9 @@ pub fn run() {
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);
+
+            // Meeting summarisation over a chat model
+            app.manage(SummaryState::new(handle)?);
 
             // Initialize Player Manager
             let player = Arc::new(PlayerManager::new()?);
@@ -132,6 +137,12 @@ pub fn run() {
             commands::transcript_generate,
             commands::transcript_cancel,
             commands::transcript_delete,
+            commands::summary_status,
+            commands::summary_probe,
+            commands::summary_get,
+            commands::summary_generate,
+            commands::summary_cancel,
+            commands::summary_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running velo application");
