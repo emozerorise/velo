@@ -5,7 +5,7 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [0.4.0] - 2026-09-01
 
 สรุปการประชุมต่อจากบทถอดเสียงที่ 0.3.0 ทำไว้ ด้วยโมเดลภาษาที่รันอยู่ในเครื่อง
 ตัวเอง บทสรุปอ้างเวลากำกับทุกข้อและกดกระโดดไปยังจุดนั้นในวิดีโอได้ทันที
@@ -286,6 +286,7 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.4.0]: https://github.com/emozerorise/velo/releases/tag/v0.4.0
 [0.3.0]: https://github.com/emozerorise/velo/releases/tag/v0.3.0
 [0.2.0]: https://github.com/emozerorise/velo/releases/tag/v0.2.0
 [0.1.1]: https://github.com/emozerorise/velo/releases/tag/v0.1.1
