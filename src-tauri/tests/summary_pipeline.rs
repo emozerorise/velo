@@ -164,7 +164,11 @@ async fn streams_an_openai_answer() {
 
     assert_eq!(answer, "one two");
     let sent = requests.recv().expect("no request captured");
-    assert!(sent.contains("/v1/chat/completions"), "wrong route: {}", sent);
+    assert!(
+        sent.contains("/v1/chat/completions"),
+        "wrong route: {}",
+        sent
+    );
 }
 
 #[tokio::test]
@@ -228,7 +232,10 @@ async fn cancelling_stops_mid_stream() {
     )
     .await;
 
-    assert!(result.is_err(), "a cancelled stream must not return an answer");
+    assert!(
+        result.is_err(),
+        "a cancelled stream must not return an answer"
+    );
     assert!(result.unwrap_err().to_string().contains("Cancelled"));
     assert_eq!(seen, 1, "should have stopped after the first frame");
 }
@@ -247,12 +254,17 @@ async fn a_missing_model_names_itself() {
         .expect_err("expected a failure");
 
     let message = error.to_string();
-    assert!(message.contains("qwen3:8b"), "unhelpful message: {}", message);
+    assert!(
+        message.contains("qwen3:8b"),
+        "unhelpful message: {}",
+        message
+    );
 }
 
 #[tokio::test]
 async fn a_rejected_key_says_so() {
-    let (base, _requests) = spawn_server(401, vec!["{\"error\":\"bad key\"}".into()], Duration::ZERO);
+    let (base, _requests) =
+        spawn_server(401, vec!["{\"error\":\"bad key\"}".into()], Duration::ZERO);
 
     let cancel = Arc::new(AtomicBool::new(false));
     let error = transport::stream_chat(
@@ -326,8 +338,8 @@ async fn live_ollama_writes_a_thai_summary() {
         return;
     }
 
-    let base = std::env::var("VELO_SUMMARY_BASE_URL")
-        .unwrap_or_else(|_| "http://localhost:11434".into());
+    let base =
+        std::env::var("VELO_SUMMARY_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".into());
     let model = std::env::var("VELO_SUMMARY_MODEL").unwrap_or_else(|_| "qwen3:8b".into());
 
     let sample = [
@@ -369,7 +381,10 @@ async fn live_ollama_writes_a_thai_summary() {
         language: velo_lib::summary::prompt::resolve_language("auto", &detected),
         ..Default::default()
     };
-    assert_eq!(settings.language, "th", "auto did not resolve to the recording");
+    assert_eq!(
+        settings.language, "th",
+        "auto did not resolve to the recording"
+    );
 
     let chunks = velo_lib::summary::chunk::chunk(
         &segments,
@@ -388,7 +403,10 @@ async fn live_ollama_writes_a_thai_summary() {
         None,
         &ChatRequest {
             model,
-            system: velo_lib::summary::prompt::single_pass_system(&settings, "deploy, QA, dashboard"),
+            system: velo_lib::summary::prompt::single_pass_system(
+                &settings,
+                "deploy, QA, dashboard",
+            ),
             user: format!(
                 "{}{}",
                 chunks[0].text,

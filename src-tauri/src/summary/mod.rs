@@ -66,8 +66,10 @@ pub fn is_local(base_url: &str) -> bool {
         .unwrap_or("");
     let host = host.rsplit_once(':').map(|(h, _)| h).unwrap_or(host);
 
-    matches!(host, "localhost" | "127.0.0.1" | "::1" | "[::1]" | "0.0.0.0")
-        || host.ends_with(".localhost")
+    matches!(
+        host,
+        "localhost" | "127.0.0.1" | "::1" | "[::1]" | "0.0.0.0"
+    ) || host.ends_with(".localhost")
 }
 
 impl SummaryState {
@@ -132,7 +134,11 @@ impl SummaryState {
 
             match result {
                 Ok(summary) => {
-                    info!("summary ready: {} chars for {}", summary.markdown.len(), path);
+                    info!(
+                        "summary ready: {} chars for {}",
+                        summary.markdown.len(),
+                        path
+                    );
                     let _ = app.emit("velo://summary-ready", summary);
                 }
                 Err(e) => {

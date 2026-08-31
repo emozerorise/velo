@@ -13,10 +13,10 @@ use parking_lot::Mutex;
 use player::PlayerManager;
 use std::sync::Arc;
 use storage::{HistoryStore, SettingsStore};
+use summary::SummaryState;
 use tauri::Manager;
 #[cfg(not(target_os = "macos"))]
 use tauri::WebviewWindow;
-use summary::SummaryState;
 use tracing::info;
 use transcript::TranscriptState;
 

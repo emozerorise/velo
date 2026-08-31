@@ -150,7 +150,10 @@ mod tests {
         // Three bytes per character, so a budget read as characters would
         // split this three times over.
         let thai = "ประชุมเรื่องกำหนดปล่อยรุ่น".repeat(4);
-        assert!(thai.chars().count() * 3 <= thai.len() + 2, "expected 3-byte characters");
+        assert!(
+            thai.chars().count() * 3 <= thai.len() + 2,
+            "expected 3-byte characters"
+        );
 
         let chunks = chunk(&segments(40, &thai), budget_bytes(32_768));
         assert_eq!(chunks.len(), 1, "a short meeting should still be one pass");
