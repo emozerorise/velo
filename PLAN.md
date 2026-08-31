@@ -1056,10 +1056,26 @@ cite.
 
 ### 31.5 Prompt & Output Contract
 
-The system prompt fixes the output language (`summary.language`, defaulting to
-Thai), and requests Markdown under five headings: overview, topics discussed,
-decisions, action items (owner and due date where stated), and open questions.
-Every bullet is asked to carry a `[mm:ss]` citation.
+The system prompt fixes the output language and requests Markdown under five
+headings: overview, topics discussed, decisions, action items (owner and due
+date where stated), and open questions. Every bullet is asked to carry a
+`[mm:ss]` citation.
+
+**`summary.language` defaults to `auto`, and `auto` is resolved before any
+prompt is built** — against the language whisper reported for that recording,
+which the transcript already carries. Resolving it late does not work: the
+headings shown to the model as a template are language-specific, so an
+unresolved `auto` shows English headings while asking for the meeting's
+language, and the model follows the headings. A Thai meeting summarised in
+English until this was fixed.
+
+**The citation rule is repeated after the excerpt, not only before it.** A
+transcript is tens of thousands of tokens, so by the time the model starts
+writing, the system prompt is a long way behind — and the first rule it drops
+is the one that makes the summary navigable. Measured on the same 34-minute
+meeting: with the rule only in the system prompt the summary came back with no
+timestamps at all; with it repeated after the transcript, every bullet carried
+one.
 
 The transcript vocabulary field that already exists for whisper is appended to
 the prompt: the same domain terms that fix transcription also stop the

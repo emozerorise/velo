@@ -50,6 +50,8 @@ pub struct JobInput {
     pub settings: SummarySettings,
     /// The transcript's vocabulary prompt, reused to steer the summariser.
     pub vocabulary: String,
+    /// What whisper heard, which is what "auto" resolves to.
+    pub transcript_language: String,
 }
 
 /// True when requests would stay on this machine. Drives the warning the
@@ -165,7 +167,12 @@ async fn run_job(
     input: &JobInput,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Summary> {
-    let settings = &input.settings;
+    // "auto" is settled here, once, so every prompt in this job agrees about
+    // which language it is asking for.
+    let settings = &SummarySettings {
+        language: prompt::resolve_language(&input.settings.language, &input.transcript_language),
+        ..input.settings.clone()
+    };
     let dialect = transport::dialect_for(&settings.provider);
     let budget = chunk::budget_bytes(settings.context_tokens);
     let chunks = chunk::chunk(&input.segments, budget);
@@ -205,7 +212,7 @@ async fn run_job(
             &transport::ChatRequest {
                 model: settings.model.clone(),
                 system: prompt::single_pass_system(settings, &input.vocabulary),
-                user: chunks[0].text.clone(),
+                user: format!("{}{}", chunks[0].text, prompt::transcript_reminder()),
                 context_tokens: settings.context_tokens,
                 max_tokens: ANSWER_TOKENS,
             },
@@ -227,7 +234,7 @@ async fn run_job(
                 &transport::ChatRequest {
                     model: settings.model.clone(),
                     system: prompt::map_system(settings, &input.vocabulary),
-                    user: piece.text.clone(),
+                    user: format!("{}{}", piece.text, prompt::transcript_reminder()),
                     context_tokens: settings.context_tokens,
                     max_tokens: NOTE_TOKENS,
                 },
@@ -257,7 +264,7 @@ async fn run_job(
             &transport::ChatRequest {
                 model: settings.model.clone(),
                 system: prompt::reduce_system(settings, &input.vocabulary),
-                user: notes.join("\n\n"),
+                user: format!("{}{}", notes.join("\n\n"), prompt::notes_reminder()),
                 context_tokens: settings.context_tokens,
                 max_tokens: ANSWER_TOKENS,
             },

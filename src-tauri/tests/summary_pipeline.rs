@@ -346,22 +346,30 @@ async fn live_ollama_writes_a_thai_summary() {
     .collect::<Vec<_>>();
 
     // A real meeting, when one is offered.
-    let segments = match std::env::var("VELO_TEST_TRANSCRIPT") {
+    let (segments, detected) = match std::env::var("VELO_TEST_TRANSCRIPT") {
         Ok(path) => {
             let json = std::fs::read_to_string(&path).expect("could not read the transcript");
             let transcript: velo_lib::transcript::Transcript =
                 serde_json::from_str(&json).expect("that is not a transcript");
-            eprintln!("using {} segments from {}", transcript.segments.len(), path);
-            transcript.segments
+            eprintln!(
+                "using {} segments ({}) from {}",
+                transcript.segments.len(),
+                transcript.language,
+                path
+            );
+            (transcript.segments, transcript.language)
         }
-        Err(_) => sample,
+        Err(_) => (sample, "th".to_string()),
     };
 
+    // Exactly what the app does: the setting is left on "auto", and the
+    // language whisper reported decides what the prompt asks for.
     let settings = velo_lib::storage::settings_store::SummarySettings {
         model: model.clone(),
-        language: "th".into(),
+        language: velo_lib::summary::prompt::resolve_language("auto", &detected),
         ..Default::default()
     };
+    assert_eq!(settings.language, "th", "auto did not resolve to the recording");
 
     let chunks = velo_lib::summary::chunk::chunk(
         &segments,
@@ -381,7 +389,11 @@ async fn live_ollama_writes_a_thai_summary() {
         &ChatRequest {
             model,
             system: velo_lib::summary::prompt::single_pass_system(&settings, "deploy, QA, dashboard"),
-            user: chunks[0].text.clone(),
+            user: format!(
+                "{}{}",
+                chunks[0].text,
+                velo_lib::summary::prompt::transcript_reminder()
+            ),
             context_tokens: settings.context_tokens,
             max_tokens: 2_048,
         },
@@ -396,6 +408,10 @@ async fn live_ollama_writes_a_thai_summary() {
 
     assert!(!answer.trim().is_empty());
     assert!(answer.contains('#'), "no headings in the answer");
+    assert!(
+        answer.contains("ภาพรวม"),
+        "a Thai recording came back with English headings"
+    );
     assert!(
         answer.contains(":") && answer.contains('['),
         "the model dropped the timestamps"

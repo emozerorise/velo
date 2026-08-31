@@ -28,6 +28,21 @@ fn headings(language: &str) -> [&'static str; 5] {
     }
 }
 
+/// What "auto" actually means: the language whisper reported for this
+/// recording. Without this the prompt contradicts itself -- it asks for the
+/// meeting's language while showing English headings as the template, and
+/// the model follows the headings.
+pub fn resolve_language(configured: &str, detected: &str) -> String {
+    if configured != "auto" {
+        return configured.to_string();
+    }
+
+    match detected.trim() {
+        "" | "auto" => "auto".to_string(),
+        language => language.to_string(),
+    }
+}
+
 fn language_rule(language: &str) -> String {
     match language {
         "th" => "Write the summary in Thai.".into(),
@@ -109,6 +124,26 @@ pub fn reduce_system(settings: &SummarySettings, vocabulary: &str) -> String {
     )
 }
 
+/// Appended after the excerpt, not before it. A transcript runs to tens of
+/// thousands of tokens, which leaves the system prompt a long way behind by
+/// the time the model starts writing -- and the rule it drops first is the
+/// one that makes the summary navigable. Repeat it where it is about to be
+/// used.
+pub fn transcript_reminder() -> &'static str {
+    "\n\n---\nThat is the end of the excerpt. Write the summary now, under the \
+     headings you were given, and end every single point with the timestamp it \
+     came from -- copied exactly from the lines above, in square brackets, like \
+     [12:34]. A point without its timestamp is not usable."
+}
+
+/// The same rule for the reduce stage, where the input is notes rather than
+/// transcript lines.
+pub fn notes_reminder() -> &'static str {
+    "\n\n---\nThat is the end of the notes. Write the final summary now, and \
+     carry each point's timestamp across unchanged, in square brackets, like \
+     [12:34]. A point without its timestamp is not usable."
+}
+
 /// A short transcript skips the map stage: it is already the notes.
 pub fn single_pass_system(settings: &SummarySettings, vocabulary: &str) -> String {
     let [overview, topics, decisions, actions, open] = headings(&settings.language);
@@ -160,6 +195,26 @@ mod tests {
     }
 
     #[test]
+    fn auto_resolves_to_what_whisper_heard() {
+        assert_eq!(resolve_language("auto", "th"), "th");
+        assert_eq!(resolve_language("auto", "en"), "en");
+        // An explicit choice always wins over the recording.
+        assert_eq!(resolve_language("en", "th"), "en");
+        // Nothing detected: fall back to the language-neutral instruction.
+        assert_eq!(resolve_language("auto", ""), "auto");
+    }
+
+    #[test]
+    fn a_thai_recording_on_auto_gets_thai_headings() {
+        let mut s = settings("auto");
+        s.language = resolve_language(&s.language, "th");
+        let prompt = single_pass_system(&s, "");
+
+        assert!(prompt.contains("## ภาพรวม"));
+        assert!(prompt.contains("Write the summary in Thai"));
+    }
+
+    #[test]
     fn auto_asks_for_the_meetings_own_language() {
         let prompt = reduce_system(&settings("auto"), "");
         assert!(prompt.contains("the language the meeting was held in"));
@@ -173,6 +228,12 @@ mod tests {
 
         assert!(prompt.contains("Velo, libmpv"));
         assert!(prompt.contains("เน้นงานที่ต้องทำ"));
+    }
+
+    #[test]
+    fn the_reminders_show_the_format_they_ask_for() {
+        assert!(transcript_reminder().contains("[12:34]"));
+        assert!(notes_reminder().contains("[12:34]"));
     }
 
     #[test]

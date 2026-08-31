@@ -52,6 +52,7 @@ pub async fn summary_generate(
         app,
         JobInput {
             path,
+            transcript_language: transcript.language,
             segments: transcript.segments,
             settings: settings.summary,
             vocabulary: settings.transcript.prompt,
