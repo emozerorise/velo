@@ -214,7 +214,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
     isRunning.value = true;
     stage.value = 'extracting';
     progress.value = -1;
-    settings.saveSettings(settings.settings);
+    void settings.saveSettings(settings.settings);
 
     try {
       await transcriptService.generate(path, language.value, prompt.value);

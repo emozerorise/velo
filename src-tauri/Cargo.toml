@@ -31,6 +31,9 @@ whisper-rs = "0.16"
 # Model download on first use. reqwest is already in the tree via Tauri.
 reqwest = { version = "0.13", features = ["stream", "json"] }
 futures-util = { version = "0.3", default-features = false }
+# API keys stay in Keychain Services / Windows Credential Manager rather
+# than joining the ordinary settings users attach to bug reports.
+keyring = "4.2"
 
 
 # Metal gives the GPU path on Apple silicon; other platforms fall back to CPU.

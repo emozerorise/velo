@@ -11,6 +11,14 @@ export const summaryService = {
     return invoke('summary_probe');
   },
 
+  async setApiKey(key: string): Promise<void> {
+    return invoke('summary_set_api_key', { key });
+  },
+
+  async clearApiKey(): Promise<void> {
+    return invoke('summary_clear_api_key');
+  },
+
   async get(path: string): Promise<Summary | null> {
     return invoke('summary_get', { path });
   },

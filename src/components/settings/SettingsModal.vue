@@ -2,7 +2,7 @@
   <BaseModal
     :is-open="settingsStore.isMediaInfoOpen ? false : settingsStore.isSettingsOpen"
     :title="t('settings.title')"
-    @close="settingsStore.isSettingsOpen = false"
+    @close="closeSettings"
   >
     <div class="flex flex-col gap-6 text-sm">
       <!-- Tabs Navigation -->
@@ -232,7 +232,7 @@
             type="text"
             spellcheck="false"
             class="w-52 shrink-0 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none font-mono"
-            @change="save"
+            @change="saveProviderAddress"
           />
         </div>
 
@@ -271,6 +271,51 @@
         >
           {{ testResult }}
         </p>
+
+        <!-- Write-only: a saved key becomes a status chip, never a
+             populated password field that could leak back into the webview. -->
+        <div>
+          <span class="font-medium text-fg/90">{{ t('settings.aiKey') }}</span>
+          <span class="block text-xs text-fg/50 mb-1.5">{{ t('settings.aiKeyDesc') }}</span>
+
+          <div
+            v-if="summaryStore.status?.has_key"
+            class="flex items-center justify-between gap-3 rounded-lg border border-green-500/20 bg-green-500/[0.07] px-3 py-2"
+          >
+            <span class="min-w-0 text-xs text-success truncate">
+              {{ t('settings.aiKeySaved', { host: providerHost }) }}
+            </span>
+            <button
+              class="shrink-0 text-xs text-fg/55 hover:text-danger transition-colors"
+              :disabled="keyBusy"
+              @click="clearApiKey"
+            >
+              {{ keyBusy ? t('settings.aiKeyClearing') : t('settings.aiKeyClear') }}
+            </button>
+          </div>
+
+          <form v-else class="flex items-center gap-1.5" @submit.prevent="saveApiKey">
+            <input
+              v-model="apiKeyDraft"
+              type="password"
+              autocomplete="new-password"
+              spellcheck="false"
+              :placeholder="t('settings.aiKeyPlaceholder')"
+              class="min-w-0 flex-1 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none font-mono placeholder:text-fg/25"
+            />
+            <button
+              type="submit"
+              class="shrink-0 px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] disabled:opacity-40 text-fg/80 text-xs transition-colors"
+              :disabled="keyBusy || !apiKeyDraft.trim()"
+            >
+              {{ keyBusy ? t('settings.aiKeySaving') : t('settings.aiKeySave') }}
+            </button>
+          </form>
+
+          <p v-if="keyError" class="mt-1.5 text-xs text-danger/90 break-words">
+            {{ keyError }}
+          </p>
+        </div>
 
         <!-- Summary Language -->
         <div class="flex items-center justify-between">
@@ -332,12 +377,6 @@
           }}
         </p>
 
-        <p
-          v-if="localSettings.summary.provider === 'openai'"
-          class="text-xs text-fg/40 leading-relaxed"
-        >
-          {{ t('settings.aiKeyMissing') }}
-        </p>
       </div>
     </div>
   </BaseModal>
@@ -346,20 +385,24 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore, type SettingsTab } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSummaryStore, SUMMARY_LANGUAGES } from '@/stores/summaryStore';
 import { useToast } from '@/composables/useToast';
 import { formatBytes } from '@/utils/formatters';
+import { providerHost as hostFor, providerIsRemote } from '@/utils/providerLocation';
 
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
 const { t } = useI18n();
 const { showToast } = useToast();
-const activeTab = ref('general');
+const activeTab = computed<SettingsTab>({
+  get: () => settingsStore.activeTab,
+  set: (tab) => (settingsStore.activeTab = tab),
+});
 const confirmingRemove = ref(false);
 
 const isExternalModel = computed(
@@ -380,37 +423,36 @@ const modelStatus = computed(() => {
 const testing = ref(false);
 const testOk = ref(false);
 const testResult = ref<string | null>(null);
+const apiKeyDraft = ref('');
+const keyBusy = ref(false);
+const keyError = ref<string | null>(null);
 
-const providerHost = computed(() => {
-  try {
-    return new URL(localSettings.summary.base_url).host;
-  } catch {
-    return localSettings.summary.base_url;
-  }
-});
-
-const isRemoteProvider = computed(() => {
-  const host = providerHost.value.split(':')[0];
-  return !['localhost', '127.0.0.1', '0.0.0.0', '[', '::1'].some((local) => host.startsWith(local));
-});
+const providerHost = computed(() => hostFor(localSettings.summary.base_url));
+const isRemoteProvider = computed(() => providerIsRemote(localSettings.summary.base_url));
 
 // The two dialects disagree about whether the version segment belongs in the
 // address, so switching preset fills in the one that provider expects.
-function onProviderChange() {
+async function onProviderChange() {
   localSettings.summary.base_url =
     localSettings.summary.provider === 'openai'
       ? 'https://api.openai.com/v1'
       : 'http://localhost:11434';
   summaryStore.models = [];
   testResult.value = null;
-  save();
+  await save();
+  await summaryStore.refreshStatus();
+}
+
+async function saveProviderAddress() {
+  await save();
+  await summaryStore.refreshStatus();
 }
 
 /// The backend probes with the settings on disk, so this saves first.
 async function testConnection() {
   testing.value = true;
   testResult.value = null;
-  save();
+  await save();
 
   try {
     testOk.value = await summaryStore.probe();
@@ -423,6 +465,39 @@ async function testConnection() {
   }
 }
 
+async function saveApiKey() {
+  const key = apiKeyDraft.value;
+  if (!key.trim()) return;
+
+  keyBusy.value = true;
+  keyError.value = null;
+  await save();
+
+  if (await summaryStore.setApiKey(key)) {
+    apiKeyDraft.value = '';
+  } else {
+    keyError.value = summaryStore.error;
+  }
+  keyBusy.value = false;
+}
+
+async function clearApiKey() {
+  keyBusy.value = true;
+  keyError.value = null;
+  await save();
+
+  if (!(await summaryStore.clearApiKey())) {
+    keyError.value = summaryStore.error;
+  }
+  keyBusy.value = false;
+}
+
+function closeSettings() {
+  apiKeyDraft.value = '';
+  keyError.value = null;
+  settingsStore.isSettingsOpen = false;
+}
+
 async function removeModel() {
   confirmingRemove.value = false;
   const freed = await transcriptStore.removeModel();
@@ -432,7 +507,7 @@ async function removeModel() {
 }
 
 // Computed so the labels follow a language change made in this very modal.
-const tabs = computed(() => [
+const tabs = computed<{ id: SettingsTab; name: string }[]>(() => [
   { id: 'general', name: t('settings.tab.general') },
   { id: 'video', name: t('settings.tab.video') },
   { id: 'subtitles', name: t('settings.tab.subtitles') },
@@ -449,7 +524,7 @@ watch(
   }
 );
 
-function save() {
-  settingsStore.saveSettings(localSettings);
+function save(): Promise<boolean> {
+  return settingsStore.saveSettings(localSettings);
 }
 </script>

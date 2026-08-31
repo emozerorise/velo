@@ -20,6 +20,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { MediaInfo } from '@/types/player';
 import type { Transcript } from '@/types/transcript';
 
@@ -73,6 +74,7 @@ describe('the transcribe-and-summarise chain', () => {
             model: 'qwen3:8b',
             configured: true,
             remote: false,
+            has_key: false,
           };
         case 'summary_probe':
           return ['qwen3:8b'];
@@ -98,6 +100,21 @@ describe('the transcribe-and-summarise chain', () => {
     expect(called('transcript_generate')).toBe(false);
     expect(store.isRunning).toBe(false);
     expect(store.error).toContain('Could not reach');
+  });
+
+  it('surfaces a structured rejected-key error from preflight', async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'summary_probe') {
+        throw { type: 'Summary', details: 'The API key was rejected' };
+      }
+      return null;
+    });
+
+    const store = useSummaryStore();
+    await store.transcribeAndSummarise();
+
+    expect(store.error).toBe('The API key was rejected');
+    expect(store.apiKeyRejected).toBe(true);
   });
 
   it('summarises once the transcript it started lands', async () => {
@@ -227,5 +244,43 @@ describe('the transcribe-and-summarise chain', () => {
     emit('velo://summary-progress', { path: PATH, stage: 'mapping', done: 0, total: 4 });
     expect(store.step).toBe(4);
     expect(store.progress).toBe(0);
+  });
+
+  it('sets and clears a key without reading it into the store', async () => {
+    const store = useSummaryStore();
+
+    await store.setApiKey('sk-secret');
+    await store.clearApiKey();
+
+    expect(invoke).toHaveBeenCalledWith('summary_set_api_key', { key: 'sk-secret' });
+    expect(invoke).toHaveBeenCalledWith('summary_clear_api_key', undefined);
+    expect('apiKey' in store).toBe(false);
+  });
+
+  it('recognises a rejected key and opens the AI settings tab', () => {
+    const store = useSummaryStore();
+    const settings = useSettingsStore();
+
+    emit('velo://summary-error', {
+      path: PATH,
+      message: 'The API key was rejected',
+    });
+    expect(store.apiKeyRejected).toBe(true);
+
+    settings.openSettings('ai');
+    expect(settings.isSettingsOpen).toBe(true);
+    expect(settings.activeTab).toBe('ai');
+  });
+
+  it('clears a rejected-key error after a replacement is saved', async () => {
+    const store = useSummaryStore();
+    emit('velo://summary-error', {
+      path: PATH,
+      message: 'The API key was rejected',
+    });
+
+    await store.setApiKey('sk-replacement');
+
+    expect(store.apiKeyRejected).toBe(false);
   });
 });
