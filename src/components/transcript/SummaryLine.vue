@@ -16,11 +16,11 @@
 </template>
 
 <script setup lang="ts">
-import type { InlinePart } from "@/utils/summaryMarkdown";
-import { useI18n } from "@/composables/useI18n";
+import type { InlinePart } from '@/utils/summaryMarkdown';
+import { useI18n } from '@/composables/useI18n';
 
 defineProps<{ parts: InlinePart[] }>();
-const emit = defineEmits<{ (e: "seek", seconds: number): void }>();
+const emit = defineEmits<{ (e: 'seek', seconds: number): void }>();
 
 const { t } = useI18n();
 </script>

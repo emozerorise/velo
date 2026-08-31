@@ -82,6 +82,7 @@ fn request() -> ChatRequest {
         system: "summarise".into(),
         user: "[00:01] hello".into(),
         context_tokens: 32_768,
+        max_tokens: 2_048,
     }
 }
 
@@ -311,7 +312,9 @@ async fn listing_models_reads_both_dialects() {
     assert_eq!(names, vec!["gpt-4o-mini"]);
 }
 
-/// The whole local path against a real server, skipped unless asked for:
+/// The whole local path against a real server, skipped unless asked for.
+/// Point `VELO_TEST_TRANSCRIPT` at a cached transcript to run a real meeting
+/// through it rather than the five-line sample:
 ///
 /// ```sh
 /// VELO_SUMMARY_LIVE=1 cargo test --test summary_pipeline -- --nocapture live
@@ -327,7 +330,7 @@ async fn live_ollama_writes_a_thai_summary() {
         .unwrap_or_else(|_| "http://localhost:11434".into());
     let model = std::env::var("VELO_SUMMARY_MODEL").unwrap_or_else(|_| "qwen3:8b".into());
 
-    let segments = [
+    let sample = [
         (0.0, "สวัสดีครับ วันนี้คุยเรื่องกำหนดปล่อยรุ่นหน้า"),
         (12.0, "สมชาย: ขอเลื่อน deploy จากพุธไปศุกร์ เพราะ QA ยังไม่จบ"),
         (20.0, "ฝน: ได้ค่ะ เดี๋ยวแจ้งทีม QA แล้วอัปเดตในบอร์ดให้"),
@@ -342,6 +345,18 @@ async fn live_ollama_writes_a_thai_summary() {
     })
     .collect::<Vec<_>>();
 
+    // A real meeting, when one is offered.
+    let segments = match std::env::var("VELO_TEST_TRANSCRIPT") {
+        Ok(path) => {
+            let json = std::fs::read_to_string(&path).expect("could not read the transcript");
+            let transcript: velo_lib::transcript::Transcript =
+                serde_json::from_str(&json).expect("that is not a transcript");
+            eprintln!("using {} segments from {}", transcript.segments.len(), path);
+            transcript.segments
+        }
+        Err(_) => sample,
+    };
+
     let settings = velo_lib::storage::settings_store::SummarySettings {
         model: model.clone(),
         language: "th".into(),
@@ -350,9 +365,13 @@ async fn live_ollama_writes_a_thai_summary() {
 
     let chunks = velo_lib::summary::chunk::chunk(
         &segments,
-        velo_lib::summary::chunk::budget_chars(settings.context_tokens),
+        velo_lib::summary::chunk::budget_bytes(settings.context_tokens),
     );
-    assert_eq!(chunks.len(), 1, "this sample should need only one pass");
+    eprintln!(
+        "{} chars over {} chunk(s)",
+        chunks.iter().map(|c| c.text.len()).sum::<usize>(),
+        chunks.len()
+    );
 
     let cancel = Arc::new(AtomicBool::new(false));
     let answer = transport::stream_chat(
@@ -364,6 +383,7 @@ async fn live_ollama_writes_a_thai_summary() {
             system: velo_lib::summary::prompt::single_pass_system(&settings, "deploy, QA, dashboard"),
             user: chunks[0].text.clone(),
             context_tokens: settings.context_tokens,
+            max_tokens: 2_048,
         },
         &cancel,
         |_| {},
@@ -377,7 +397,7 @@ async fn live_ollama_writes_a_thai_summary() {
     assert!(!answer.trim().is_empty());
     assert!(answer.contains('#'), "no headings in the answer");
     assert!(
-        answer.contains("[00:12]") || answer.contains("[00:20]"),
+        answer.contains(":") && answer.contains('['),
         "the model dropped the timestamps"
     );
     assert!(

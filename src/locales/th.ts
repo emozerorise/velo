@@ -160,6 +160,7 @@ export const th: Messages = {
   'summary.localNote': 'ข้อมูลอยู่ในเครื่องนี้เท่านั้น',
   'summary.remoteNote': 'บทถอดเสียงจะถูกส่งไปที่ {host}',
   'summary.hintUnreachable': 'เซิร์ฟเวอร์โมเดลเปิดอยู่หรือเปล่า ลองสั่ง: ollama serve',
+  'summary.hintSlow': 'โมเดลเขียนไม่ทันในเวลาที่กำหนด ลองใช้โมเดลเล็กลงจะเร็วกว่า',
   'summary.hintModel': 'ยังไม่ได้โหลดโมเดลนี้ ลองสั่ง: ollama pull {model}',
   'summary.lang.auto': 'ตามภาษาที่ประชุม',
   'summary.lang.th': 'ไทย',

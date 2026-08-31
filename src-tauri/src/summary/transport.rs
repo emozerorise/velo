@@ -18,19 +18,29 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 /// Long enough for a slow first token on a cold model, short enough that a
-/// wedged server does not hang the panel forever.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(900);
+/// wedged server does not hang the panel forever. `max_tokens` bounds the
+/// real runtime; this only catches a server that has stopped answering.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(600);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Low, because a meeting summary that invents details is worse than a dull
 /// one.
 const TEMPERATURE: f64 = 0.3;
 
+/// qwen3:8b ships with `repeat_penalty 1` -- no penalty at all -- and on a
+/// long Thai transcript it will restate the same points until something
+/// stops it. Measured: one 34-minute meeting ran to 9,000 tokens without
+/// finishing. The llama.cpp default puts an end to that.
+const REPEAT_PENALTY: f64 = 1.1;
+
 pub struct ChatRequest {
     pub model: String,
     pub system: String,
     pub user: String,
     pub context_tokens: u32,
+    /// Hard ceiling on the answer. A summary that has not finished by here
+    /// is repeating itself, and cutting it off beats waiting out a loop.
+    pub max_tokens: u32,
 }
 
 /// One frame of a streamed response.
@@ -89,6 +99,8 @@ impl ChatDialect for Ollama {
             "think": false,
             "options": {
                 "num_ctx": req.context_tokens,
+                "num_predict": req.max_tokens,
+                "repeat_penalty": REPEAT_PENALTY,
                 "temperature": TEMPERATURE,
             },
             "messages": [
@@ -160,6 +172,7 @@ impl ChatDialect for OpenAi {
         json!({
             "model": req.model,
             "stream": true,
+            "max_tokens": req.max_tokens,
             "temperature": TEMPERATURE,
             "messages": [
                 { "role": "system", "content": req.system },
@@ -427,11 +440,15 @@ mod tests {
             system: "s".into(),
             user: "u".into(),
             context_tokens: 32_768,
+            max_tokens: 2_048,
         });
 
         assert_eq!(body["think"], json!(false));
         assert_eq!(body["options"]["num_ctx"], json!(32_768));
         assert_eq!(body["stream"], json!(true));
+        // Both halves of the runaway fix: a ceiling, and a reason to stop.
+        assert_eq!(body["options"]["num_predict"], json!(2_048));
+        assert_eq!(body["options"]["repeat_penalty"], json!(1.1));
     }
 
     #[test]

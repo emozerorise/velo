@@ -114,8 +114,10 @@ export const useSummaryStore = defineStore('summary', () => {
       // A cancelled job reports as an error; the user already knows.
       if (event.payload.path === currentPath() && !cancelling.value) {
         error.value = event.payload.message;
+      } else {
+        // Nothing partial is worth keeping from a run the user stopped.
+        streamed.value = '';
       }
-      streamed.value = '';
       resetJob();
     });
 

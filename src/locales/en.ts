@@ -162,6 +162,7 @@ export const en = {
   'summary.localNote': 'Stays on this machine.',
   'summary.remoteNote': 'The transcript will be sent to {host}.',
   'summary.hintUnreachable': 'Is the model server running? Try: ollama serve',
+  'summary.hintSlow': 'The model did not finish in time. A smaller model answers faster.',
   'summary.hintModel': 'That model is not pulled yet. Try: ollama pull {model}',
   'summary.lang.auto': 'Same as the meeting',
   'summary.lang.th': 'ไทย',

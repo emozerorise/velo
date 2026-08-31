@@ -2,20 +2,22 @@
 
 use crate::transcript::TranscriptSegment;
 
-/// Deliberately pessimistic. Thai runs close to two characters per token in
-/// the tokenizers involved; English is cheaper, so this over-reserves rather
-/// than overflowing the window.
-const CHARS_PER_TOKEN: usize = 2;
+/// Budgets are measured in bytes, because that is what `str::len` counts and
+/// a Thai character is three of them. Measured against a real Thai meeting:
+/// 32 KB of `[mm:ss] text` lines came to roughly 8,600 tokens, so about 3.8
+/// bytes per token. Three is the conservative floor -- English sits nearer
+/// four -- and under-filling the window is the safe direction to be wrong in.
+const BYTES_PER_TOKEN: usize = 3;
 
-/// Half the window is left for the prompt and the answer.
-const INPUT_SHARE: f64 = 0.5;
+/// Held back for the instructions and the answer itself.
+const RESERVED_TOKENS: u32 = 4_096;
 
 /// Segments repeated at the head of the next chunk, so a topic that spans a
 /// boundary is summarised with its lead-in rather than starting mid-thought.
 const OVERLAP_SEGMENTS: usize = 2;
 
 /// A window big enough to be worth a request even if the setting is tiny.
-const MIN_BUDGET_CHARS: usize = 2_000;
+const MIN_BUDGET_BYTES: usize = 4_000;
 
 pub struct Chunk {
     /// `[mm:ss] text` lines, ready to hand to the model.
@@ -37,13 +39,13 @@ pub fn stamp(seconds: f64) -> String {
     }
 }
 
-pub fn budget_chars(context_tokens: u32) -> usize {
-    let budget = (context_tokens as f64 * INPUT_SHARE) as usize * CHARS_PER_TOKEN;
-    budget.max(MIN_BUDGET_CHARS)
+pub fn budget_bytes(context_tokens: u32) -> usize {
+    let input = context_tokens.saturating_sub(RESERVED_TOKENS) as usize;
+    (input * BYTES_PER_TOKEN).max(MIN_BUDGET_BYTES)
 }
 
 /// Split on segment boundaries only -- never mid-sentence -- filling each
-/// chunk up to `budget` characters.
+/// chunk up to `budget` bytes.
 pub fn chunk(segments: &[TranscriptSegment], budget: usize) -> Vec<Chunk> {
     let mut chunks = Vec::new();
     let mut i = 0;
@@ -138,8 +140,19 @@ mod tests {
     }
 
     #[test]
-    fn budget_never_collapses_to_nothing() {
-        assert_eq!(budget_chars(0), MIN_BUDGET_CHARS);
-        assert_eq!(budget_chars(32_768), 32_768);
+    fn budget_leaves_room_for_the_answer() {
+        assert_eq!(budget_bytes(0), MIN_BUDGET_BYTES);
+        assert_eq!(budget_bytes(32_768), (32_768 - 4_096) * 3);
+    }
+
+    #[test]
+    fn a_thai_meeting_is_measured_in_bytes_not_characters() {
+        // Three bytes per character, so a budget read as characters would
+        // split this three times over.
+        let thai = "ประชุมเรื่องกำหนดปล่อยรุ่น".repeat(4);
+        assert!(thai.chars().count() * 3 <= thai.len() + 2, "expected 3-byte characters");
+
+        let chunks = chunk(&segments(40, &thai), budget_bytes(32_768));
+        assert_eq!(chunks.len(), 1, "a short meeting should still be one pass");
     }
 }

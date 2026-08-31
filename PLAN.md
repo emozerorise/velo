@@ -1008,13 +1008,23 @@ segments ──► chunk() ──► [map]  summarize each chunk ──► [redu
                           n requests, i/N progress       1 request, streamed
 ```
 
-**Chunking.** Splits only on segment boundaries, never mid-sentence. Each
-chunk carries roughly `context_tokens * 0.5` worth of transcript — the other
-half is headroom for the prompt and the answer — with a one- to two-segment
-overlap so a topic spanning a boundary is not lost. Token count is estimated
-from character count at a deliberately pessimistic 2 characters per token,
-which is roughly correct for Thai in the tokenizers involved and over-reserves
-for English. No tokenizer is linked.
+**Chunking.** Splits only on segment boundaries, never mid-sentence, with a
+one- to two-segment overlap so a topic spanning a boundary is not lost.
+
+The budget is counted in **bytes**, not characters. A Thai character is three
+bytes, so a budget written in characters and compared against `str::len` is
+three times tighter than intended — which is exactly the bug that split a
+40-minute meeting into two passes it did not need. Measured on a real Thai
+transcript: 32 KB of `[mm:ss] text` lines came to roughly 8,600 tokens, about
+3.8 bytes per token. The chunker assumes a conservative 3 (English sits nearer
+4) and hands the rest of the window to the instructions and the answer:
+
+```
+budget_bytes = (context_tokens - 4096) * 3
+```
+
+At the default 32768 that is 86 KB per chunk, and both 34- and 40-minute Thai
+meetings measured here fit in a single pass. No tokenizer is linked.
 
 Chunk lines are fed as `[mm:ss] text` so the model has timestamps available to
 cite.
@@ -1025,9 +1035,16 @@ cite.
   Ollama 0.33.2 was measured serving it at 32768 (`ollama ps`, CONTEXT
   column). `context_tokens` defaults to 32768 and, on the native transport, is
   sent as `options.num_ctx` rather than merely informing our arithmetic. A
-  one-hour meeting therefore maps to a handful of chunks, not dozens — fewer
-  boundaries, fewer requests, better summaries. The value is a setting because
-  a smaller window trades quality for VRAM.
+  40-minute meeting therefore fits in one pass — fewer boundaries, fewer
+  requests, better summaries. The value is a setting because a smaller window
+  trades quality for VRAM.
+* **The answer must be capped, or it does not end.** qwen3:8b ships with
+  `repeat_penalty 1` — no penalty at all — and Ollama's default output length
+  is unbounded. Given a 34-minute Thai transcript it restated the same points
+  for **9,000 tokens and 15 minutes**, until the client's own timeout ended
+  it. Every request therefore carries `num_predict` (2048 for a summary, 1024
+  for chunk notes) and `repeat_penalty 1.1`. The same transcript then finished
+  in 78 seconds. The OpenAI transport sends the equivalent `max_tokens`.
 * **Reasoning is disabled, not stripped.** The native transport sends
   `"think": false`, so no reasoning is generated at all. Nothing needs
   parsing on this path: Ollama returns reasoning in a separate `thinking`
@@ -1192,6 +1209,7 @@ data is sent.
 | 404 model not found | "Model not pulled" + `ollama pull qwen3:8b` |
 | 401 / 403 | "API key rejected" + link to the AI settings tab |
 | 429 / 5xx | Retry the failed chunk with backoff; fail the job after repeated failures |
+| Timed out | The model is too slow or looping; suggest a smaller model, and keep the partial answer on screen rather than discarding it |
 | Context overflow | Halve the chunk size and retry once, then report |
 
 Errors are per-stage: a failed reduce never discards the map results already

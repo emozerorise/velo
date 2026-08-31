@@ -15,6 +15,12 @@ pub use store::SummaryStore;
 pub use types::{Summary, SummaryDelta, SummaryFailure, SummaryProgress, SummaryStatus};
 
 use crate::errors::{Result, VeloError};
+
+/// Room for a five-section summary of a long meeting, and no more. Anything
+/// past this is the model restating itself rather than adding to it.
+const ANSWER_TOKENS: u32 = 2_048;
+/// Notes on one chunk are working material, and shorter by nature.
+const NOTE_TOKENS: u32 = 1_024;
 use crate::storage::settings_store::SummarySettings;
 use crate::transcript::TranscriptSegment;
 use parking_lot::Mutex;
@@ -161,7 +167,7 @@ async fn run_job(
 ) -> Result<Summary> {
     let settings = &input.settings;
     let dialect = transport::dialect_for(&settings.provider);
-    let budget = chunk::budget_chars(settings.context_tokens);
+    let budget = chunk::budget_bytes(settings.context_tokens);
     let chunks = chunk::chunk(&input.segments, budget);
 
     let progress = |stage: &str, done: usize, total: usize| {
@@ -201,6 +207,7 @@ async fn run_job(
                 system: prompt::single_pass_system(settings, &input.vocabulary),
                 user: chunks[0].text.clone(),
                 context_tokens: settings.context_tokens,
+                max_tokens: ANSWER_TOKENS,
             },
             cancel,
             emit_text,
@@ -222,6 +229,7 @@ async fn run_job(
                     system: prompt::map_system(settings, &input.vocabulary),
                     user: piece.text.clone(),
                     context_tokens: settings.context_tokens,
+                    max_tokens: NOTE_TOKENS,
                 },
                 cancel,
                 // The notes are working material; only the final pass is
@@ -251,6 +259,7 @@ async fn run_job(
                 system: prompt::reduce_system(settings, &input.vocabulary),
                 user: notes.join("\n\n"),
                 context_tokens: settings.context_tokens,
+                max_tokens: ANSWER_TOKENS,
             },
             cancel,
             emit_text,
