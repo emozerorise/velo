@@ -30,6 +30,18 @@ export interface TranscriptSettings {
   prompt: string;
 }
 
+export interface SummarySettings {
+  /** 'ollama' | 'openai' — picks the transport, never inferred from the URL. */
+  provider: string;
+  base_url: string;
+  model: string;
+  /** 'th' | 'en' | 'auto' — the summary's language, not the app's. */
+  language: string;
+  instructions: string;
+  /** Drives chunk sizing, and is sent as num_ctx on the Ollama transport. */
+  context_tokens: number;
+}
+
 export interface AppSettings {
   version: number;
   general: GeneralSettings;
@@ -37,4 +49,5 @@ export interface AppSettings {
   audio: AudioSettings;
   subtitle: SubtitleSettings;
   transcript: TranscriptSettings;
+  summary: SummarySettings;
 }

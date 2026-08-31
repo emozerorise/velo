@@ -202,6 +202,143 @@
           {{ transcriptStore.modelError }}
         </p>
       </div>
+
+      <!-- Tab Content: AI -->
+      <div v-if="activeTab === 'ai'" class="flex flex-col gap-4">
+        <!-- Provider -->
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="font-medium text-fg/90">{{ t('settings.aiProvider') }}</span>
+            <span class="block text-xs text-fg/50">{{ t('settings.aiProviderDesc') }}</span>
+          </div>
+          <select
+            v-model="localSettings.summary.provider"
+            class="bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none"
+            @change="onProviderChange"
+          >
+            <option value="ollama">{{ t('settings.aiProvider.ollama') }}</option>
+            <option value="openai">{{ t('settings.aiProvider.openai') }}</option>
+          </select>
+        </div>
+
+        <!-- Server Address -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <span class="font-medium text-fg/90">{{ t('settings.aiBaseUrl') }}</span>
+            <span class="block text-xs text-fg/50">{{ t('settings.aiBaseUrlDesc') }}</span>
+          </div>
+          <input
+            v-model="localSettings.summary.base_url"
+            type="text"
+            spellcheck="false"
+            class="w-52 shrink-0 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none font-mono"
+            @change="save"
+          />
+        </div>
+
+        <!-- Model, offered from what the server actually has -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <span class="font-medium text-fg/90">{{ t('settings.aiModel') }}</span>
+            <span class="block text-xs text-fg/50">{{ t('settings.aiModelDesc') }}</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input
+              v-model="localSettings.summary.model"
+              type="text"
+              list="velo-summary-models"
+              spellcheck="false"
+              class="w-36 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none font-mono"
+              @change="save"
+            />
+            <datalist id="velo-summary-models">
+              <option v-for="name in summaryStore.models" :key="name" :value="name" />
+            </datalist>
+            <button
+              class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
+              :disabled="testing"
+              @click="testConnection"
+            >
+              {{ testing ? t('settings.aiTesting') : t('settings.aiTest') }}
+            </button>
+          </div>
+        </div>
+
+        <p
+          v-if="testResult"
+          class="text-xs break-words"
+          :class="testOk ? 'text-success' : 'text-danger/90'"
+        >
+          {{ testResult }}
+        </p>
+
+        <!-- Summary Language -->
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="font-medium text-fg/90">{{ t('settings.aiLanguage') }}</span>
+            <span class="block text-xs text-fg/50">{{ t('settings.aiLanguageDesc') }}</span>
+          </div>
+          <select
+            v-model="localSettings.summary.language"
+            class="bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none"
+            @change="save"
+          >
+            <option v-for="option in SUMMARY_LANGUAGES" :key="option.code" :value="option.code">
+              {{ t(option.key) }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Context Window -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0">
+            <span class="font-medium text-fg/90">{{ t('settings.aiContext') }}</span>
+            <span class="block text-xs text-fg/50">{{ t('settings.aiContextDesc') }}</span>
+          </div>
+          <input
+            v-model.number="localSettings.summary.context_tokens"
+            type="number"
+            min="2048"
+            max="131072"
+            step="2048"
+            class="w-24 shrink-0 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1 text-xs text-fg outline-none font-mono"
+            @change="save"
+          />
+        </div>
+
+        <!-- Extra Instructions -->
+        <div>
+          <span class="font-medium text-fg/90">{{ t('settings.aiInstructions') }}</span>
+          <span class="block text-xs text-fg/50 mb-1.5">
+            {{ t('settings.aiInstructionsDesc') }}
+          </span>
+          <textarea
+            v-model="localSettings.summary.instructions"
+            rows="2"
+            :placeholder="t('settings.aiInstructionsPlaceholder')"
+            class="w-full bg-inset/40 border border-fg/15 rounded-lg px-3 py-2 text-xs text-fg outline-none resize-none placeholder:text-fg/25"
+            @change="save"
+          />
+        </div>
+
+        <p
+          class="text-xs leading-relaxed"
+          :class="isRemoteProvider ? 'text-amber-500/90' : 'text-fg/40'"
+        >
+          {{
+            isRemoteProvider
+              ? t('settings.aiPrivacyRemote', { host: providerHost })
+              : t('settings.aiPrivacyLocal')
+          }}
+        </p>
+
+        <p
+          v-if="localSettings.summary.provider === 'openai'"
+          class="text-xs text-fg/40 leading-relaxed"
+        >
+          {{ t('settings.aiKeyMissing') }}
+        </p>
+      </div>
     </div>
   </BaseModal>
 </template>
@@ -213,11 +350,13 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
 import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useSummaryStore, SUMMARY_LANGUAGES } from '@/stores/summaryStore';
 import { useToast } from '@/composables/useToast';
 import { formatBytes } from '@/utils/formatters';
 
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
+const summaryStore = useSummaryStore();
 const { t } = useI18n();
 const { showToast } = useToast();
 const activeTab = ref('general');
@@ -238,6 +377,52 @@ const modelStatus = computed(() => {
   return t('settings.modelDownloaded', { size: formatBytes(engine.model_bytes) });
 });
 
+const testing = ref(false);
+const testOk = ref(false);
+const testResult = ref<string | null>(null);
+
+const providerHost = computed(() => {
+  try {
+    return new URL(localSettings.summary.base_url).host;
+  } catch {
+    return localSettings.summary.base_url;
+  }
+});
+
+const isRemoteProvider = computed(() => {
+  const host = providerHost.value.split(':')[0];
+  return !['localhost', '127.0.0.1', '0.0.0.0', '[', '::1'].some((local) => host.startsWith(local));
+});
+
+// The two dialects disagree about whether the version segment belongs in the
+// address, so switching preset fills in the one that provider expects.
+function onProviderChange() {
+  localSettings.summary.base_url =
+    localSettings.summary.provider === 'openai'
+      ? 'https://api.openai.com/v1'
+      : 'http://localhost:11434';
+  summaryStore.models = [];
+  testResult.value = null;
+  save();
+}
+
+/// The backend probes with the settings on disk, so this saves first.
+async function testConnection() {
+  testing.value = true;
+  testResult.value = null;
+  save();
+
+  try {
+    testOk.value = await summaryStore.probe();
+    testResult.value = testOk.value
+      ? t('settings.aiFound', { count: summaryStore.models.length })
+      : (summaryStore.error ?? '');
+  } finally {
+    testing.value = false;
+    void summaryStore.refreshStatus();
+  }
+}
+
 async function removeModel() {
   confirmingRemove.value = false;
   const freed = await transcriptStore.removeModel();
@@ -252,6 +437,7 @@ const tabs = computed(() => [
   { id: 'video', name: t('settings.tab.video') },
   { id: 'subtitles', name: t('settings.tab.subtitles') },
   { id: 'transcript', name: t('settings.tab.transcript') },
+  { id: 'ai', name: t('settings.tab.ai') },
 ]);
 
 const localSettings = reactive<AppSettings>(JSON.parse(JSON.stringify(settingsStore.settings)));

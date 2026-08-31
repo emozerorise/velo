@@ -35,6 +35,14 @@ export const useSettingsStore = defineStore('settings', () => {
       language: 'auto',
       prompt: '',
     },
+    summary: {
+      provider: 'ollama',
+      base_url: 'http://localhost:11434',
+      model: 'qwen3:8b',
+      language: 'auto',
+      instructions: '',
+      context_tokens: 32768,
+    },
   });
 
   const history = ref<HistoryData>({

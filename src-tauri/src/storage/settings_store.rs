@@ -54,6 +54,41 @@ impl Default for TranscriptSettings {
     }
 }
 
+/// Where summaries come from. `provider` picks the transport and is set
+/// explicitly rather than inferred from the URL: LM Studio speaks the OpenAI
+/// dialect on loopback, and Ollama can sit behind a remote hostname, so host
+/// and dialect are independent facts.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SummarySettings {
+    /// "ollama" | "openai"
+    pub provider: String,
+    /// Ollama wants its bare root; OpenAI-compatible servers want the
+    /// version segment included, as their own docs write it.
+    pub base_url: String,
+    pub model: String,
+    /// "th" | "en" | "auto" -- the language of the summary, which need not
+    /// be the language of the meeting or of the app.
+    pub language: String,
+    /// Free-form steering appended to the prompt.
+    pub instructions: String,
+    /// Drives chunk sizing, and is sent as `num_ctx` on the Ollama
+    /// transport. 32768 is what Ollama 0.33 was measured serving qwen3:8b.
+    pub context_tokens: u32,
+}
+
+impl Default for SummarySettings {
+    fn default() -> Self {
+        Self {
+            provider: "ollama".into(),
+            base_url: "http://localhost:11434".into(),
+            model: "qwen3:8b".into(),
+            language: "auto".into(),
+            instructions: String::new(),
+            context_tokens: 32_768,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub version: u32,
@@ -65,6 +100,8 @@ pub struct AppSettings {
     /// still loads instead of silently resetting every other preference.
     #[serde(default)]
     pub transcript: TranscriptSettings,
+    #[serde(default)]
+    pub summary: SummarySettings,
 }
 
 impl Default for AppSettings {
@@ -94,6 +131,7 @@ impl Default for AppSettings {
                 subtitle_delay_step: 0.1,
             },
             transcript: TranscriptSettings::default(),
+            summary: SummarySettings::default(),
         }
     }
 }
@@ -187,6 +225,22 @@ mod tests {
         assert_eq!(settings.audio.default_volume, 42.0);
         assert_eq!(settings.transcript.language, "auto");
         assert!(settings.transcript.prompt.is_empty());
+        // Same protection for the section added after summarisation existed.
+        assert_eq!(settings.summary.provider, "ollama");
+        assert_eq!(settings.summary.model, "qwen3:8b");
+    }
+
+    #[test]
+    fn test_settings_keep_summary_section_when_present() {
+        let mut original = AppSettings::default();
+        original.summary.model = "qwen3:14b".into();
+        original.summary.context_tokens = 8192;
+
+        let json = serde_json::to_string(&original).expect("Serialization failed");
+        let parsed: AppSettings = serde_json::from_str(&json).expect("Deserialization failed");
+
+        assert_eq!(parsed.summary.model, "qwen3:14b");
+        assert_eq!(parsed.summary.context_tokens, 8192);
     }
 
     #[test]
