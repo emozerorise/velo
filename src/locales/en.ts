@@ -164,6 +164,7 @@ export const en = {
   'summary.hintUnreachable': 'Is the model server running? Try: ollama serve',
   'summary.hintSlow': 'The model did not finish in time. A smaller model answers faster.',
   'summary.hintModel': 'That model is not pulled yet. Try: ollama pull {model}',
+  'summary.fixApiKey': 'Open AI settings',
   'summary.lang.auto': 'Same as the meeting',
   'summary.lang.th': 'ไทย',
   'summary.lang.en': 'English',
@@ -180,6 +181,14 @@ export const en = {
   'settings.aiTest': 'Test',
   'settings.aiTesting': 'Testing',
   'settings.aiFound': 'Found {count} model(s)',
+  'settings.aiKey': 'API key',
+  'settings.aiKeyDesc': 'Saved in the OS keychain for this server, never in settings.json',
+  'settings.aiKeyPlaceholder': 'Paste an API key',
+  'settings.aiKeySave': 'Save',
+  'settings.aiKeySaving': 'Saving',
+  'settings.aiKeySaved': 'Saved for {host}',
+  'settings.aiKeyClear': 'Clear',
+  'settings.aiKeyClearing': 'Clearing',
   'settings.aiLanguage': 'Summary language',
   'settings.aiLanguageDesc': 'The language summaries are written in',
   'settings.aiInstructions': 'Extra instructions',
@@ -189,7 +198,6 @@ export const en = {
   'settings.aiContextDesc': 'Tokens per request. Larger means fewer, better-informed passes',
   'settings.aiPrivacyLocal': 'Requests stay on this machine.',
   'settings.aiPrivacyRemote': 'Transcripts are sent to {host}.',
-  'settings.aiKeyMissing': 'This provider needs an API key, which Velo cannot store yet.',
 } as const;
 
 export type MessageKey = keyof typeof en;

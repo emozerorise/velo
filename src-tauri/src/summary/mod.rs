@@ -6,6 +6,7 @@
 //! task on Tauri's runtime instead of a dedicated thread.
 
 pub mod chunk;
+pub mod credentials;
 pub mod prompt;
 pub mod store;
 pub mod transport;
@@ -15,6 +16,7 @@ pub use store::SummaryStore;
 pub use types::{Summary, SummaryDelta, SummaryFailure, SummaryProgress, SummaryStatus};
 
 use crate::errors::{Result, VeloError};
+use credentials::ApiKeyStore;
 
 /// Room for a five-section summary of a long meeting, and no more. Anything
 /// past this is the model restating itself rather than adding to it.
@@ -34,6 +36,7 @@ pub struct SummaryState {
     pub store: Arc<SummaryStore>,
     /// The one summary allowed to run at a time, with its cancel flag.
     pub active: Mutex<Option<ActiveJob>>,
+    credentials: ApiKeyStore,
 }
 
 #[derive(Clone)]
@@ -52,6 +55,8 @@ pub struct JobInput {
     pub vocabulary: String,
     /// What whisper heard, which is what "auto" resolves to.
     pub transcript_language: String,
+    /// Loaded from the keychain in the command layer, never from settings.
+    pub api_key: Option<String>,
 }
 
 /// True when requests would stay on this machine. Drives the warning the
@@ -77,25 +82,40 @@ impl SummaryState {
         Ok(Self {
             store: Arc::new(SummaryStore::new(app_handle)?),
             active: Mutex::new(None),
+            credentials: ApiKeyStore::default(),
         })
     }
 
-    pub fn status(&self, settings: &SummarySettings) -> SummaryStatus {
-        SummaryStatus {
+    pub fn status(&self, settings: &SummarySettings) -> Result<SummaryStatus> {
+        Ok(SummaryStatus {
             provider: settings.provider.clone(),
             base_url: settings.base_url.clone(),
             model: settings.model.clone(),
             configured: !settings.base_url.trim().is_empty() && !settings.model.trim().is_empty(),
             remote: !is_local(&settings.base_url),
-        }
+            has_key: self.credentials.has(&settings.base_url)?,
+        })
     }
 
     /// Ask the provider which models it has. Deliberately cheap and quick:
     /// this is the preflight that stops a chained run before an hour of
     /// transcription when the server is not up.
-    pub async fn probe(settings: &SummarySettings) -> Result<Vec<String>> {
+    pub async fn probe(&self, settings: &SummarySettings) -> Result<Vec<String>> {
         let dialect = transport::dialect_for(&settings.provider);
-        transport::list_models(dialect.as_ref(), &settings.base_url, None).await
+        let key = self.credentials.get(&settings.base_url)?;
+        transport::list_models(dialect.as_ref(), &settings.base_url, key.as_deref()).await
+    }
+
+    pub fn set_api_key(&self, settings: &SummarySettings, key: &str) -> Result<()> {
+        self.credentials.set(&settings.base_url, key)
+    }
+
+    pub fn clear_api_key(&self, settings: &SummarySettings) -> Result<()> {
+        self.credentials.clear(&settings.base_url)
+    }
+
+    pub fn load_api_key(&self, settings: &SummarySettings) -> Result<Option<String>> {
+        self.credentials.get(&settings.base_url)
     }
 
     pub fn cancel(&self) {
@@ -214,7 +234,7 @@ async fn run_job(
         transport::stream_chat(
             dialect.as_ref(),
             &settings.base_url,
-            None,
+            input.api_key.as_deref(),
             &transport::ChatRequest {
                 model: settings.model.clone(),
                 system: prompt::single_pass_system(settings, &input.vocabulary),
@@ -236,7 +256,7 @@ async fn run_job(
             let note = transport::stream_chat(
                 dialect.as_ref(),
                 &settings.base_url,
-                None,
+                input.api_key.as_deref(),
                 &transport::ChatRequest {
                     model: settings.model.clone(),
                     system: prompt::map_system(settings, &input.vocabulary),
@@ -266,7 +286,7 @@ async fn run_job(
         transport::stream_chat(
             dialect.as_ref(),
             &settings.base_url,
-            None,
+            input.api_key.as_deref(),
             &transport::ChatRequest {
                 model: settings.model.clone(),
                 system: prompt::reduce_system(settings, &input.vocabulary),

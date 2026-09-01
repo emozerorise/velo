@@ -24,6 +24,18 @@ export const SUMMARY_LANGUAGES = [
 /** Ordered, so the panel can say "step 3 of 4" without hardcoding it twice. */
 const CHAIN_STEPS: ChainStage[] = ['checking', 'extracting', 'transcribing', 'mapping'];
 
+function errorMessage(value: unknown): string {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'details' in value &&
+    typeof value.details === 'string'
+  ) {
+    return value.details;
+  }
+  return String(value);
+}
+
 export const useSummaryStore = defineStore('summary', () => {
   const player = usePlayerStore();
   const transcripts = useTranscriptStore();
@@ -48,6 +60,7 @@ export const useSummaryStore = defineStore('summary', () => {
 
   const isRunning = computed(() => stage.value !== null);
   const hasSummary = computed(() => (summary.value?.markdown.length ?? 0) > 0);
+  const apiKeyRejected = computed(() => error.value?.includes('API key was rejected') ?? false);
 
   /** A summary made from a transcript that has since been redone. */
   const isStale = computed(() => {
@@ -161,13 +174,37 @@ export const useSummaryStore = defineStore('summary', () => {
     }
   }
 
+  async function setApiKey(key: string): Promise<boolean> {
+    try {
+      await summaryService.setApiKey(key);
+      await refreshStatus();
+      error.value = null;
+      return true;
+    } catch (e) {
+      error.value = errorMessage(e);
+      return false;
+    }
+  }
+
+  async function clearApiKey(): Promise<boolean> {
+    try {
+      await summaryService.clearApiKey();
+      await refreshStatus();
+      error.value = null;
+      return true;
+    } catch (e) {
+      error.value = errorMessage(e);
+      return false;
+    }
+  }
+
   /** Reachability check that doubles as the model picker's source. */
   async function probe(): Promise<boolean> {
     try {
       models.value = await summaryService.probe();
       return true;
     } catch (e) {
-      error.value = String(e);
+      error.value = errorMessage(e);
       return false;
     }
   }
@@ -201,7 +238,7 @@ export const useSummaryStore = defineStore('summary', () => {
     try {
       await summaryService.generate(path);
     } catch (e) {
-      error.value = String(e);
+      error.value = errorMessage(e);
       resetJob();
     }
   }
@@ -286,12 +323,15 @@ export const useSummaryStore = defineStore('summary', () => {
     error,
     isRunning,
     hasSummary,
+    apiKeyRejected,
     isStale,
     step,
     progress,
     initListeners,
     cleanupListeners,
     refreshStatus,
+    setApiKey,
+    clearApiKey,
     probe,
     loadForCurrentMedia,
     summarise,

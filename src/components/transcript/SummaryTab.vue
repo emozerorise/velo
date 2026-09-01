@@ -25,7 +25,7 @@
 
     <button
       class="w-full h-9 rounded-xl bg-blue-500 hover:bg-blue-400 active:scale-[0.98] text-white text-[13px] font-semibold transition-all"
-      @click="settings.isSettingsOpen = true"
+      @click="settings.openSettings('ai')"
     >
       {{ t('summary.openSettings') }}
     </button>
@@ -175,6 +175,13 @@
     <div v-if="store.error" class="w-full text-[11px] text-danger/90 break-words">
       <p>{{ store.error }}</p>
       <p v-if="errorHint" class="mt-1 text-fg/45">{{ errorHint }}</p>
+      <button
+        v-if="store.apiKeyRejected"
+        class="mt-1.5 text-accent hover:underline"
+        @click="settings.openSettings('ai')"
+      >
+        {{ t('summary.fixApiKey') }}
+      </button>
 
       <!-- Whatever arrived before it failed is still worth reading. -->
       <div
@@ -197,6 +204,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
 import { parseSummary } from '@/utils/summaryMarkdown';
+import { providerHost as hostFor } from '@/utils/providerLocation';
 
 const emit = defineEmits<{ (e: 'goto-transcript'): void }>();
 
@@ -214,11 +222,7 @@ const nodes = computed(() => parseSummary(store.summary?.markdown ?? ''));
 
 const providerHost = computed(() => {
   const url = store.status?.base_url ?? '';
-  try {
-    return new URL(url).host;
-  } catch {
-    return url;
-  }
+  return hostFor(url);
 });
 
 const stageLabel = computed(() => {

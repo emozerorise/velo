@@ -16,6 +16,8 @@ export interface SummaryStatus {
   configured: boolean;
   /** The request would leave this machine. */
   remote: boolean;
+  /** The current destination host has a key in the OS keychain. */
+  has_key: boolean;
 }
 
 export type SummaryStage = 'mapping' | 'reducing';

@@ -29,6 +29,8 @@ pub struct SummaryStatus {
     pub configured: bool,
     /// The request would leave this machine.
     pub remote: bool,
+    /// Whether the current destination host has a key in the OS keychain.
+    pub has_key: bool,
 }
 
 /// Emitted on `velo://summary-progress`.

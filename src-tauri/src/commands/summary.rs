@@ -15,15 +15,35 @@ pub async fn summary_status(
     summary: State<'_, SummaryState>,
     storage: State<'_, StorageState>,
 ) -> Result<SummaryStatus> {
-    Ok(summary.status(&storage.settings.load().summary))
+    summary.status(&storage.settings.load().summary)
 }
 
 /// The models the provider actually has. Used as the preflight before a
 /// chained run, and to fill the model picker in settings.
 #[tauri::command]
-pub async fn summary_probe(storage: State<'_, StorageState>) -> Result<Vec<String>> {
+pub async fn summary_probe(
+    summary: State<'_, SummaryState>,
+    storage: State<'_, StorageState>,
+) -> Result<Vec<String>> {
     let settings = storage.settings.load().summary;
-    SummaryState::probe(&settings).await
+    summary.probe(&settings).await
+}
+
+#[tauri::command]
+pub async fn summary_set_api_key(
+    summary: State<'_, SummaryState>,
+    storage: State<'_, StorageState>,
+    key: String,
+) -> Result<()> {
+    summary.set_api_key(&storage.settings.load().summary, &key)
+}
+
+#[tauri::command]
+pub async fn summary_clear_api_key(
+    summary: State<'_, SummaryState>,
+    storage: State<'_, StorageState>,
+) -> Result<()> {
+    summary.clear_api_key(&storage.settings.load().summary)
 }
 
 #[tauri::command]
@@ -43,6 +63,7 @@ pub async fn summary_generate(
     path: String,
 ) -> Result<()> {
     let settings = storage.settings.load();
+    let api_key = summary.load_api_key(&settings.summary)?;
 
     let transcript = transcripts.store.load(&path).ok_or_else(|| {
         VeloError::InvalidParameter("There is no transcript for this file yet".into())
@@ -56,6 +77,7 @@ pub async fn summary_generate(
             segments: transcript.segments,
             settings: settings.summary,
             vocabulary: settings.transcript.prompt,
+            api_key,
         },
     )
 }

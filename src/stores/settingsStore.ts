@@ -4,9 +4,12 @@ import { settingsService, type HistoryItem, type HistoryData } from '@/services/
 import type { AppSettings } from '@/types/settings';
 import { setLocale } from '@/composables/useI18n';
 
+export type SettingsTab = 'general' | 'video' | 'subtitles' | 'transcript' | 'ai';
+
 export const useSettingsStore = defineStore('settings', () => {
   const isSettingsOpen = ref<boolean>(false);
   const isMediaInfoOpen = ref<boolean>(false);
+  const activeTab = ref<SettingsTab>('general');
   const settings = ref<AppSettings>({
     version: 1,
     general: {
@@ -64,13 +67,22 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  function saveSettings(newSettings: AppSettings): void {
+  async function saveSettings(newSettings: AppSettings): Promise<boolean> {
     settings.value = newSettings;
     applyTheme(newSettings.general.theme);
     applyLanguage(newSettings.general.language);
-    settingsService.save(newSettings).catch((e: unknown) => {
+    try {
+      await settingsService.save(newSettings);
+      return true;
+    } catch (e) {
       console.error('Failed to save settings:', e);
-    });
+      return false;
+    }
+  }
+
+  function openSettings(tab: SettingsTab = 'general') {
+    activeTab.value = tab;
+    isSettingsOpen.value = true;
   }
 
   // Fire-and-forget like the playback commands: playback must not wait on a
@@ -120,10 +132,12 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     isSettingsOpen,
     isMediaInfoOpen,
+    activeTab,
     settings,
     history,
     loadSettings,
     saveSettings,
+    openSettings,
     recordPlayback,
     applyTheme,
     applyLanguage,

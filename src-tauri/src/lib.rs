@@ -139,6 +139,8 @@ pub fn run() {
             commands::transcript_delete,
             commands::summary_status,
             commands::summary_probe,
+            commands::summary_set_api_key,
+            commands::summary_clear_api_key,
             commands::summary_get,
             commands::summary_generate,
             commands::summary_cancel,
