@@ -340,7 +340,7 @@ async fn live_ollama_writes_a_thai_summary() {
 
     let base =
         std::env::var("VELO_SUMMARY_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".into());
-    let model = std::env::var("VELO_SUMMARY_MODEL").unwrap_or_else(|_| "qwen3:8b".into());
+    let model = std::env::var("VELO_SUMMARY_MODEL").unwrap_or_else(|_| "qwen3:30b-instruct".into());
 
     let sample = [
         (0.0, "สวัสดีครับ วันนี้คุยเรื่องกำหนดปล่อยรุ่นหน้า"),

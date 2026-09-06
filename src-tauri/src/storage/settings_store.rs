@@ -72,7 +72,9 @@ pub struct SummarySettings {
     /// Free-form steering appended to the prompt.
     pub instructions: String,
     /// Drives chunk sizing, and is sent as `num_ctx` on the Ollama
-    /// transport. 32768 is what Ollama 0.33 was measured serving qwen3:8b.
+    /// transport. 32768 is what Ollama was measured serving for both the
+    /// old default (qwen3:8b) and the current one, despite the latter
+    /// declaring far more.
     pub context_tokens: u32,
 }
 
@@ -81,7 +83,7 @@ impl Default for SummarySettings {
         Self {
             provider: "ollama".into(),
             base_url: "http://localhost:11434".into(),
-            model: "qwen3:8b".into(),
+            model: "qwen3:30b-instruct".into(),
             language: "auto".into(),
             instructions: String::new(),
             context_tokens: 32_768,
@@ -227,7 +229,7 @@ mod tests {
         assert!(settings.transcript.prompt.is_empty());
         // Same protection for the section added after summarisation existed.
         assert_eq!(settings.summary.provider, "ollama");
-        assert_eq!(settings.summary.model, "qwen3:8b");
+        assert_eq!(settings.summary.model, "qwen3:30b-instruct");
     }
 
     #[test]

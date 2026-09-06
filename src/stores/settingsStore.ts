@@ -41,7 +41,7 @@ export const useSettingsStore = defineStore('settings', () => {
     summary: {
       provider: 'ollama',
       base_url: 'http://localhost:11434',
-      model: 'qwen3:8b',
+      model: 'qwen3:30b-instruct',
       language: 'auto',
       instructions: '',
       context_tokens: 32768,

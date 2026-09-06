@@ -214,7 +214,7 @@ const settings = useSettingsStore();
 const player = usePlayerStore();
 const { t } = useI18n();
 
-const PULL_COMMAND = 'ollama pull qwen3:8b';
+const PULL_COMMAND = 'ollama pull qwen3:30b-instruct';
 
 const copied = ref(false);
 const hasMedia = computed(() => player.mediaInfo !== null);
