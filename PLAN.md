@@ -950,8 +950,8 @@ settings and one of which is a secret:
 | :--- | :--- | :--- |
 | `provider` | `ollama` \| `openai` | `settings.json` |
 | `base_url` | `http://localhost:11434` | `settings.json` |
-| `model` | `qwen3:8b` | `settings.json` |
-| `context_tokens` | `4096` | `settings.json` |
+| `model` | `qwen3:30b-instruct` | `settings.json` |
+| `context_tokens` | `32768` | `settings.json` |
 | API key | *(none for Ollama)* | OS keychain |
 
 The `provider` field selects the transport explicitly. It is never inferred
@@ -1095,7 +1095,7 @@ readable text instead of an error.
 pub struct SummarySettings {
     pub provider: String,      // "ollama" | "openai" -- selects the transport
     pub base_url: String,      // "http://localhost:11434"
-    pub model: String,         // "qwen3:8b"
+    pub model: String,         // "qwen3:30b-instruct"
     pub language: String,      // "th" | "en" | "auto"
     pub instructions: String,  // user-supplied extra steering
     pub context_tokens: u32,   // 32768; sent as num_ctx on the native transport
@@ -1200,7 +1200,7 @@ Summary tab states:
 
 | State | Content |
 | :--- | :--- |
-| Not configured | Setup card, a link to Settings, and a copyable `ollama pull qwen3:8b` |
+| Not configured | Setup card, a link to Settings, and a copyable `ollama pull qwen3:30b-instruct` |
 | No media | "Open a video first" (mirrors the transcript tab) |
 | No transcript | Primary **Transcribe & summarize**, secondary "transcript only" |
 | Have transcript | Primary **Summarize** |
@@ -1222,7 +1222,7 @@ data is sent.
 | Condition | Message and recovery |
 | :--- | :--- |
 | Connection refused | "Ollama is not running" + `ollama serve` |
-| 404 model not found | "Model not pulled" + `ollama pull qwen3:8b` |
+| 404 model not found | "Model not pulled" + `ollama pull qwen3:30b-instruct` |
 | 401 / 403 | "API key rejected" + link to the AI settings tab |
 | 429 / 5xx | Retry the failed chunk with backoff; fail the job after repeated failures |
 | Timed out | The model is too slow or looping; suggest a smaller model, and keep the partial answer on screen rather than discarding it |
