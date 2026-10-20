@@ -124,6 +124,7 @@ import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSummaryStore } from '@/stores/summaryStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
@@ -179,6 +180,7 @@ watch(
 watch(
   () => playerStore.mediaInfo?.path,
   () => {
+    useWorkspaceStore().resetForMedia();
     void transcriptStore.loadForCurrentMedia();
     void summaryStore.loadForCurrentMedia();
   }

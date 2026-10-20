@@ -10,7 +10,7 @@
 
   <!-- Provider not set up -->
   <div
-    v-else-if="store.status && !store.status.configured"
+    v-else-if="!store.hasSummary && store.status && !store.status.configured"
     class="flex-1 flex flex-col items-center justify-center text-center p-8 gap-4"
   >
     <Sparkles class="w-8 h-8 text-fg/25" />

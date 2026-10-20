@@ -1,6 +1,22 @@
 import type { Messages } from './en';
 
 export const th: Messages = {
+  'workspace.summaryTitle': 'สรุปเนื้อหา',
+  'workspace.chatTitle': 'คุยต่อจากสรุป',
+  'workspace.playerTitle': 'ตัวเล่น',
+  'workspace.tools': 'เครื่องมือเนื้อหา',
+  'workspace.chatUnavailable': 'แชตเกี่ยวกับเนื้อหาจะใช้งานได้ที่นี่เมื่อเปิดใช้ฟีเจอร์แชตแล้ว',
+  'workspace.noFile': 'ยังไม่ได้เปิดไฟล์',
+  'workspace.welcomeTitle': 'เริ่มจากเรื่องที่อยากเข้าใจ',
+  'workspace.welcomeDescription': 'เปิดไฟล์เสียงหรือวิดีโอ เพื่อถอดเสียง จับประเด็นสำคัญ และคุยต่อกับเนื้อหาของคุณ',
+  'workspace.dropHint': 'หรือลากไฟล์มาวางที่นี่',
+  'workspace.moreFormats': 'และอื่น ๆ',
+  'workspace.stepOpen': 'เลือกไฟล์เสียงหรือวิดีโอจากเครื่องของคุณ',
+  'workspace.stepTranscribeTitle': 'ถอดเสียง',
+  'workspace.stepTranscribe': 'แปลงเสียงเป็นข้อความบนเครื่องนี้',
+  'workspace.stepSummaryTitle': 'สรุปและถามต่อ',
+  'workspace.stepSummary': 'ได้สรุปประเด็นสำคัญและคุยต่อกับเนื้อหา',
+  'workspace.manualOnly': 'เริ่มถอดเสียงหรือสรุปเมื่อคุณกดเท่านั้น',
   'workspace.watchVideo': 'ดูวิดีโอ',
   'workspace.videoHint': 'แสดงวิดีโอและย่อบทถอดเสียงไว้ด้านข้าง',
   'workspace.fullReading': 'อ่านเต็มหน้าต่าง',
@@ -111,7 +127,7 @@ export const th: Messages = {
   'mediaInfo.none': 'ยังไม่ได้เปิดไฟล์',
   'mediaInfo.na': 'ไม่มีข้อมูล',
 
-  'transcript.title': 'ถอดเสียง',
+  'transcript.title': 'บทถอดเสียง',
   'transcript.openFirst': 'เปิดวิดีโอหรือไฟล์เสียงก่อน',
   'transcript.modelMissing': 'ตั้งค่าครั้งเดียวก่อนเริ่มใช้',
   'transcript.modelExplain':
@@ -182,7 +198,7 @@ export const th: Messages = {
   'summary.promptSave': 'บันทึก prompt',
   'summary.promptSaving': 'กำลังบันทึก…',
   'summary.copied': 'คัดลอกแล้ว',
-  'summary.readingTitle': 'สรุปการประชุม',
+  'summary.readingTitle': 'สรุปเนื้อหา',
   'summary.expand': 'ขยายพื้นที่อ่าน',
   'summary.collapse': 'ย่อพื้นที่อ่าน',
   'summary.closePanel': 'ปิดบทถอดเสียงและสรุป',

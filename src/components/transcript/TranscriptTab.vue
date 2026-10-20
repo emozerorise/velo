@@ -154,6 +154,7 @@
           <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg/30" />
           <input
             v-model="query"
+            data-testid="transcript-search"
             type="text"
             :aria-label="t('transcript.search')"
             :placeholder="t('transcript.search')"
@@ -194,6 +195,7 @@
 
     <div
       ref="listEl"
+      data-testid="transcript-scroll"
       class="flex-1 min-h-0 overflow-y-auto overscroll-contain"
       :class="reading ? 'px-6 sm:px-8 pb-6' : 'px-2 py-2'"
     >

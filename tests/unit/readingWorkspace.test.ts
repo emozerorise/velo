@@ -17,7 +17,7 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
 }));
 
-describe('transcript-first workspace', () => {
+describe('reading workspace compatibility', () => {
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale('en');
@@ -63,7 +63,7 @@ describe('transcript-first workspace', () => {
   });
 
   it.each(['en', 'th'])(
-    'renders the playlist and a labelled video escape action (%s)',
+    'renders the playlist and labelled tool icons (%s)',
     async (locale) => {
       setLocale(locale);
       const playlist = usePlaylistStore();
@@ -72,7 +72,7 @@ describe('transcript-first workspace', () => {
       const html = await renderToString(createSSRApp(TranscriptPanel).use(getActivePinia()!));
       expect(html).toContain('<aside');
       expect(html).toContain('meeting.mp4');
-      expect(html).toContain(locale === 'th' ? 'ดูวิดีโอ' : 'Watch video');
+      expect(html).toContain(locale === 'th' ? 'ตัวเล่น' : 'Player');
       expect(html).toContain(locale === 'th' ? 'เปิดไฟล์' : 'Open file');
       expect(html).not.toContain(
         locale === 'th' ? 'ปิดบทถอดเสียงและสรุป' : 'Close transcript and summary',

@@ -5,6 +5,7 @@ import { transcriptService } from '@/services/transcriptService';
 import { usePlayerStore } from './playerStore';
 import { usePlaylistStore } from './playlistStore';
 import { useSettingsStore } from './settingsStore';
+import { useWorkspaceStore } from './workspaceStore';
 import type {
   ModelProgress,
   Transcript,
@@ -27,8 +28,13 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const player = usePlayerStore();
   const settings = useSettingsStore();
 
-  const isPanelOpen = ref(true);
-  const isReadingMode = ref(true);
+  const workspace = useWorkspaceStore();
+  const videoPanelOpen = ref(true);
+  const isPanelOpen = computed({
+    get: () => workspace.mode === 'reading' || videoPanelOpen.value,
+    set: (value: boolean) => { videoPanelOpen.value = value; },
+  });
+  const isReadingMode = computed(() => workspace.mode === 'reading');
   const transcript = ref<Transcript | null>(null);
   const engine = ref<TranscriptEngineStatus | null>(null);
   // Language and vocabulary live in the persisted settings: the terms an
@@ -253,13 +259,13 @@ export const useTranscriptStore = defineStore('transcript', () => {
 
   // View changes never reload media or restart an expensive transcript job.
   function showVideo() {
-    isReadingMode.value = false;
+    workspace.showVideo();
     isPanelOpen.value = true;
     usePlaylistStore().isDrawerOpen = false;
   }
 
   function showReading() {
-    isReadingMode.value = true;
+    workspace.showReading();
     isPanelOpen.value = true;
     usePlaylistStore().isDrawerOpen = false;
   }
