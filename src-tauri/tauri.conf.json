@@ -31,6 +31,12 @@
       "csp": "default-src 'self'; img-src 'self' data: asset: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;"
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc5NENCNDdERUQ1MEY1RkYKUldULzlWRHRmYlJNZWFMVDBPQ1hXY01VVWNUd2hoL1kyWmdHc3R6MjhhVVA4VXVETEcrWG5SV0wK",
+      "endpoints": ["https://github.com/emozerorise/velo/releases/latest/download/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

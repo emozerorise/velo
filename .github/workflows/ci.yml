@@ -24,6 +24,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
+      - run: node --test tests/release/*.check.mjs
 
   rust:
     name: Rust Backend (${{ matrix.os }})

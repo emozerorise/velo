@@ -4,6 +4,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useUpdateStore } from '@/stores/updateStore';
 import { useToast } from './useToast';
 import { useI18n } from './useI18n';
 
@@ -11,6 +12,7 @@ export function useKeyboardShortcuts() {
   const player = usePlayerStore();
   const playlist = usePlaylistStore();
   const transcript = useTranscriptStore();
+  const updates = useUpdateStore();
   const { showToast } = useToast();
   const { t } = useI18n();
 
@@ -65,6 +67,10 @@ export function useKeyboardShortcuts() {
   }
 
   function handleKeyDown(e: KeyboardEvent) {
+    if (updates.blocking) {
+      e.preventDefault();
+      return;
+    }
     // Ignore keystrokes inside text inputs
     if (
       e.target instanceof HTMLInputElement ||

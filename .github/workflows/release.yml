@@ -1,7 +1,8 @@
 name: Release
 
 # Builds installers for a tag and attaches them to its GitHub release.
-# Runs on tag push, and can be started by hand to rebuild a tag's assets.
+# Runs on tag push; a manual run can retry an unfinished draft, not replace
+# signed artifacts that clients may already be downloading.
 #
 # macOS only for now. Windows needs libmpv, which has no package there: the
 # dev files come from the mpv-winbuild releases, MSVC needs an import library
@@ -22,6 +23,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   # Runs once, before the matrix. `gh release upload` needs the release to
   # already exist, and a fresh tag has none -- the v0.1.1 release only worked
@@ -41,8 +46,12 @@ jobs:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists; leaving its notes alone."
+          if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != true ]; then
+              echo "::error::Release $TAG is already published; use a new version."
+              exit 1
+            fi
+            echo "Resuming draft $TAG; leaving its notes alone."
             exit 0
           fi
 
@@ -64,7 +73,7 @@ jobs:
           PY
 
           cat .github/release-footer.md >> notes.md
-          gh release create "$TAG" --verify-tag \
+          gh release create "$TAG" --verify-tag --draft \
             --title "Velo ${TAG#v}" --notes-file notes.md
 
   build:
@@ -173,10 +182,59 @@ jobs:
           hdiutil create -volname Velo -srcfolder "$stage" -ov -format UDZO "$dmg"
           echo "DMG=$dmg" >> "$GITHUB_ENV"
 
-      # Unsigned and un-notarized: Gatekeeper will warn on first launch until
-      # an Apple Developer certificate is added to the repository secrets.
+      # The updater must get exactly the final repaired/ad-hoc-signed app,
+      # not Tauri's earlier bundle that still references Homebrew libraries.
+      - name: Package and sign updater archive
+        env:
+          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+        run: |
+          set -euo pipefail
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for updater releases."
+            exit 1
+          fi
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          archive="Velo_${version}_${{ matrix.arch }}.app.tar.gz"
+          COPYFILE_DISABLE=1 tar -czf "$archive" -C "$(dirname "$APP")" "$(basename "$APP")"
+          npm run tauri signer sign -- "$archive"
+          test -s "$archive.sig"
+          echo "UPDATER_ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      - name: Verify final archive signature against the app key
+        run: VELO_UPDATE_ARCHIVE="$PWD/$UPDATER_ARCHIVE" cargo test --release --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --test update_signature
+
+      # Updater signatures authenticate archives; they do not replace Apple
+      # notarization. The existing first-launch warning still applies.
       - name: Attach to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: gh release upload "$TAG" "$DMG" --clobber
+        run: gh release upload "$TAG" "$DMG" "$UPDATER_ARCHIVE" "$UPDATER_ARCHIVE.sig" --clobber
+
+  publish:
+    name: Publish complete release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Publish manifest and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          test "$TAG" = "v$version"
+          stage=$(mktemp -d)
+          gh release download "$TAG" --pattern '*.app.tar.gz' --pattern '*.app.tar.gz.sig' --dir "$stage"
+          gh release view "$TAG" --json body --jq .body > "$stage/notes.txt"
+          node scripts/update-manifest.mjs "$version" "$stage" "$stage/latest.json" "$stage/notes.txt"
+          gh release upload "$TAG" "$stage/latest.json" --clobber
+          gh release edit "$TAG" --draft=false --latest

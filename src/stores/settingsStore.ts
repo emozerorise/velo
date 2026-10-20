@@ -4,7 +4,7 @@ import { settingsService, type HistoryItem, type HistoryData } from '@/services/
 import type { AppSettings } from '@/types/settings';
 import { setLocale } from '@/composables/useI18n';
 
-export type SettingsTab = 'general' | 'video' | 'subtitles' | 'transcript' | 'ai';
+export type SettingsTab = 'general' | 'video' | 'subtitles' | 'transcript' | 'ai' | 'updates';
 
 export const useSettingsStore = defineStore('settings', () => {
   const isSettingsOpen = ref<boolean>(false);
@@ -46,6 +46,7 @@ export const useSettingsStore = defineStore('settings', () => {
       instructions: '',
       context_tokens: 32768,
     },
+    updates: { auto_check: true, last_checked_at: 0, skipped_version: '' },
   });
 
   const history = ref<HistoryData>({

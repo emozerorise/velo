@@ -50,4 +50,12 @@ export interface AppSettings {
   subtitle: SubtitleSettings;
   transcript: TranscriptSettings;
   summary: SummarySettings;
+  updates: UpdateSettings;
+}
+
+export interface UpdateSettings {
+  auto_check: boolean;
+  /** Milliseconds since the Unix epoch; shared across app launches. */
+  last_checked_at: number;
+  skipped_version: string;
 }

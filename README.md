@@ -72,6 +72,18 @@ Disk images for macOS are attached to each
 [release](https://github.com/emozerorise/velo/releases). They carry their own
 copy of libmpv, so nothing else needs installing.
 
+From **0.6.0**, Velo checks GitHub for updates at most once a day. An update
+notice lets you download and install it inside the app, then restart when
+convenient. **Settings → Updates** also offers a manual check, release notes,
+skip-version and automatic-check preferences. Installation and restart wait
+for transcription, summarisation and model downloads to finish. Update
+archives are authenticated with an updater signature; this is separate from
+Apple code signing and does not remove the first-launch warning below.
+
+If you use an older version, install 0.6.0 (or later) from its DMG once to
+enable in-app updates for subsequent releases. Run the app from Applications,
+not from a mounted disk image.
+
 They are **not signed with an Apple Developer certificate**, so macOS blocks
 the first launch with "Apple could not verify Velo is free of malware." The
 app is fine; macOS simply cannot tell who built it. To open it:

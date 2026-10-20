@@ -6,7 +6,7 @@
   >
     <div class="flex flex-col gap-6 text-sm">
       <!-- Tabs Navigation -->
-      <div class="flex items-center gap-2 border-b border-fg/10 pb-2 text-xs">
+      <div class="flex flex-wrap items-center gap-2 border-b border-fg/10 pb-2 text-xs">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -378,6 +378,7 @@
         </p>
 
       </div>
+      <UpdateSection v-if="activeTab === 'updates'" />
     </div>
   </BaseModal>
 </template>
@@ -385,6 +386,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
+import UpdateSection from '@/components/updates/UpdateSection.vue';
 import { useSettingsStore, type SettingsTab } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
@@ -513,6 +515,7 @@ const tabs = computed<{ id: SettingsTab; name: string }[]>(() => [
   { id: 'subtitles', name: t('settings.tab.subtitles') },
   { id: 'transcript', name: t('settings.tab.transcript') },
   { id: 'ai', name: t('settings.tab.ai') },
+  { id: 'updates', name: t('settings.tab.updates') },
 ]);
 
 const localSettings = reactive<AppSettings>(JSON.parse(JSON.stringify(settingsStore.settings)));

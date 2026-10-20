@@ -54,10 +54,12 @@ Then `gh pr create --title "Release <version>"` and merge once CI is green.
 git checkout main && git pull && git tag -a v<version> -m "Velo <version>" && git push origin v<version>
 ```
 
-Pushing the tag runs `.github/workflows/release.yml`: it creates the release
+Pushing the tag runs `.github/workflows/release.yml`: it creates a **draft**
 with notes from the `[<version>]` changelog section plus
-`.github/release-footer.md`, then attaches `.dmg` installers for Apple Silicon
-and Intel. Around 11 minutes. Watch it with:
+`.github/release-footer.md`. Both macOS builds repair and ad-hoc-sign their
+bundles, then upload a DMG and an updater `.app.tar.gz` with its `.sig`.
+Only after both builds succeed does the final job upload `latest.json` and
+publish the release. Around 11 minutes. Watch it with:
 
 ```bash
 gh run watch $(gh run list --workflow=release.yml --limit 1 --json databaseId -q '.[0].databaseId')
@@ -101,5 +103,23 @@ git checkout main && git pull && git tag -d v<version> && git tag -a v<version> 
   archive whose name carries a date and hash, an import library generated from
   `mpv.def`, and `libmpv-2.dll` bundled alongside. The header comment in
   `release.yml` has the details.
-- `workflow_dispatch` on the Release workflow rebuilds an existing tag's
-  assets without moving anything.
+- `workflow_dispatch` can retry an unfinished **draft** release. Published
+  releases are immutable: use a new version rather than replacing an archive
+  while clients might be downloading its previously advertised signature.
+
+## Updater signing key
+
+`TAURI_SIGNING_PRIVATE_KEY` is a repository Actions Secret. The protected local
+backup is `/Users/emozerorise/.config/velo/updater.key` (mode 0600), outside
+Git. Keep a secure backup: losing it prevents existing apps from trusting
+future updates. Never commit or print the private key. Its public counterpart
+is compiled into `src-tauri/tauri.conf.json`.
+
+This signature is **not** Apple Developer signing or notarization. Do not
+enable Tauri's automatic updater artifacts: they are produced before the
+libmpv dependency repair. The workflow explicitly archives and signs the final
+bundle instead. Verify the actual archive after this step, not an earlier app.
+
+Run `node --test tests/release/*.check.mjs` to test manifest generation,
+including the missing/empty-architecture guards. Users before 0.6.0 need one
+manual DMG installation to gain the updater.
