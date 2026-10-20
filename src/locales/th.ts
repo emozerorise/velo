@@ -3,6 +3,7 @@ import type { Messages } from './en';
 export const th: Messages = {
   'workspace.summaryTitle': 'สรุปเนื้อหา',
   'workspace.chatTitle': 'คุยต่อจากสรุป',
+  'common.close': 'ปิด',
   'chat.placeholder': 'ถามเกี่ยวกับเนื้อหา หรือบอกแนวทางการสรุป…',
   'chat.draftLabel': 'คำถามหรือแนวทางการสรุป',
   'chat.explore': 'อยากต่อยอดประเด็นไหน?',

@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{mpsc, Arc};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use velo_lib::chat::types::{ChatErrorCode, ChatEvent};
 use velo_lib::chat::{run_turn, ChatInput, ChatState};
 use velo_lib::commands::chat::{canonical_path, load_snapshot, status_from_snapshot};
@@ -133,6 +133,8 @@ async fn cancelled_stall(headers: bool) {
     thread::spawn(move || {
         let (mut stream, _) = listener.accept().unwrap();
         read_request(&mut stream);
+        // Slow setup is not Stop latency: the budget starts at cancellation.
+        thread::sleep(Duration::from_millis(300));
         if headers {
             stream
                 .write_all(
@@ -145,9 +147,12 @@ async fn cancelled_stall(headers: bool) {
     });
     let cancel = JobCancel::new();
     let signal = cancel.clone();
+    let (cancelled_at, timing) = mpsc::channel();
+    let before_headers = cancelled_at.clone();
     let cancellation = async move {
         ready.await.unwrap();
         if !headers {
+            before_headers.send(Instant::now()).unwrap();
             signal.cancel();
         }
     };
@@ -160,16 +165,21 @@ async fn cancelled_stall(headers: bool) {
         &cancel,
         |_| {
             if headers {
+                cancelled_at.send(Instant::now()).unwrap();
                 cancel.cancel();
             }
         },
         || {},
     );
-    let (result, ()) = tokio::time::timeout(Duration::from_millis(250), async {
+    let (result, ()) = tokio::time::timeout(Duration::from_secs(5), async {
         tokio::join!(run, cancellation)
     })
     .await
-    .expect("Stop must interrupt the request independently of provider timeout");
+    .expect("The mock connection and cancellation must finish within the setup watchdog");
+    assert!(
+        timing.try_recv().unwrap().elapsed() < Duration::from_millis(250),
+        "Stop must interrupt the request within 250ms of cancellation"
+    );
     release.send(()).unwrap();
     assert!(result.unwrap_err().to_string().contains("Cancelled"));
 }

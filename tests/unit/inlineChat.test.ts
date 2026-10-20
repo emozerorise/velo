@@ -2,17 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, getActivePinia, setActivePinia } from 'pinia';
 import { nextTick } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type Event as TauriEvent } from '@tauri-apps/api/event';
 import { chatService } from '@/services/chatService';
 import { useChatStore } from '@/stores/chatStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useTranscriptStore } from '@/stores/transcriptStore';
+import { useSummaryStore } from '@/stores/summaryStore';
 import { setLocale } from '@/composables/useI18n';
 import InlineChat from '@/components/chat/InlineChat.vue';
 import ChatComposer from '@/components/chat/ChatComposer.vue';
 import ChatMessage from '@/components/chat/ChatMessage.vue';
 import SummaryPromptEditor from '@/components/transcript/SummaryPromptEditor.vue';
+import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { mountView, TestNode } from './helpers/mountView';
+import { mountComposable } from './helpers/mountComposable';
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn().mockResolvedValue(undefined),
 }));
@@ -27,6 +33,7 @@ vi.mock('@/services/chatService', () => ({
   },
   newRequestId: () => 'synthetic-request',
 }));
+let chatEvents: Map<string, (event: TauriEvent<unknown>) => void>;
 describe('inline chat handlers', () => {
   beforeEach(async () => {
     setActivePinia(createPinia());
@@ -34,13 +41,31 @@ describe('inline chat handlers', () => {
     vi.clearAllMocks();
     vi.stubGlobal(
       'window',
-      Object.assign(new EventTarget(), { innerWidth: 640, innerHeight: 400 }),
+      Object.assign(new EventTarget(), {
+        innerWidth: 640,
+        innerHeight: 400,
+        devicePixelRatio: 2,
+        matchMedia: () => new EventTarget(),
+      }),
     );
     vi.stubGlobal('document', { activeElement: null });
     vi.stubGlobal('HTMLElement', TestNode);
     vi.stubGlobal('HTMLInputElement', class extends TestNode {});
     vi.stubGlobal('HTMLTextAreaElement', class extends TestNode {});
-    vi.mocked(listen).mockResolvedValue(() => {});
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    chatEvents = new Map();
+    vi.mocked(listen).mockImplementation(async (name, handler) => {
+      chatEvents.set(name, handler);
+      return () => chatEvents.delete(name);
+    });
     vi.mocked(chatService.status).mockResolvedValue({
       path: '/clip.wav',
       provider: 'ollama',
@@ -243,5 +268,178 @@ describe('inline chat handlers', () => {
     view.find('chat-latest').trigger('click');
     expect(scroll.scrollTop).toBe(1200);
     view.unmount();
+  });
+  it('cached transcript without summary or speech model supports a non-meeting question', async () => {
+    useSummaryStore().summary = null;
+    useTranscriptStore().engine = {
+      ready: false,
+      model_path: null,
+      model_name: 'missing',
+      model_bytes: 0,
+      downloading: false,
+      model_managed: false,
+    };
+    const view = mountView(InlineChat, { visible: true }, getActivePinia()!);
+    const field = view.find('chat-draft');
+    field.value = 'เพลงนี้พูดถึงประเด็นอะไรบ้าง';
+    field.trigger('input', { target: field });
+    await nextTick();
+    expect(view.find('chat-send').props.disabled).toBe(false);
+    view.find('chat-send').trigger('click');
+    await nextTick();
+    expect(chatService.send).toHaveBeenCalledWith(
+      '/clip.wav',
+      'synthetic-request',
+      'เพลงนี้พูดถึงประเด็นอะไรบ้าง',
+      [],
+    );
+    expect(invoke).not.toHaveBeenCalled();
+    view.unmount();
+  });
+  it.each(['en', 'th'])(
+    'critical privacy and input copy use readable contrast tokens (%s)',
+    (locale) => {
+      setLocale(locale);
+      const view = mountView(InlineChat, { visible: true }, getActivePinia()!);
+      const paragraphs = view.nodes().filter((node) => node.tagName === 'P');
+      const privacy = paragraphs.find((node) =>
+        node.text.includes(
+          locale === 'th' ? 'คำขอข้อความอยู่ในเครื่อง' : 'Text requests stay',
+        ),
+      )!;
+      const retention = paragraphs.find((node) =>
+        node.text.includes(
+          locale === 'th'
+            ? 'บทสนทนาเก็บในหน่วยความจำ'
+            : 'This conversation is kept',
+        ),
+      )!;
+      expect(privacy.props.class).toContain('text-fg/65');
+      expect(retention.props.class).toContain('text-fg/60');
+      expect(view.find('chat-draft').props.class).toContain(
+        'placeholder:text-fg/60',
+      );
+      view.unmount();
+    },
+  );
+  it('640x400 IME editing and compact tools retain a hidden streaming conversation', async () => {
+    useTranscriptStore().transcript = {
+      path: '/clip.wav',
+      model: 'cached',
+      language: 'th',
+      prompt: '',
+      created_at: 0,
+      segments: [{ start: 0, end: 60, text: 'เนื้อหาสมมติจากเพลง' }],
+    };
+    const chat = useChatStore();
+    const workspace = useWorkspaceStore();
+    const view = mountView(TranscriptPanel, {}, getActivePinia()!);
+    view.find('tool-chat').trigger('click');
+    await nextTick();
+    const field = view.find('chat-draft');
+    field.value = 'เพลงนี้มีประเด็นอะไร';
+    field.trigger('input', { target: field });
+    await nextTick();
+    field.trigger('compositionstart');
+    field.trigger(
+      'keydown',
+      Object.assign(new Event('keydown', { cancelable: true }), {
+        key: 'Enter',
+        isComposing: true,
+      }),
+    );
+    expect(chatService.send).not.toHaveBeenCalled();
+    field.trigger('compositionend');
+    view.find('chat-send').trigger('click');
+    await nextTick();
+    field.value = 'ร่างคำถามถัดไป';
+    field.trigger('input', { target: field });
+    await nextTick();
+    view.find('tool-player').trigger('click');
+    await nextTick();
+    expect(workspace.compact).toBe(true);
+    expect(workspace.chatVisible).toBe(false);
+    const section = view
+      .nodes()
+      .find((node) => node.props.id === 'workspace-chat')!;
+    expect(section.style.display).toBe('none');
+    chatEvents.get('velo://chat-delta')!({
+      event: 'velo://chat-delta',
+      id: 0,
+      payload: {
+        path: '/clip.wav',
+        request_id: 'synthetic-request',
+        sequence: 1,
+        text: 'คำตอบยังสตรีมอยู่',
+      },
+    });
+    view.find('tool-chat').trigger('click');
+    await nextTick();
+    expect(section.style.display).not.toBe('none');
+    expect(view.find('chat-draft')).toBe(field);
+    expect(chat.draft).toBe('ร่างคำถามถัดไป');
+    expect(chat.messages.at(-1)?.text).toBe('คำตอบยังสตรีมอยู่');
+    expect(chat.isRunning).toBe(true);
+    expect(chatService.cancel).not.toHaveBeenCalled();
+    view.unmount();
+  });
+  it('composer exposes a visible focus ring and a solid contrast Send control', () => {
+    const view = mountView(
+      ChatComposer,
+      {
+        modelValue: 'Question',
+        disabled: false,
+        sending: false,
+        remoteHost: null,
+      },
+      getActivePinia()!,
+    );
+    expect(view.find('chat-draft').parent?.props.class).toContain(
+      'focus-within:ring-2',
+    );
+    expect(view.find('chat-send').props.class).toContain('bg-blue-600');
+    view.unmount();
+  });
+  it('prompt dialog is named and owns header-button Space and Tab focus', async () => {
+    const dispose = mountComposable(() =>
+      useKeyboardShortcuts({ register: true }),
+    );
+    const view = mountView(
+      SummaryPromptEditor,
+      { open: true, initialDraft: 'Review me' },
+      getActivePinia()!,
+    );
+    const dialog = view.nodes().find((node) => node.props.role === 'dialog');
+    expect(dialog?.props['aria-modal']).toBe('true');
+    expect(dialog?.props['aria-label']).toBe('Your summary prompt');
+    const close = view
+      .nodes()
+      .find(
+        (node) =>
+          node.tagName === 'BUTTON' && node.props['aria-label'] === 'Close',
+      )!;
+    const event = Object.assign(new Event('keydown', { cancelable: true }), {
+      key: ' ',
+      code: 'Space',
+    });
+    close.trigger('keydown', event);
+    if (!event.cancelBubble) window.dispatchEvent(event);
+    expect(invoke).not.toHaveBeenCalled();
+    const save = view
+      .nodes()
+      .find(
+        (node) => node.tagName === 'BUTTON' && node.props.type === 'submit',
+      )!;
+    save.focus();
+    const tab = Object.assign(new Event('keydown', { cancelable: true }), {
+      key: 'Tab',
+      shiftKey: false,
+    });
+    save.trigger('keydown', tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(close.focusCount).toBeGreaterThan(0);
+    view.unmount();
+    dispose();
+    await nextTick();
   });
 });

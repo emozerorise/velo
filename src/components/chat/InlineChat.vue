@@ -14,7 +14,7 @@
       </h2>
       <button
         data-testid="close-chat"
-        class="ml-auto p-2 rounded-lg text-fg/45 hover:text-fg focus-visible:outline focus-visible:outline-accent"
+        class="ml-auto p-2 rounded-lg text-fg/60 hover:text-fg focus-visible:outline focus-visible:outline-accent"
         :aria-label="t('chat.close')"
         @click="emit('close')"
       >
@@ -27,7 +27,7 @@
       >
         {{ t('chat.explore') }}
       </h3>
-      <p class="text-base leading-relaxed text-fg/55">
+      <p class="text-base leading-relaxed text-fg/60">
         {{ t('chat.exploreHint') }}
       </p>
       <div class="flex flex-wrap gap-2">
@@ -79,7 +79,7 @@
     >
       {{ t('chat.latest') }}
     </button>
-    <p v-if="chat.preparing" role="status" class="text-sm text-fg/50">
+    <p v-if="chat.preparing" role="status" class="text-sm text-fg/60">
       {{ t('chat.preparing') }}
     </p>
     <template v-else>
@@ -107,7 +107,7 @@
           {{ t('summary.openSettings') }}
         </button>
       </p>
-      <p v-if="summaries.isRunning" role="status" class="text-sm text-fg/50">
+      <p v-if="summaries.isRunning" role="status" class="text-sm text-fg/60">
         {{ t('chat.summaryBusy') }}
       </p>
       <p
@@ -129,7 +129,7 @@
       <p v-if="chat.draftTooLong" role="alert" class="text-sm text-danger">
         {{ t('chat.tooLong') }}
       </p>
-      <div class="flex items-center gap-2 text-xs text-fg/45">
+      <div class="flex items-center gap-2 text-xs text-fg/60">
         <FileAudio class="w-4 h-4" aria-hidden="true" /><span
           class="truncate"
           >{{ player.mediaInfo?.file_name }}</span
@@ -152,7 +152,7 @@
         ><template #dictation><slot name="dictation" /></template
       ></ChatComposer>
     </template>
-    <p class="text-xs text-fg/45 leading-relaxed">
+    <p class="text-xs text-fg/60 leading-relaxed">
       {{ t('chat.sessionOnly') }}
     </p>
     <SummaryPromptEditor

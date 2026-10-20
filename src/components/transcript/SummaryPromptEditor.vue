@@ -1,7 +1,9 @@
 <template>
   <BaseModal :is-open="open" :title="t('summary.promptTitle')" @close="close">
-    <form class="space-y-4" @submit.prevent="save" @keydown.stop>
-      <p class="text-sm leading-relaxed text-fg/65">{{ t('summary.promptHelp') }}</p>
+    <form class="space-y-4" @submit.prevent="save">
+      <p class="text-sm leading-relaxed text-fg/65">
+        {{ t('summary.promptHelp') }}
+      </p>
       <div>
         <p class="text-xs text-fg/50 mb-2">{{ t('summary.promptExamples') }}</p>
         <div class="flex flex-wrap gap-2">
@@ -18,9 +20,11 @@
         </div>
       </div>
       <div>
-        <label for="summary-custom-prompt" class="block text-sm font-medium text-fg/90 mb-2">{{
-          t('summary.promptField')
-        }}</label>
+        <label
+          for="summary-custom-prompt"
+          class="block text-sm font-medium text-fg/90 mb-2"
+          >{{ t('summary.promptField') }}</label
+        >
         <textarea
           id="summary-custom-prompt"
           v-model="draft"
@@ -32,7 +36,9 @@
           @keydown.esc.stop.prevent="close"
         />
       </div>
-      <p class="text-xs leading-relaxed text-fg/50">{{ t('summary.promptScope') }}</p>
+      <p class="text-xs leading-relaxed text-fg/50">
+        {{ t('summary.promptScope') }}
+      </p>
       <p v-if="error" role="alert" class="text-xs text-danger">{{ error }}</p>
       <div class="flex flex-wrap items-center justify-end gap-2">
         <button
@@ -56,7 +62,11 @@
           class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
           :disabled="settings.summaryOptionsSaving"
         >
-          {{ settings.summaryOptionsSaving ? t('summary.promptSaving') : t('summary.promptSave') }}
+          {{
+            settings.summaryOptionsSaving
+              ? t('summary.promptSaving')
+              : t('summary.promptSave')
+          }}
         </button>
       </div>
     </form>
@@ -85,7 +95,8 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
-      draft.value = props.initialDraft ?? settings.settings.summary.instructions;
+      draft.value =
+        props.initialDraft ?? settings.settings.summary.instructions;
       error.value = '';
     }
   },
@@ -97,7 +108,8 @@ function close() {
 }
 async function save() {
   error.value = '';
-  if (await settings.saveSummaryOptions({ instructions: draft.value })) emit('close');
+  if (await settings.saveSummaryOptions({ instructions: draft.value }))
+    emit('close');
   else error.value = t('summary.optionsSaveError');
 }
 </script>

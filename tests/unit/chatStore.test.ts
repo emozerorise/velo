@@ -234,4 +234,43 @@ describe('session-only file chat', () => {
     await chat.send();
     expect(chatService.send).not.toHaveBeenCalled();
   });
+  it('provider failure after a cached transcript leaves the draft editable and supports retry', async () => {
+    const chat = useChatStore();
+    vi.mocked(chatService.send).mockRejectedValueOnce({
+      code: 'connection',
+      message: 'private provider body must not be shown',
+    });
+    chat.setDraft('Question about a film');
+    await chat.send();
+    expect(chat.errorCode).toBe('connection');
+    expect(chat.draft).toBe('Question about a film');
+    chat.setDraft('New edits kept while retrying');
+    await chat.retry();
+    ready();
+    expect(chat.draft).toBe('New edits kept while retrying');
+    expect(
+      chat.messages.filter((message) => message.role === 'user'),
+    ).toHaveLength(1);
+  });
+  it('authoritative final before IPC acknowledgement does not reopen a completed request', async () => {
+    let acknowledge!: (
+      result: Awaited<ReturnType<typeof chatService.send>>,
+    ) => void;
+    vi.mocked(chatService.send).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          acknowledge = resolve;
+        }),
+    );
+    const chat = useChatStore();
+    chat.setDraft('Question');
+    const sending = chat.send();
+    ready();
+    const [path, id] = lastSend();
+    acknowledge({ path, request_id: id, sources, coverage });
+    await sending;
+    expect(chat.isRunning).toBe(false);
+    expect(chat.messages.at(-1)?.status).toBe('complete');
+    expect(chat.messages.at(-1)?.text).toBe('Answer [00:05]');
+  });
 });

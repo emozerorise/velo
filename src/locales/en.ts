@@ -4,6 +4,7 @@
 export const en = {
   'workspace.summaryTitle': 'Content summary',
   'workspace.chatTitle': 'Discuss this summary',
+  'common.close': 'Close',
   'chat.placeholder': 'Ask about the content or describe how you want it summarized…',
   'chat.draftLabel': 'Question or summary instructions',
   'chat.explore': 'What would you like to explore?',

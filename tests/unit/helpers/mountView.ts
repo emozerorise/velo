@@ -1,21 +1,67 @@
-import { createRenderer, h, reactive, type Component } from 'vue';
-import type { Pinia } from 'pinia';
+import { createRenderer, h, reactive, type Component } from "vue";
+import type { Pinia } from "pinia";
 
 export class TestNode extends EventTarget {
   children: TestNode[] = [];
   parent: TestNode | null = null;
   props: Record<string, unknown> = {};
   style: Record<string, unknown> = {};
-  text = '';
-  value = '';
+  text = "";
+  value = "";
   scrollTop = 0;
   scrollHeight = 0;
   clientHeight = 0;
   focusCount = 0;
   focus() {
     this.focusCount++;
+    if (
+      typeof document !== "undefined" &&
+      Object.getOwnPropertyDescriptor(document, "activeElement")?.writable
+    )
+      Reflect.set(document, "activeElement", this);
   }
-  constructor(public tagName = '') {
+  get tabIndex() {
+    return Number(
+      this.props.tabindex ??
+        (["BUTTON", "INPUT", "SELECT", "TEXTAREA", "A"].includes(this.tagName)
+          ? 0
+          : -1),
+    );
+  }
+  get isConnected(): boolean {
+    if (!this.parent) return this.tagName === "ROOT" || this.tagName === "BODY";
+    return this.parent.children.includes(this) && this.parent.isConnected;
+  }
+  hasAttribute(key: string) {
+    return (
+      key in this.props &&
+      this.props[key] !== false &&
+      this.props[key] !== undefined
+    );
+  }
+  getClientRects() {
+    const visible = (node: TestNode): boolean =>
+      node.style.display !== "none" && (!node.parent || visible(node.parent));
+    return this.isConnected && visible(this)
+      ? [this.getBoundingClientRect()]
+      : [];
+  }
+  querySelectorAll<T = TestNode>(selector: string): T[] {
+    const all = (node: TestNode): TestNode[] =>
+      node.children.flatMap((child) => [child, ...all(child)]);
+    const nodes = all(this).filter((node) =>
+      selector === "[autofocus]"
+        ? node.hasAttribute("autofocus")
+        : ["BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(node.tagName) ||
+          node.hasAttribute("href") ||
+          node.hasAttribute("tabindex"),
+    );
+    return nodes as unknown as T[];
+  }
+  querySelector<T = TestNode>(selector: string): T | null {
+    return this.querySelectorAll<T>(selector)[0] ?? null;
+  }
+  constructor(public tagName = "") {
     super();
   }
   scrollIntoView() {}
@@ -39,12 +85,12 @@ export class TestNode extends EventTarget {
 function bubble(node: TestNode, event: string, input: unknown) {
   const handler = node.props[`on${event[0].toUpperCase()}${event.slice(1)}`];
   const handlers = Array.isArray(handler) ? handler : [handler];
-  for (const fn of handlers) if (typeof fn === 'function') fn(input);
+  for (const fn of handlers) if (typeof fn === "function") fn(input);
   if (node.parent && !(input instanceof Event && input.cancelBubble))
     bubble(node.parent, event, input);
 }
 
-const teleportRoot = new TestNode('BODY');
+const teleportRoot = new TestNode("BODY");
 const renderer = createRenderer<TestNode, TestNode>({
   querySelector: () => teleportRoot,
   createElement: (tag) => new TestNode(tag.toUpperCase()),
@@ -87,7 +133,7 @@ export function mountView(
   pinia: Pinia,
 ) {
   teleportRoot.children = [];
-  const root = new TestNode();
+  const root = new TestNode("ROOT");
   const inputProps = reactive({ ...props });
   const app = renderer
     .createApp({ render: () => h(component, { ...inputProps }) })
@@ -102,7 +148,7 @@ export function mountView(
     nodes: () => [...all(root), ...all(teleportRoot)],
     find(testId: string): TestNode {
       const found = [...all(root), ...all(teleportRoot)].find(
-        (node) => node.props['data-testid'] === testId,
+        (node) => node.props["data-testid"] === testId,
       );
       if (!found) throw new Error(`Missing test node: ${testId}`);
       return found;

@@ -8,7 +8,7 @@
     "
     :aria-label="t(message.role === 'user' ? 'chat.you' : 'chat.assistant')"
   >
-    <p class="text-xs font-medium text-fg/45">
+    <p class="text-xs font-medium text-fg/60">
       {{ t(message.role === 'user' ? 'chat.you' : 'chat.assistant') }}
     </p>
     <template v-for="(node, index) in nodes" :key="index">
@@ -54,13 +54,13 @@
     <p
       v-if="message.status === 'streaming' && !message.text"
       role="status"
-      class="text-sm text-fg/45"
+      class="text-sm text-fg/60"
     >
       {{ t('chat.answering') }}
     </p>
     <p
       v-if="message.status === 'failed' || message.status === 'cancelled'"
-      class="text-xs text-fg/50"
+      class="text-xs text-fg/60"
     >
       {{
         t(
@@ -70,7 +70,7 @@
         )
       }}
     </p>
-    <p v-if="message.coverage" class="text-xs leading-relaxed text-fg/45">
+    <p v-if="message.coverage" class="text-xs leading-relaxed text-fg/60">
       {{
         t(
           message.coverage.transcript === 'full'
