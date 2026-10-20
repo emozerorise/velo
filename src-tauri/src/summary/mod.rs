@@ -16,6 +16,7 @@ pub use store::SummaryStore;
 pub use types::{Summary, SummaryDelta, SummaryFailure, SummaryProgress, SummaryStatus};
 
 use crate::errors::{Result, VeloError};
+use crate::jobs::JobLease;
 use credentials::ApiKeyStore;
 
 /// The local model's measured limits prevent repetitive, runaway output.
@@ -124,7 +125,7 @@ impl SummaryState {
         }
     }
 
-    pub fn start(&self, app: AppHandle, input: JobInput) -> Result<()> {
+    pub fn start(&self, app: AppHandle, input: JobInput, lease: JobLease) -> Result<()> {
         if input.segments.is_empty() {
             return Err(VeloError::InvalidParameter(
                 "There is no transcript to summarise".into(),
@@ -132,11 +133,10 @@ impl SummaryState {
         }
 
         let mut active = self.active.lock();
-        if let Some(job) = active.as_ref() {
-            return Err(VeloError::InvalidParameter(format!(
-                "A summary is already being written for {}",
-                job.path
-            )));
+        if active.is_some() {
+            return Err(VeloError::InvalidParameter(
+                "A summary is already being written".into(),
+            ));
         }
 
         let cancel = Arc::new(AtomicBool::new(false));
@@ -147,22 +147,24 @@ impl SummaryState {
         drop(active);
 
         let store = self.store.clone();
+        let cleanup = SummaryCleanup {
+            app: app.clone(),
+            cancel: cancel.clone(),
+        };
 
         tauri::async_runtime::spawn(async move {
+            let _lease = lease;
+            let _cleanup = cleanup;
             let path = input.path.clone();
             let result = run_job(&app, &store, &input, &cancel).await;
 
             match result {
                 Ok(summary) => {
-                    info!(
-                        "summary ready: {} chars for {}",
-                        summary.markdown.len(),
-                        path
-                    );
+                    info!("summary ready");
                     let _ = app.emit("velo://summary-ready", summary);
                 }
                 Err(e) => {
-                    warn!("summary failed: {}", e);
+                    warn!("summary failed");
                     let _ = app.emit(
                         "velo://summary-error",
                         SummaryFailure {
@@ -172,13 +174,27 @@ impl SummaryState {
                     );
                 }
             }
-
-            if let Some(state) = app_state(&app) {
-                *state.active.lock() = None;
-            }
         });
 
         Ok(())
+    }
+}
+
+struct SummaryCleanup {
+    app: AppHandle,
+    cancel: Arc<AtomicBool>,
+}
+impl Drop for SummaryCleanup {
+    fn drop(&mut self) {
+        if let Some(state) = app_state(&self.app) {
+            let mut active = state.active.lock();
+            if active
+                .as_ref()
+                .is_some_and(|job| Arc::ptr_eq(&job.cancel, &self.cancel))
+            {
+                *active = None;
+            }
+        }
     }
 }
 

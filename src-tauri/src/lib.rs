@@ -2,6 +2,7 @@
 
 pub mod commands;
 pub mod errors;
+pub mod jobs;
 pub mod platform;
 pub mod player;
 pub mod storage;
@@ -49,6 +50,7 @@ pub fn run() {
             };
             app.manage(storage_state);
             app.manage(commands::VideoViewportState::default());
+            app.manage(jobs::JobGate::default());
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);

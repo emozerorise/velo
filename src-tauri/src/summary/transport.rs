@@ -13,7 +13,9 @@
 //! written once and shared.
 
 use crate::errors::{Result, VeloError};
+use crate::jobs::JobCancel;
 use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -44,6 +46,27 @@ pub struct ChatRequest {
     pub max_tokens: u32,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum WireRole {
+    System,
+    User,
+    Assistant,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct WireMessage {
+    pub role: WireRole,
+    pub content: String,
+}
+
+pub struct ConversationRequest {
+    pub model: String,
+    pub messages: Vec<WireMessage>,
+    pub context_tokens: u32,
+    pub max_tokens: u32,
+}
+
 /// One frame of a streamed response.
 pub enum Frame {
     /// Carries nothing (a keep-alive, or a blank line between SSE events).
@@ -52,6 +75,7 @@ pub enum Frame {
     /// The model is reasoning; there is no answer text yet.
     Thinking,
     Done,
+    DoneText(String),
     Failed(&'static str),
 }
 
@@ -118,11 +142,13 @@ impl ChatDialect for Ollama {
             return Frame::Empty;
         };
 
-        if value["done"].as_bool().unwrap_or(false) {
-            return Frame::Done;
-        }
-
         let message = &value["message"];
+        if value["done"].as_bool().unwrap_or(false) {
+            return match message["content"].as_str() {
+                Some(text) if !text.is_empty() => Frame::DoneText(text.to_string()),
+                _ => Frame::Done,
+            };
+        }
         match message["content"].as_str() {
             Some(text) if !text.is_empty() => Frame::Text(text.to_string()),
             _ => {
@@ -199,6 +225,18 @@ impl ChatDialect for OpenAi {
         };
 
         let delta = &value["choices"][0]["delta"];
+        match value["choices"][0]["finish_reason"].as_str() {
+            Some("stop") => {
+                return match delta["content"].as_str() {
+                    Some(text) if !text.is_empty() => Frame::DoneText(text.to_string()),
+                    _ => Frame::Done,
+                }
+            }
+            Some(_) => {
+                return Frame::Failed("The provider interrupted the answer before completion")
+            }
+            None => {}
+        }
         match delta["content"].as_str() {
             Some(text) if !text.is_empty() => Frame::Text(text.to_string()),
             _ => {
@@ -355,20 +393,14 @@ impl ThinkStripper {
 fn client(timeout: Duration) -> Result<reqwest::Client> {
     reqwest::Client::builder()
         .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
-        .map_err(|e| VeloError::Summary(format!("Could not create an HTTP client: {}", e)))
+        .map_err(|_| VeloError::Summary("Could not create an HTTP client".into()))
 }
 
 /// Turns a failed response into a message that names the fix, since every one
 /// of these has a different one.
-fn http_error(status: reqwest::StatusCode, body: &str, model: &str) -> VeloError {
-    let detail = body.trim();
-    let detail = if detail.is_empty() {
-        String::new()
-    } else {
-        format!(" ({})", detail.chars().take(200).collect::<String>())
-    };
-
+fn http_error(status: reqwest::StatusCode, model: &str) -> VeloError {
     let message = match status.as_u16() {
         401 | 403 => "The API key was rejected".to_string(),
         404 => format!("The model \"{}\" is not available on this server", model),
@@ -377,7 +409,7 @@ fn http_error(status: reqwest::StatusCode, body: &str, model: &str) -> VeloError
         _ => format!("The provider returned {}", status),
     };
 
-    VeloError::Summary(format!("{}{}", message, detail))
+    VeloError::Summary(message)
 }
 
 fn transport_error(e: reqwest::Error) -> VeloError {
@@ -386,7 +418,7 @@ fn transport_error(e: reqwest::Error) -> VeloError {
     } else if e.is_timeout() {
         VeloError::Summary("The model server took too long to answer".into())
     } else {
-        VeloError::Summary(format!("Request failed: {}", e))
+        VeloError::Summary("The model request failed".into())
     }
 }
 
@@ -415,14 +447,13 @@ pub async fn list_models(
     let response = request.send().await.map_err(transport_error)?;
     let status = response.status();
     if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(http_error(status, &body, ""));
+        return Err(http_error(status, ""));
     }
 
     let value: Value = response
         .json()
         .await
-        .map_err(|e| VeloError::Summary(format!("The server sent an unreadable list: {}", e)))?;
+        .map_err(|_| VeloError::Summary("The server sent an unreadable list".into()))?;
 
     Ok(dialect.models(&value))
 }
@@ -438,21 +469,110 @@ pub async fn stream_chat(
     api_key: Option<&str>,
     req: &ChatRequest,
     cancel: &AtomicBool,
+    on_text: impl FnMut(&str),
+    on_thinking: impl FnMut(),
+) -> Result<String> {
+    stream_body(
+        dialect,
+        base_url,
+        api_key,
+        dialect.body(req),
+        &req.model,
+        CancelSignal::Legacy(cancel),
+        false,
+        on_text,
+        on_thinking,
+    )
+    .await
+}
+
+pub async fn stream_conversation(
+    dialect: &dyn ChatDialect,
+    base_url: &str,
+    api_key: Option<&str>,
+    req: &ConversationRequest,
+    cancel: &JobCancel,
+    on_text: impl FnMut(&str),
+    on_thinking: impl FnMut(),
+) -> Result<String> {
+    let mut body = dialect.body(&ChatRequest {
+        model: req.model.clone(),
+        system: String::new(),
+        user: String::new(),
+        context_tokens: req.context_tokens,
+        max_tokens: req.max_tokens,
+    });
+    body["messages"] = serde_json::to_value(&req.messages)
+        .map_err(|_| VeloError::Summary("Invalid conversation".into()))?;
+    stream_body(
+        dialect,
+        base_url,
+        api_key,
+        body,
+        &req.model,
+        CancelSignal::Conversation(cancel),
+        true,
+        on_text,
+        on_thinking,
+    )
+    .await
+}
+
+enum CancelSignal<'a> {
+    Legacy(&'a AtomicBool),
+    Conversation(&'a JobCancel),
+}
+
+impl CancelSignal<'_> {
+    fn is_cancelled(&self) -> bool {
+        match self {
+            Self::Legacy(flag) => flag.load(Ordering::Acquire),
+            Self::Conversation(signal) => signal.flag().load(Ordering::Acquire),
+        }
+    }
+    async fn cancelled(&self) {
+        match self {
+            Self::Conversation(signal) => signal.cancelled().await,
+            Self::Legacy(flag) => {
+                while !flag.load(Ordering::Acquire) {
+                    tokio::time::sleep(Duration::from_millis(20)).await;
+                }
+            }
+        }
+    }
+}
+
+fn cancelled_error() -> VeloError {
+    VeloError::Summary("Cancelled".into())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn stream_body(
+    dialect: &dyn ChatDialect,
+    base_url: &str,
+    api_key: Option<&str>,
+    body: Value,
+    model: &str,
+    cancel: CancelSignal<'_>,
+    strict: bool,
     mut on_text: impl FnMut(&str),
     mut on_thinking: impl FnMut(),
 ) -> Result<String> {
     let mut request = client(REQUEST_TIMEOUT)?
         .post(dialect.chat_url(base_url))
-        .json(&dialect.body(req));
+        .json(&body);
     if let Some(key) = api_key {
         request = request.bearer_auth(key);
     }
 
-    let response = request.send().await.map_err(transport_error)?;
+    let response = tokio::select! {
+        biased;
+        _ = cancel.cancelled() => return Err(cancelled_error()),
+        response = request.send() => response.map_err(transport_error)?,
+    };
     let status = response.status();
     if !status.is_success() {
-        let body = response.text().await.unwrap_or_default();
-        return Err(http_error(status, &body, &req.model));
+        return Err(http_error(status, model));
     }
 
     let mut stripper = dialect.inlines_reasoning().then(ThinkStripper::default);
@@ -460,46 +580,76 @@ pub async fn stream_chat(
     let mut buffer = Vec::new();
     let mut answer = String::new();
 
-    while let Some(bytes) = stream.next().await {
-        if cancel.load(Ordering::Relaxed) {
-            return Err(VeloError::Summary("Cancelled".into()));
-        }
-
-        let bytes = bytes.map_err(transport_error)?;
-        // A network read may end in the middle of a Thai UTF-8 character.
-        // Decode only complete frames, not arbitrary packet boundaries.
-        buffer.extend_from_slice(&bytes);
-
-        // Frames are newline delimited in both dialects: Ollama streams one
-        // JSON object per line, the OpenAI route one `data:` line per event.
-        while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
-            let line: Vec<u8> = buffer.drain(..=newline).collect();
-            let line = String::from_utf8_lossy(&line);
-            let line = line.trim();
-            if line.is_empty() {
+    loop {
+        let next = tokio::select! {
+            biased;
+            _ = cancel.cancelled() => return Err(cancelled_error()),
+            next = stream.next() => next,
+        };
+        let eof = next.is_none();
+        let bytes = next
+            .transpose()
+            .map_err(transport_error)?
+            .unwrap_or_default();
+        // Split bytes before decoding: a packet can contain many lines, or
+        // end inside a Thai character. Bounds apply to one accumulated line.
+        let pieces = bytes
+            .split_inclusive(|b| *b == b'\n')
+            .chain(eof.then_some(&[][..]));
+        for piece in pieces {
+            if cancel.is_cancelled() {
+                return Err(cancelled_error());
+            }
+            if strict && buffer.len().saturating_add(piece.len()) > 256 * 1024 {
+                return Err(VeloError::Summary(
+                    "The provider stream exceeded the line limit".into(),
+                ));
+            }
+            buffer.extend_from_slice(piece);
+            if !eof && !piece.ends_with(b"\n") {
                 continue;
             }
-
-            match dialect.frame(line) {
+            let line = std::str::from_utf8(&buffer)
+                .map_err(|_| VeloError::Summary("The provider sent invalid UTF-8".into()))?;
+            let frame = dialect.frame(line.trim());
+            buffer.clear();
+            let terminal = matches!(frame, Frame::Done | Frame::DoneText(_));
+            match frame {
                 Frame::Empty => {}
                 Frame::Thinking => on_thinking(),
-                Frame::Done => return completed_answer(answer),
+                Frame::Done => {}
                 Frame::Failed(message) => return Err(VeloError::Summary(message.into())),
-                Frame::Text(text) => {
+                Frame::Text(text) | Frame::DoneText(text) => {
                     let text = match stripper.as_mut() {
                         Some(stripper) => stripper.push(&text),
                         None => text,
                     };
                     if !text.is_empty() {
+                        if strict && answer.len().saturating_add(text.len()) > 64 * 1024 {
+                            return Err(VeloError::Summary(
+                                "The provider answer exceeded the output limit".into(),
+                            ));
+                        }
                         answer.push_str(&text);
                         on_text(&text);
                     }
                 }
             }
+            if terminal {
+                return completed_answer(answer);
+            }
+        }
+        if eof {
+            break;
         }
     }
-
-    completed_answer(answer)
+    if strict {
+        Err(VeloError::Summary(
+            "The provider stream ended before completion".into(),
+        ))
+    } else {
+        completed_answer(answer)
+    }
 }
 
 #[cfg(test)]

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Plan 2 of 3; depends on [workspace](2026-10-21-summary-workspace.md) interfaces; followed by [dictation](2026-10-21-composer-dictation.md). Await human plan review/execution selection.
+- Plan 2 of 3; depends on [workspace](2026-10-21-summary-workspace.md) interfaces; followed by [dictation](2026-10-21-composer-dictation.md). Approved for native task-by-task execution, preserving the existing branch and work.
 - Preserve dirty work, the current 0.8.0 version, existing summary tests and all provider-specific thinking-off behavior.
 - UI bilingual; English source/typed Thai strings; English commits/comments, Thai changelog. Use the approved inline composer, not a separate right column.
 - Chat starts closed; only manual Send invokes inference. Opening chat may read local status/cache, never probe/download/infer. Transcript required, summary optional.
