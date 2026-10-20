@@ -30,7 +30,7 @@
       {{ t('summary.openSettings') }}
     </button>
 
-    <div class="w-full text-left">
+    <div v-if="isOllama" class="w-full text-left">
       <p class="text-[10.5px] text-fg/30 mb-1">{{ t('summary.pullHint') }}</p>
       <button
         class="w-full px-2.5 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] font-mono text-[11px] text-fg/70 text-left transition-colors"
@@ -218,6 +218,9 @@ const PULL_COMMAND = 'ollama pull qwen3:30b-instruct';
 
 const copied = ref(false);
 const hasMedia = computed(() => player.mediaInfo !== null);
+const isOllama = computed(
+  () => (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
+);
 const nodes = computed(() => parseSummary(store.summary?.markdown ?? ''));
 
 const providerHost = computed(() => {
@@ -252,10 +255,14 @@ const percentLabel = computed(() => `${Math.round(Math.max(0, store.progress) * 
 /// The two failures worth spelling out, since both have a one-line fix.
 const errorHint = computed(() => {
   const message = store.error ?? '';
-  if (message.includes('Could not reach')) return t('summary.hintUnreachable');
+  if (message.includes('Could not reach')) {
+    return t(isOllama.value ? 'summary.hintUnreachable' : 'summary.hintRemoteUnreachable');
+  }
   if (message.includes('took too long')) return t('summary.hintSlow');
   if (message.includes('not available on this server')) {
-    return t('summary.hintModel', { model: store.status?.model ?? '' });
+    return t(isOllama.value ? 'summary.hintModel' : 'summary.hintRemoteModel', {
+      model: store.status?.model ?? '',
+    });
   }
   return null;
 });

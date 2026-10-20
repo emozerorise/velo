@@ -100,6 +100,23 @@ later the older right-click → Open shortcut no longer works.
 Prefer to skip all of that? Build from source below — locally built apps are
 not quarantined.
 
+### Summarise with DeepSeek
+
+In **Settings → AI**, choose **DeepSeek**. Velo fills in
+`https://api.deepseek.com` and `deepseek-flash`; save your API key from
+[DeepSeek Platform](https://platform.deepseek.com/) and click **Test** to
+list the models available to your account. You can choose another model,
+set the summary language, or add instructions. Test checks model discovery,
+not a billable summary generation.
+
+DeepSeek summaries disable thinking and allow up to 4,096 output tokens
+(2,048 for intermediate notes). Keys stay in the OS keychain and are never
+written to `settings.json`. Transcription still happens offline; only the
+transcript text and summary instructions are sent to the configured API
+when you request a summary. Do not use a cloud provider for recordings you
+are not allowed to share. Ollama remains the default; existing settings
+are not migrated automatically.
+
 ### Prerequisites
 
 * **Node.js**: v18+ (Node 20+ recommended)

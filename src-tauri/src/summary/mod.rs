@@ -18,8 +18,8 @@ pub use types::{Summary, SummaryDelta, SummaryFailure, SummaryProgress, SummaryS
 use crate::errors::{Result, VeloError};
 use credentials::ApiKeyStore;
 
-/// Room for a five-section summary of a long meeting, and no more. Anything
-/// past this is the model restating itself rather than adding to it.
+/// The local model's measured limits prevent repetitive, runaway output.
+/// DeepSeek gets twice the room without changing existing providers.
 const ANSWER_TOKENS: u32 = 2_048;
 /// Notes on one chunk are working material, and shorter by nature.
 const NOTE_TOKENS: u32 = 1_024;
@@ -187,6 +187,26 @@ fn app_state(app: &AppHandle) -> Option<tauri::State<'_, SummaryState>> {
     app.try_state::<SummaryState>()
 }
 
+fn completion_request(
+    settings: &SummarySettings,
+    system: String,
+    user: String,
+    notes: bool,
+) -> transport::ChatRequest {
+    transport::ChatRequest {
+        model: settings.model.clone(),
+        system,
+        user,
+        context_tokens: settings.context_tokens,
+        max_tokens: match (settings.provider.as_str(), notes) {
+            ("deepseek", true) => 2_048,
+            ("deepseek", false) => 4_096,
+            (_, true) => NOTE_TOKENS,
+            (_, false) => ANSWER_TOKENS,
+        },
+    }
+}
+
 async fn run_job(
     app: &AppHandle,
     store: &SummaryStore,
@@ -200,7 +220,14 @@ async fn run_job(
         ..input.settings.clone()
     };
     let dialect = transport::dialect_for(&settings.provider);
-    let budget = chunk::budget_bytes(settings.context_tokens);
+    // Keep the same instruction headroom when the final answer can be twice
+    // as long. This is only input sizing; it sends no context field to APIs.
+    let extra_output = if settings.provider == "deepseek" {
+        2_048
+    } else {
+        0
+    };
+    let budget = chunk::budget_bytes(settings.context_tokens.saturating_sub(extra_output));
     let chunks = chunk::chunk(&input.segments, budget);
 
     let progress = |stage: &str, done: usize, total: usize| {
@@ -235,13 +262,12 @@ async fn run_job(
             dialect.as_ref(),
             &settings.base_url,
             input.api_key.as_deref(),
-            &transport::ChatRequest {
-                model: settings.model.clone(),
-                system: prompt::single_pass_system(settings, &input.vocabulary),
-                user: format!("{}{}", chunks[0].text, prompt::transcript_reminder()),
-                context_tokens: settings.context_tokens,
-                max_tokens: ANSWER_TOKENS,
-            },
+            &completion_request(
+                settings,
+                prompt::single_pass_system(settings, &input.vocabulary),
+                format!("{}{}", chunks[0].text, prompt::transcript_reminder()),
+                false,
+            ),
             cancel,
             emit_text,
             || {},
@@ -257,13 +283,12 @@ async fn run_job(
                 dialect.as_ref(),
                 &settings.base_url,
                 input.api_key.as_deref(),
-                &transport::ChatRequest {
-                    model: settings.model.clone(),
-                    system: prompt::map_system(settings, &input.vocabulary),
-                    user: format!("{}{}", piece.text, prompt::transcript_reminder()),
-                    context_tokens: settings.context_tokens,
-                    max_tokens: NOTE_TOKENS,
-                },
+                &completion_request(
+                    settings,
+                    prompt::map_system(settings, &input.vocabulary),
+                    format!("{}{}", piece.text, prompt::transcript_reminder()),
+                    true,
+                ),
                 cancel,
                 // The notes are working material; only the final pass is
                 // worth putting on screen.
@@ -287,13 +312,12 @@ async fn run_job(
             dialect.as_ref(),
             &settings.base_url,
             input.api_key.as_deref(),
-            &transport::ChatRequest {
-                model: settings.model.clone(),
-                system: prompt::reduce_system(settings, &input.vocabulary),
-                user: format!("{}{}", notes.join("\n\n"), prompt::notes_reminder()),
-                context_tokens: settings.context_tokens,
-                max_tokens: ANSWER_TOKENS,
-            },
+            &completion_request(
+                settings,
+                prompt::reduce_system(settings, &input.vocabulary),
+                format!("{}{}", notes.join("\n\n"), prompt::notes_reminder()),
+                false,
+            ),
             cancel,
             emit_text,
             || {},
@@ -320,6 +344,28 @@ async fn run_job(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deepseek_gets_room_for_notes_and_a_complete_summary_without_changing_local_limits() {
+        for (provider, notes, expected) in [
+            ("deepseek", false, 4_096),
+            ("deepseek", true, 2_048),
+            ("ollama", false, 2_048),
+            ("ollama", true, 1_024),
+            ("openai", false, 2_048),
+            ("openai", true, 1_024),
+        ] {
+            let settings = SummarySettings {
+                provider: provider.into(),
+                ..Default::default()
+            };
+            let req =
+                completion_request(&settings, "instructions".into(), "transcript".into(), notes);
+            assert_eq!(req.max_tokens, expected, "{provider} notes={notes}");
+            assert_eq!(req.system, "instructions");
+            assert_eq!(req.user, "transcript");
+        }
+    }
 
     #[test]
     fn loopback_hosts_are_local() {

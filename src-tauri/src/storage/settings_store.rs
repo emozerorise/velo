@@ -60,10 +60,10 @@ impl Default for TranscriptSettings {
 /// and dialect are independent facts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummarySettings {
-    /// "ollama" | "openai"
+    /// "ollama" | "openai" | "deepseek"
     pub provider: String,
-    /// Ollama wants its bare root; OpenAI-compatible servers want the
-    /// version segment included, as their own docs write it.
+    /// The provider's documented base URL, including a version segment
+    /// only if required (OpenAI wants /v1; DeepSeek wants the bare root).
     pub base_url: String,
     pub model: String,
     /// "th" | "en" | "auto" -- the language of the summary, which need not

@@ -1,11 +1,12 @@
 //! Talking to a chat model.
 //!
-//! Two dialects are supported and they are not interchangeable. Ollama's
+//! Provider dialects are not interchangeable. Ollama's
 //! native route is the local path because it is the only one that can switch
 //! qwen3's reasoning off -- measured at 22 generated tokens against 409 for
 //! the same summary through the OpenAI-compatible route -- and the only one
 //! that can set the context window. The OpenAI dialect is what every other
-//! server speaks, and is how an API key will be used.
+//! server speaks. DeepSeek adds an explicit non-thinking mode to that wire
+//! format without sending its vendor-specific fields to other servers.
 //!
 //! The dialect trait is deliberately synchronous: it only builds URLs and
 //! bodies and reads single frames, so the streaming machinery below is
@@ -51,6 +52,7 @@ pub enum Frame {
     /// The model is reasoning; there is no answer text yet.
     Thinking,
     Done,
+    Failed(&'static str),
 }
 
 pub trait ChatDialect: Send + Sync {
@@ -67,6 +69,7 @@ pub trait ChatDialect: Send + Sync {
 pub fn dialect_for(provider: &str) -> Box<dyn ChatDialect> {
     match provider {
         "openai" => Box::new(OpenAi),
+        "deepseek" => Box::new(DeepSeek),
         _ => Box::new(Ollama),
     }
 }
@@ -153,8 +156,8 @@ impl ChatDialect for Ollama {
 // OpenAI-compatible
 // ---------------------------------------------------------------------------
 
-/// `base_url` is expected to include the version segment, as every provider
-/// of this dialect documents it that way (`https://api.openai.com/v1`).
+/// `base_url` includes any version segment the server requires, for example
+/// `https://api.openai.com/v1` (DeepSeek's documented root has none).
 pub struct OpenAi;
 
 impl ChatDialect for OpenAi {
@@ -218,6 +221,75 @@ impl ChatDialect for OpenAi {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    fn inlines_reasoning(&self) -> bool {
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DeepSeek (OpenAI wire format, non-thinking summaries)
+// ---------------------------------------------------------------------------
+
+pub struct DeepSeek;
+
+impl ChatDialect for DeepSeek {
+    fn chat_url(&self, base: &str) -> String {
+        OpenAi.chat_url(base)
+    }
+
+    fn models_url(&self, base: &str) -> String {
+        OpenAi.models_url(base)
+    }
+
+    fn body(&self, req: &ChatRequest) -> Value {
+        let mut body = OpenAi.body(req);
+        // DeepSeek enables thinking by default. Summaries need the answer,
+        // not a reasoning pass that spends the output budget before it.
+        body["thinking"] = json!({ "type": "disabled" });
+        body
+    }
+
+    fn frame(&self, line: &str) -> Frame {
+        let value = line
+            .strip_prefix("data:")
+            .and_then(|payload| serde_json::from_str::<Value>(payload.trim()).ok());
+        if let Some(value) = value.as_ref() {
+            match value["choices"][0]["finish_reason"].as_str() {
+                Some("length") => return Frame::Failed(
+                    "DeepSeek reached the output limit. The partial summary was not saved; try a more concise summary in Extra instructions."
+                ),
+                Some("content_filter") => return Frame::Failed(
+                    "DeepSeek could not complete this summary because of its content filter."
+                ),
+                None | Some("stop") => {},
+                Some(_) => return Frame::Failed(
+                    "DeepSeek interrupted the summary before it was complete. Please try again."
+                ),
+            }
+            if value.get("error").is_some() {
+                return Frame::Failed(
+                    "DeepSeek reported an error while writing the summary. Please try again.",
+                );
+            }
+        }
+        let frame = OpenAi.frame(line);
+        if matches!(frame, Frame::Empty) {
+            if let Some(value) = value {
+                if value["choices"][0]["delta"]["reasoning_content"]
+                    .as_str()
+                    .is_some_and(|text| !text.is_empty())
+                {
+                    return Frame::Thinking;
+                }
+            }
+        }
+        frame
+    }
+
+    fn models(&self, value: &Value) -> Vec<String> {
+        OpenAi.models(value)
     }
 
     fn inlines_reasoning(&self) -> bool {
@@ -318,6 +390,16 @@ fn transport_error(e: reqwest::Error) -> VeloError {
     }
 }
 
+fn completed_answer(answer: String) -> Result<String> {
+    if answer.trim().is_empty() {
+        Err(VeloError::Summary(
+            "The model returned nothing. It may have run out of context.".into(),
+        ))
+    } else {
+        Ok(answer)
+    }
+}
+
 /// Ask the server what it has. Used before a long job starts, so a stopped
 /// server is found in seconds rather than after an hour of transcription.
 pub async fn list_models(
@@ -375,7 +457,7 @@ pub async fn stream_chat(
 
     let mut stripper = dialect.inlines_reasoning().then(ThinkStripper::default);
     let mut stream = response.bytes_stream();
-    let mut buffer = String::new();
+    let mut buffer = Vec::new();
     let mut answer = String::new();
 
     while let Some(bytes) = stream.next().await {
@@ -384,12 +466,15 @@ pub async fn stream_chat(
         }
 
         let bytes = bytes.map_err(transport_error)?;
-        buffer.push_str(&String::from_utf8_lossy(&bytes));
+        // A network read may end in the middle of a Thai UTF-8 character.
+        // Decode only complete frames, not arbitrary packet boundaries.
+        buffer.extend_from_slice(&bytes);
 
         // Frames are newline delimited in both dialects: Ollama streams one
         // JSON object per line, the OpenAI route one `data:` line per event.
-        while let Some(newline) = buffer.find('\n') {
-            let line: String = buffer.drain(..=newline).collect();
+        while let Some(newline) = buffer.iter().position(|byte| *byte == b'\n') {
+            let line: Vec<u8> = buffer.drain(..=newline).collect();
+            let line = String::from_utf8_lossy(&line);
             let line = line.trim();
             if line.is_empty() {
                 continue;
@@ -398,7 +483,8 @@ pub async fn stream_chat(
             match dialect.frame(line) {
                 Frame::Empty => {}
                 Frame::Thinking => on_thinking(),
-                Frame::Done => return Ok(answer),
+                Frame::Done => return completed_answer(answer),
+                Frame::Failed(message) => return Err(VeloError::Summary(message.into())),
                 Frame::Text(text) => {
                     let text = match stripper.as_mut() {
                         Some(stripper) => stripper.push(&text),
@@ -413,13 +499,7 @@ pub async fn stream_chat(
         }
     }
 
-    if answer.is_empty() {
-        return Err(VeloError::Summary(
-            "The model returned nothing. It may have run out of context.".into(),
-        ));
-    }
-
-    Ok(answer)
+    completed_answer(answer)
 }
 
 #[cfg(test)]
@@ -473,6 +553,47 @@ mod tests {
 
         assert!(matches!(OpenAi.frame("data: [DONE]"), Frame::Done));
         assert!(matches!(OpenAi.frame(": keep-alive"), Frame::Empty));
+    }
+
+    #[test]
+    fn deepseek_disables_thinking_without_changing_openai_requests() {
+        let req = ChatRequest {
+            model: "deepseek-flash".into(),
+            system: "summarise in Thai".into(),
+            user: "[00:01] hello".into(),
+            context_tokens: 32_768,
+            max_tokens: 4_096,
+        };
+        let body = dialect_for("deepseek").body(&req);
+        assert_eq!(body["thinking"]["type"], "disabled");
+        assert_eq!(body["max_tokens"], 4_096);
+        assert_eq!(body["temperature"], 0.3);
+        assert_eq!(body["stream"], true);
+        assert_eq!(body["messages"][0]["content"], "summarise in Thai");
+        assert_eq!(body["messages"][1]["content"], "[00:01] hello");
+        assert!(OpenAi.body(&req).get("thinking").is_none());
+    }
+
+    #[test]
+    fn deepseek_uses_openai_routes_and_separates_reasoning_from_answers() {
+        let dialect = dialect_for("deepseek");
+        assert_eq!(
+            dialect.chat_url("https://api.deepseek.com/"),
+            "https://api.deepseek.com/chat/completions"
+        );
+        assert_eq!(
+            dialect.models_url("https://api.deepseek.com/"),
+            "https://api.deepseek.com/models"
+        );
+        assert!(matches!(
+            dialect
+                .frame(r#"data: {"choices":[{"delta":{"reasoning_content":"private thoughts"}}]}"#),
+            Frame::Thinking
+        ));
+        assert_eq!(
+            text_of(dialect.frame(r#"data: {"choices":[{"delta":{"content":"สรุป [00:01]"}}]}"#)),
+            Some("สรุป [00:01]".into())
+        );
     }
 
     #[test]
