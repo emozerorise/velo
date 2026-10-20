@@ -1,4 +1,7 @@
-use velo_lib::player::viewport::{ClientMetrics, Rect, VideoViewportInput, ViewportState};
+use velo_lib::player::viewport::{
+    appkit_rect, win32_rect, ClientMetrics, PixelRect, Rect, ResolvedViewport, SurfaceLayout,
+    VideoViewportInput, ViewportState,
+};
 
 fn client() -> ClientMetrics {
     ClientMetrics {
@@ -109,4 +112,101 @@ fn ignores_old_revision_after_close() {
     assert!(state.apply(input(4), client()).unwrap().is_none());
     assert!(state.apply(input(5), client()).unwrap().is_none());
     assert!(state.apply(input(6), client()).unwrap().unwrap().visible);
+}
+
+#[test]
+fn appkit_rect_flips_y_once() {
+    let rect = Rect {
+        x: 100.0,
+        y: 50.0,
+        width: 300.0,
+        height: 200.0,
+    };
+    assert_eq!(appkit_rect(rect, 600.0), Rect { y: 350.0, ..rect });
+}
+
+#[test]
+fn win32_rect_scales_and_rounds_edges() {
+    let rect = Rect {
+        x: 100.0,
+        y: 50.0,
+        width: 300.0,
+        height: 200.0,
+    };
+    assert_eq!(
+        win32_rect(rect, 2.0),
+        PixelRect {
+            x: 200,
+            y: 100,
+            width: 600,
+            height: 400
+        }
+    );
+    assert_eq!(
+        win32_rect(
+            Rect {
+                x: 0.3,
+                y: 0.3,
+                width: 100.3,
+                height: 50.3
+            },
+            1.5
+        ),
+        PixelRect {
+            x: 0,
+            y: 0,
+            width: 151,
+            height: 76
+        }
+    );
+}
+
+#[test]
+fn hidden_surface_retains_nonzero_live_render_target() {
+    let mut surface = SurfaceLayout::new();
+    let metrics = ClientMetrics {
+        width: 800.0,
+        height: 600.0,
+        scale_factor: 2.0,
+    };
+    let opened = ResolvedViewport {
+        rect: Rect {
+            x: 100.0,
+            y: 50.0,
+            width: 300.0,
+            height: 200.0,
+        },
+        visible: true,
+        revision: 4,
+    };
+    assert_eq!(surface.apply(opened, metrics), Some(opened.rect));
+    let hidden = ResolvedViewport {
+        rect: Rect {
+            width: 0.0,
+            height: 0.0,
+            ..opened.rect
+        },
+        visible: false,
+        revision: 6,
+    };
+    assert_eq!(surface.apply(hidden, metrics), Some(opened.rect));
+    assert!(
+        surface
+            .apply(
+                ResolvedViewport {
+                    revision: 5,
+                    ..opened
+                },
+                metrics
+            )
+            .is_none(),
+        "late UI work cannot reopen a closed shelf"
+    );
+    let resized = surface.resize(ClientMetrics {
+        width: 80.0,
+        height: 40.0,
+        ..metrics
+    });
+    assert!(resized.width > 0.0 && resized.height > 0.0);
+    assert!(resized.x + resized.width <= 80.0 && resized.y + resized.height <= 40.0);
 }

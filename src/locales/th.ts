@@ -4,6 +4,7 @@ export const th: Messages = {
   'workspace.summaryTitle': 'สรุปเนื้อหา',
   'workspace.chatTitle': 'คุยต่อจากสรุป',
   'workspace.playerTitle': 'ตัวเล่น',
+  'workspace.closePlayer': 'ปิดตัวเล่น',
   'workspace.viewportError': 'จัดตำแหน่งวิดีโอไม่สำเร็จ ลองปิดแล้วเปิดตัวเล่นอีกครั้ง',
   'workspace.tools': 'เครื่องมือเนื้อหา',
   'workspace.chatUnavailable': 'แชตเกี่ยวกับเนื้อหาจะใช้งานได้ที่นี่เมื่อเปิดใช้ฟีเจอร์แชตแล้ว',

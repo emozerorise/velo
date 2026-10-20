@@ -4,27 +4,27 @@
       <button v-if="sidebarOpen" class="absolute inset-0 z-[4] bg-black/50 sidebar-backdrop" :aria-label="t('workspace.closePlaylist')" @click="sidebarOpen = false" />
       <ReadingSidebar :open="sidebarOpen" @close="sidebarOpen = false" />
     </template>
-    <div class="workspace-content flex-1 min-w-0 min-h-0 flex flex-col bg-surface">
-      <header v-if="reading" data-tauri-drag-region class="workspace-header h-16 shrink-0 flex items-center gap-3 px-6 border-b border-fg/10">
+    <div class="workspace-content flex-1 min-w-0 min-h-0 flex flex-col">
+      <header v-if="reading" data-tauri-drag-region class="workspace-header h-16 shrink-0 flex items-center gap-3 px-6 border-b border-fg/10 bg-surface">
         <button class="sidebar-toggle p-1.5 rounded-lg text-fg/65 hover:text-fg" :aria-label="t('playlist.title')" :aria-expanded="sidebarOpen" @click="sidebarOpen = !sidebarOpen"><PanelLeft class="w-5 h-5" /></button>
         <FileAudio class="w-4 h-4 text-fg/45 shrink-0" aria-hidden="true" />
         <span class="truncate text-sm text-fg/60" :title="currentTitle">{{ currentTitle }}</span>
         <span v-if="player.duration > 0" class="ml-auto font-mono text-xs text-fg/35">{{ formatTime(player.duration) }}</span>
       </header>
-      <header v-else class="flex items-center gap-2 px-4 py-3 border-b border-fg/10 shrink-0">
+      <header v-else class="flex items-center gap-2 px-4 py-3 border-b border-fg/10 shrink-0 bg-surface">
         <FileText class="w-4 h-4 text-accent" aria-hidden="true" />
         <span class="text-sm font-medium text-fg/90">{{ t(workspace.view === 'summary' ? 'workspace.summaryTitle' : 'transcript.title') }}</span>
         <button class="ml-auto p-1.5 rounded-lg text-fg/60 hover:text-fg" :aria-label="t('workspace.fullReading')" @click="store.showReading()"><Maximize2 class="w-4 h-4" /></button>
         <button class="p-1.5 rounded-lg text-fg/60 hover:text-fg" :aria-label="t('summary.closePanel')" @click="store.isPanelOpen = false"><X class="w-4 h-4" /></button>
       </header>
-      <div v-if="reading" class="workspace-heading shrink-0 px-6 sm:px-8 pt-6 pb-4">
+      <div v-if="reading" class="workspace-heading shrink-0 px-6 sm:px-8 pt-6 pb-4 bg-surface">
         <h1 class="text-[30px] font-semibold tracking-tight text-fg/95 pb-4 border-b border-fg/10">{{ t(workspace.view === 'summary' ? 'workspace.summaryTitle' : 'transcript.title') }}</h1>
       </div>
       <!-- Visibility changes must not discard reader search, scroll or drafts. -->
-      <div v-show="workspace.view === 'transcript'" id="workspace-transcript" class="workspace-reader flex-1 min-h-0 flex flex-col">
+      <div v-show="workspace.view === 'transcript'" id="workspace-transcript" class="workspace-reader flex-1 min-h-0 flex flex-col bg-surface">
         <TranscriptTab :reading="reading" :visible="workspace.view === 'transcript' && store.isPanelOpen" />
       </div>
-      <div v-show="workspace.view === 'summary'" id="workspace-summary" class="workspace-reader flex-1 min-h-0 flex flex-col">
+      <div v-show="workspace.view === 'summary'" id="workspace-summary" class="workspace-reader flex-1 min-h-0 flex flex-col bg-surface">
         <WorkspaceWelcome v-if="!player.mediaInfo" />
         <div v-show="!!player.mediaInfo" class="flex-1 min-h-0 flex flex-col">
           <SummaryTab :expanded="reading" :reading="reading" @toggle-reading="reading ? store.showVideo() : store.showReading()" @goto-transcript="workspace.view = 'transcript'" />
@@ -36,11 +36,7 @@
           </slot>
         </div>
       </div>
-      <div v-if="reading && workspace.playerOpen" id="workspace-player" class="shrink-0 border-t border-fg/10">
-        <p v-if="workspace.viewportError" role="alert" class="p-3 text-xs text-danger">{{ t('workspace.viewportError') }}</p>
-        <ReadingTransport v-if="player.mediaInfo" />
-        <p v-else class="p-6 text-sm text-fg/45">{{ t('summary.openFirst') }}</p>
-      </div>
+      <PlayerShelf :video-element="videoElement" />
     </div>
     <WorkspaceRail />
   </section>
@@ -52,7 +48,7 @@ import { FileAudio, FileText, Maximize2, PanelLeft, X } from '@lucide/vue';
 import TranscriptTab from './TranscriptTab.vue';
 import SummaryTab from './SummaryTab.vue';
 import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
-import ReadingTransport from '@/components/player/ReadingTransport.vue';
+import PlayerShelf from '@/components/player/PlayerShelf.vue';
 import WorkspaceRail from '@/components/workspace/WorkspaceRail.vue';
 import WorkspaceWelcome from '@/components/workspace/WorkspaceWelcome.vue';
 import { useTranscriptStore } from '@/stores/transcriptStore';
@@ -67,6 +63,7 @@ const { t } = useI18n();
 const reading = computed(() => workspace.mode === 'reading');
 const currentTitle = computed(() => player.mediaInfo?.file_name ?? t('workspace.noFile'));
 const sidebarOpen = ref(false);
+defineProps<{ videoElement?: HTMLElement | null }>();
 </script>
 
 <style scoped>

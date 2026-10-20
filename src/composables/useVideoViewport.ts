@@ -1,9 +1,13 @@
-import { onScopeDispose, watch, type Ref } from 'vue';
+import { onMounted, onScopeDispose, watch, type Ref } from 'vue';
 import { nextVideoViewportRevision, playerService } from '@/services/playerService';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { VideoViewportInput } from '@/types/workspace';
 
 export function useVideoViewport(element: Ref<HTMLElement | null>, visible: () => boolean): void {
+  onMounted(() => observeVideoViewport(element, visible));
+}
+
+function observeVideoViewport(element: Ref<HTMLElement | null>, visible: () => boolean): void {
   const workspace = useWorkspaceStore();
   let disposed = false;
   let pending: number | null = null;

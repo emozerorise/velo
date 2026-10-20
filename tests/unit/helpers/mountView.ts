@@ -11,6 +11,7 @@ export class TestNode extends EventTarget {
   scrollTop = 0;
   constructor(public tagName = '') { super(); }
   scrollIntoView() {}
+  getBoundingClientRect() { return { x: 0, y: 0, width: 320, height: 180 }; }
   setAttribute(key: string, value: unknown) { this.props[key] = value; }
   removeAttribute(key: string) { delete this.props[key]; }
   trigger(event: string, payload?: unknown) {

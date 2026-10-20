@@ -11,6 +11,10 @@ import { setLocale } from '@/composables/useI18n';
 import WorkspaceRail from '@/components/workspace/WorkspaceRail.vue';
 import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
 import SummaryTab from '@/components/transcript/SummaryTab.vue';
+import PlayerShelf from '@/components/player/PlayerShelf.vue';
+import { ref } from 'vue';
+import { useVideoMask } from '@/composables/useVideoMask';
+import { mountComposable } from './helpers/mountComposable';
 import { mountView, TestNode } from './helpers/mountView';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn().mockResolvedValue(undefined) }));
@@ -32,7 +36,13 @@ function loaded() {
 describe('summary-first workspace tools', () => {
   beforeEach(() => {
     setActivePinia(createPinia()); setLocale('en'); vi.clearAllMocks();
-    vi.stubGlobal('window', new EventTarget());
+    vi.stubGlobal('window', Object.assign(new EventTarget(), {
+      innerWidth: 1000, innerHeight: 700, devicePixelRatio: 2,
+      matchMedia: () => new EventTarget(),
+    }));
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -113,6 +123,39 @@ describe('summary-first workspace tools', () => {
     useSummaryStore().summary = { path: '/meeting.mp4', model: 'test', language: 'en', markdown: '## Overview\nCached summary remains readable', created_at: 0, source_segments: 2 };
     expect(await render(SummaryTab)).toContain('Cached summary remains readable');
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it('shelf_close_does_not_pause_audio', async () => {
+    loaded(); usePlayerStore().state = 'playing'; usePlayerStore().currentTime = 37;
+    const workspace = useWorkspaceStore(); workspace.playerOpen = true;
+    const view = mountView(PlayerShelf, {}, getActivePinia()!);
+    view.find('close-player').trigger('click'); await nextTick();
+    expect(workspace.playerOpen).toBe(false);
+    expect([usePlayerStore().state, usePlayerStore().currentTime]).toEqual(['playing', 37]);
+    expect(vi.mocked(invoke).mock.calls.some(([name]) => /pause|seek|load|stop/.test(name))).toBe(false);
+    view.unmount();
+  });
+
+  it('audio_only_has_no_empty_video_hole', async () => {
+    loaded(); usePlayerStore().mediaInfo!.video_codec = null;
+    usePlayerStore().mediaInfo!.width = 0; usePlayerStore().mediaInfo!.height = 0;
+    useWorkspaceStore().playerOpen = true;
+    const html = await render(PlayerShelf);
+    expect(html).not.toContain('data-testid="video-preview"');
+    expect(html).toContain('Play (Space)');
+  });
+
+  it('modal_masks_native_preview', async () => {
+    loaded(); useWorkspaceStore().playerOpen = true;
+    const open = ref(false);
+    const dispose = mountComposable(() => useVideoMask(() => open.value));
+    const view = mountView(PlayerShelf, {}, getActivePinia()!);
+    expect(view.find('video-preview').props['data-masked']).toBe(false);
+    open.value = true; await nextTick();
+    expect(view.find('video-preview').props['data-masked']).toBe(true);
+    open.value = false; await nextTick();
+    expect(view.find('video-preview').props['data-masked']).toBe(false);
+    view.unmount(); dispose();
   });
 
   it('reader_search_scroll_survives_tool_changes', async () => {

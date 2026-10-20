@@ -1,5 +1,5 @@
 <template>
-  <footer class="shrink-0 bg-surface px-4 sm:px-6" @keydown.space.stop>
+  <footer class="shrink-0 bg-surface px-4 sm:px-6" :class="{ 'transport-compact': compact }" @keydown.space.stop>
     <div
       class="max-w-[68rem] mx-auto border-t border-fg/15 py-3 flex flex-wrap items-center gap-2 sm:gap-4"
     >
@@ -69,9 +69,13 @@ import { useI18n } from '@/composables/useI18n';
 import { formatTime } from '@/utils/formatters';
 const player = usePlayerStore();
 const { t } = useI18n();
+defineProps<{ compact?: boolean }>();
 </script>
 
 <style scoped>
+.transport-compact { padding: 0 12px; }
+.transport-compact > div { padding: 8px 0; border: 0; gap: 8px; }
+.transport-compact button.rounded-full { width: 40px; height: 40px; }
 .reading-volume::-webkit-slider-thumb {
   opacity: 1;
   width: 10px;

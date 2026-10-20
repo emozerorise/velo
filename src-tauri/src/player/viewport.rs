@@ -35,6 +35,88 @@ pub struct ResolvedViewport {
     pub revision: u64,
 }
 
+pub fn appkit_rect(rect: Rect, client_height: f64) -> Rect {
+    Rect {
+        y: client_height - rect.y - rect.height,
+        ..rect
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PixelRect {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+pub fn win32_rect(rect: Rect, scale: f64) -> PixelRect {
+    let right = ((rect.x + rect.width) * scale).round().max(1.0) as i32;
+    let bottom = ((rect.y + rect.height) * scale).round().max(1.0) as i32;
+    let x = ((rect.x * scale).round() as i32).min(right - 1);
+    let y = ((rect.y * scale).round() as i32).min(bottom - 1);
+    PixelRect {
+        x,
+        y,
+        width: right - x,
+        height: bottom - y,
+    }
+}
+
+/// Hiding a tool covers its last live target rather than starving mpv's
+/// draw/swap loop with a zero-sized or destroyed native view.
+pub struct SurfaceLayout {
+    revision: u64,
+    rect: Option<Rect>,
+}
+
+impl Default for SurfaceLayout {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SurfaceLayout {
+    pub const fn new() -> Self {
+        Self {
+            revision: 0,
+            rect: None,
+        }
+    }
+
+    pub fn apply(&mut self, viewport: ResolvedViewport, client: ClientMetrics) -> Option<Rect> {
+        if viewport.revision <= self.revision {
+            return None;
+        }
+        self.revision = viewport.revision;
+        if viewport.visible {
+            self.rect = Some(viewport.rect);
+        }
+        Some(self.resize(client))
+    }
+
+    pub fn resize(&mut self, client: ClientMetrics) -> Rect {
+        let rect = self.rect.unwrap_or(Rect {
+            x: 0.0,
+            y: 0.0,
+            width: client.width,
+            height: client.height,
+        });
+        let width = client.width.max(1.0);
+        let height = client.height.max(1.0);
+        let x = rect.x.clamp(0.0, width - 1.0);
+        let y = rect.y.clamp(0.0, height - 1.0);
+        let rect = Rect {
+            x,
+            y,
+            width: rect.width.clamp(1.0, width - x),
+            height: rect.height.clamp(1.0, height - y),
+        };
+        self.rect = Some(rect);
+        rect
+    }
+}
+
 #[derive(Default)]
 pub struct ViewportState {
     revision: u64,

@@ -32,15 +32,39 @@ pub async fn player_set_video_viewport(
                     .to_logical::<f64>(scale);
                 let mut states = states.lock();
                 let state = states.entry(ui_window.label().to_string()).or_default();
-                let resolved = state.apply(
-                    input,
-                    ClientMetrics {
-                        width: size.width,
-                        height: size.height,
-                        scale_factor: scale,
-                    },
-                )?;
-                Ok(resolved.map_or_else(|| state.revision(), |viewport| viewport.revision))
+                let client = ClientMetrics {
+                    width: size.width,
+                    height: size.height,
+                    scale_factor: scale,
+                };
+                if let Some(viewport) = state.apply(input, client)? {
+                    #[cfg(target_os = "macos")]
+                    unsafe {
+                        let handle = ui_window
+                            .ns_window()
+                            .map_err(|e| VeloError::Platform(e.to_string()))?;
+                        crate::platform::macos::MacosPlatform::apply_video_viewport(
+                            handle, &viewport,
+                        )?;
+                    }
+                    #[cfg(target_os = "windows")]
+                    unsafe {
+                        let handle = ui_window
+                            .hwnd()
+                            .map_err(|e| VeloError::Platform(e.to_string()))?;
+                        crate::platform::windows::WindowsPlatform::apply_video_viewport(
+                            handle.0, &viewport, client,
+                        )?;
+                    }
+                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                    {
+                        let _ = viewport;
+                        return Err(VeloError::Platform(
+                            "Native video viewport is unsupported on this platform".into(),
+                        ));
+                    }
+                }
+                Ok(state.revision())
             })();
             let _ = sender.send(result);
         })

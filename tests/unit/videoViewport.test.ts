@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { effectScope, nextTick, ref } from 'vue';
+import { nextTick, ref } from 'vue';
+import { mountComposable } from './helpers/mountComposable';
 import { invoke } from '@tauri-apps/api/core';
 import { useVideoViewport } from '@/composables/useVideoViewport';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -19,8 +20,7 @@ describe('native viewport observer', () => {
   function observe() {
     const element = ref({ getBoundingClientRect: () => ({ x: 100, y: 50, width: 400, height: 200 }) } as HTMLElement);
     const visible = ref(true);
-    const scope = effectScope();
-    scope.run(() => useVideoViewport(element, () => visible.value));
+    const scope = { stop: mountComposable(() => useVideoViewport(element, () => visible.value)) };
     return { scope, visible, element };
   }
   beforeEach(() => {

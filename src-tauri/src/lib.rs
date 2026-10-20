@@ -106,6 +106,27 @@ pub fn run() {
                         },
                     );
                 player.initialize(handle.clone(), wid)?;
+                #[cfg(target_os = "windows")]
+                if let Some(window) = app.get_webview_window("main") {
+                    let target = window.clone();
+                    window.on_window_event(move |event| {
+                        if matches!(
+                            event,
+                            tauri::WindowEvent::Resized(_)
+                                | tauri::WindowEvent::ScaleFactorChanged { .. }
+                        ) {
+                            if let (Ok(hwnd), Ok(scale)) = (target.hwnd(), target.scale_factor()) {
+                                if let Err(error) = unsafe {
+                                    platform::windows::WindowsPlatform::sync_video_surface(
+                                        hwnd.0, scale,
+                                    )
+                                } {
+                                    tracing::warn!("Video surface resize failed: {}", error);
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
             Ok(())

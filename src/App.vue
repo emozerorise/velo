@@ -18,7 +18,9 @@
     <!-- Center Video Interaction / Gesture Layer (Clicks on empty area) -->
     <div
       v-if="!transcriptStore.isReadingMode"
+      ref="videoElement"
       class="absolute inset-0 z-10"
+      :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       @click="onVideoClick"
       @dblclick="toggleFullscreen"
     />
@@ -90,7 +92,7 @@
     <PlaylistDrawer v-if="!transcriptStore.isReadingMode" />
 
     <!-- Side Drawer: Transcript -->
-    <TranscriptPanel />
+    <TranscriptPanel :video-element="videoElement" />
 
     <!-- Modals -->
     <SettingsModal />
@@ -108,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Play, FolderOpen, FolderArchive } from '@lucide/vue';
 import TopBar from '@/components/player/TopBar.vue';
 import ControlOverlay from '@/components/player/ControlOverlay.vue';
@@ -136,6 +138,7 @@ const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
 const updates = useUpdateStore();
+const videoElement = ref<HTMLElement | null>(null);
 
 const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts({
   register: true,

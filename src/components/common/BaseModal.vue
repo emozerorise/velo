@@ -35,10 +35,12 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { useVideoMask } from '@/composables/useVideoMask';
+const props = defineProps<{
   isOpen: boolean;
   title: string;
 }>();
+useVideoMask(() => props.isOpen);
 
 defineEmits<{
   (e: 'close'): void;
