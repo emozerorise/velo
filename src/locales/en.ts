@@ -2,14 +2,14 @@
 /// object, so a missing or misspelled key is a compile error rather than a
 /// blank label at runtime.
 export const en = {
-  'app.tagline': 'Ultra-fast, hardware-accelerated video playback',
-  'app.openVideo': 'Open video',
+  'app.tagline': 'Play videos and audio, transcribe and summarise meetings',
+  'app.openMedia': 'Open video or audio',
   'app.openFolder': 'Open folder',
   'app.hint.play': 'Play',
   'app.hint.open': 'Open',
   'app.hint.full': 'Full',
 
-  'dialog.videoFiles': 'Video Files',
+  'dialog.mediaFiles': 'Video and Audio Files',
   'dialog.subtitleFiles': 'Subtitle Files',
 
   'topbar.mediaInfo': 'Media Information',
@@ -105,7 +105,7 @@ export const en = {
   'mediaInfo.na': 'N/A',
 
   'transcript.title': 'Transcript',
-  'transcript.openFirst': 'Open a video first',
+  'transcript.openFirst': 'Open a video or audio file first',
   'transcript.modelMissing': 'One-time setup',
   'transcript.modelExplain':
     'Velo transcribes on this machine, using a speech model it downloads once ({size}).',
@@ -136,7 +136,7 @@ export const en = {
   'summary.tab.transcript': 'Transcript',
   'summary.tab.summary': 'Summary',
   'summary.title': 'Summary',
-  'summary.openFirst': 'Open a video first',
+  'summary.openFirst': 'Open a video or audio file first',
   'summary.notConfigured': 'No model set up yet',
   'summary.notConfiguredDesc':
     'Velo writes the summary with a model you run yourself. Point it at one in Settings.',

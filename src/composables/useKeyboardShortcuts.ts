@@ -20,8 +20,11 @@ export function useKeyboardShortcuts() {
         multiple: true,
         filters: [
           {
-            name: t('dialog.videoFiles'),
-            extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'flv', 'm4v', 'ts', 'wmv'],
+            name: t('dialog.mediaFiles'),
+            extensions: [
+              'mp4', 'mkv', 'mov', 'avi', 'webm', 'flv', 'm4v', 'ts', 'wmv', 'mpg', 'mpeg', 'vob',
+              'mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus',
+            ],
           },
         ],
       });

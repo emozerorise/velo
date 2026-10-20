@@ -1,14 +1,14 @@
 import type { Messages } from './en';
 
 export const th: Messages = {
-  'app.tagline': 'เล่นวิดีโอเร็วจี๋ ด้วยการเร่งความเร็วจากฮาร์ดแวร์',
-  'app.openVideo': 'เปิดวิดีโอ',
+  'app.tagline': 'เล่นวิดีโอและไฟล์เสียง พร้อมถอดเสียงและสรุปการประชุม',
+  'app.openMedia': 'เปิดวิดีโอหรือไฟล์เสียง',
   'app.openFolder': 'เปิดโฟลเดอร์',
   'app.hint.play': 'เล่น',
   'app.hint.open': 'เปิด',
   'app.hint.full': 'เต็มจอ',
 
-  'dialog.videoFiles': 'ไฟล์วิดีโอ',
+  'dialog.mediaFiles': 'ไฟล์วิดีโอและไฟล์เสียง',
   'dialog.subtitleFiles': 'ไฟล์ซับไตเติล',
 
   'topbar.mediaInfo': 'ข้อมูลไฟล์',
@@ -103,7 +103,7 @@ export const th: Messages = {
   'mediaInfo.na': 'ไม่มีข้อมูล',
 
   'transcript.title': 'ถอดเสียง',
-  'transcript.openFirst': 'เปิดวิดีโอก่อน',
+  'transcript.openFirst': 'เปิดวิดีโอหรือไฟล์เสียงก่อน',
   'transcript.modelMissing': 'ตั้งค่าครั้งเดียวก่อนเริ่มใช้',
   'transcript.modelExplain':
     'Velo ถอดเสียงในเครื่องนี้ ต้องดาวน์โหลดโมเดลเสียงครั้งแรกครั้งเดียว ({size})',
@@ -134,7 +134,7 @@ export const th: Messages = {
   'summary.tab.transcript': 'บทถอดเสียง',
   'summary.tab.summary': 'สรุป',
   'summary.title': 'สรุปการประชุม',
-  'summary.openFirst': 'เปิดไฟล์วิดีโอก่อน',
+  'summary.openFirst': 'เปิดวิดีโอหรือไฟล์เสียงก่อน',
   'summary.notConfigured': 'ยังไม่ได้ตั้งค่าโมเดล',
   'summary.notConfiguredDesc':
     'Velo สรุปด้วยโมเดลที่คุณรันเอง ตั้งค่าว่าจะให้ใช้ตัวไหนได้ในหน้าตั้งค่า',

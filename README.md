@@ -21,6 +21,7 @@
 * 🖥️ **Zero-Copy Native GPU Video Rendering**: Hardware-accelerated decoding directly to GPU surfaces via `libmpv` (`vo=gpu-next`, `VideoToolbox` on macOS, `D3D11VA` on Windows).
 * 🎨 **Modern Minimalist UI**: Sleek glassmorphism overlay controls with auto-fading, smooth scrubbing, Dark/Light themes, and responsive design.
 * 📦 **Broad Codec Compatibility**: Plays MP4, MKV, MOV, AVI, WebM, FLV, TS (H.264, HEVC/H.265, AV1, VP9, ProRes).
+* 🎵 **Audio Files**: Open MP3, WAV, M4A, AAC, FLAC, OGG, and Opus from the file picker or a folder, mix them with videos in a playlist, and use the same transcription and meeting-summary tools.
 * 💬 **Advanced Subtitle Engine**: Pixel-perfect rendering for ASS/SSA styled subtitles via `libass`, plus SRT, VTT, and external subtitle drag-and-drop.
 * 📑 **Integrated Playlist & Queue**: Folder scanning, drag reordering, loop modes (all/single), and shuffle.
 * ⚙️ **Persistent Preferences & History**: Atomic JSON settings and playback resume timestamp persistence.
