@@ -1,26 +1,39 @@
-# On-demand reading tools and meeting chat
+# Summary-first reading tools, content chat and dictation
 
 Status: awaiting written-spec review; product implementation has not started.
 
 ## Intent and approved visual direction
 
-The user selected the third displayed revision on 21 October 2026: a reading
-workspace with a narrow right-hand tool rail and an optional media shelf.
-Chat and player start hidden. Clicking either icon opens its tool; clicking
-the same icon again closes it. Reading remains the primary activity.
+The user selected the third displayed revision on 21 October 2026, then
+approved these interaction refinements: summary is the default view;
+transcript, chat and player use three right-hand rail icons; chat expands
+inline underneath the summary, not in a separate column; and its composer
+supports microphone dictation into an editable draft before manual Send.
+This supersedes the original two-tool, transcript-first proposal.
 
-![Selected visual direction](assets/2026-10-21-reading-tools-selected.png)
+![Refined interaction preview](assets/2026-10-21-summary-first-inline-chat.png)
+
+The preview shows chat manually opened, not the startup state. The original
+player-shelf reference remains in `assets/2026-10-21-reading-tools-selected.png`.
 
 The image fixes hierarchy, placement and visual language, not its synthetic
 meeting content. Use the existing theme tokens, Lucide icons and bilingual
 strings. Do not introduce a different design system.
 
-The accompanying chat lets a person discuss the current recording, ask about
-a summary, and draft better summary instructions. It is not a general chat
-application. Adding this subsystem and a native video viewport makes this an
-architectural change under the brainstorming workflow. Visual approval allows
-this spec; written-spec review and implementation-plan review still precede
-implementation.
+Use neutral copy: the main title is **สรุปเนื้อหา / Content summary**, the
+transcript title is **บทถอดเสียง / Transcript**, the chat section is
+**คุยต่อจากสรุป / Discuss this summary**, and the composer placeholder is
+**ถามเกี่ยวกับเนื้อหา หรือบอกแนวทางการสรุป… / Ask about the content or describe
+how you want it summarized…**. Meeting/work discussion remains the primary
+use case, not a restriction in the navigation or a classification made by AI.
+This iteration does not change the existing five-section summary contract;
+unknown owners, decisions and deadlines must not be invented for other media.
+
+Chat discusses the current recording and drafts better summary instructions;
+it is not a general chat application. Chat, dictation and a native video
+viewport make this an architectural change under the brainstorming workflow.
+Conversational approval allows this revised spec; written-spec review and
+implementation-plan review still precede product implementation.
 
 ## Existing constraints
 
@@ -42,27 +55,61 @@ implementation.
 
 ### Reading and tool visibility
 
-- On each app launch, show the full-window reader with both tools closed,
-  regardless of media availability. Keep the selected transcript/summary tab.
-- A persistent right rail has two icon-only buttons: chat and monitor-play.
+- On each app launch, show the full-window **summary** view, regardless of
+  media availability, with transcript, chat and player inactive. A missing
+  summary uses the existing setup/generate states, never an automatic AI call.
+- Remove the transcript/summary text tabs and large view-switch buttons. A
+  persistent right rail has exactly three icon-only controls, in order:
+  transcript (document/captions), chat (speech bubble), player (monitor-play).
   Each has a localized tooltip, accessible name, visible keyboard focus,
-  `aria-expanded` and `aria-controls`. Active icons use the accent color.
-- Chat and player are independent toggles on desktop. Both may be open: chat
-  occupies a right column, the player shelf occupies the bottom of the
-  remaining reading column, and the rail stays reachable.
+  and `aria-controls`. Chat/player expose `aria-expanded`; the transcript
+  view toggle exposes `aria-pressed`. Active icons use the accent color.
+- The transcript control switches the entire main reading area to the
+  transcript, never a small drawer; pressing it again returns to summary.
+  Both readers stay mounted so search, scroll, summary options and drafts
+  survive. The title changes with the view. No media or model call is made.
+- Chat expands below the summary in the same reading column. Opening it from
+  transcript returns to summary and reveals chat; it does not create another
+  panel or change source data. On first opening, scroll the chat heading into
+  view. Subsequent reading is not forcibly scrolled away by streamed text.
+- Switching to transcript hides chat without clearing its open preference.
+  Returning to summary restores it. The icon is active only while chat is
+  actually visible. Clicking it while visible collapses chat.
+- Chat and player can both be open on desktop: inline conversation scrolls
+  with the summary; the player shelf stays below the reader. The rail remains
+  reachable, and there is no right-hand chat column.
 - Close buttons affect their own tool only. Closing either does not clear
   text, reload media, seek, pause, reset speed or stop an AI response.
+  Microphone capture is the exception: concealment stops/discards active
+  capture as specified below, so a hidden microphone never keeps listening.
 - Escape closes the focused tool and restores focus to its rail button,
   unless an inner modal or input owns Escape. Buttons also work through
   native Enter/Space activation without reaching global playback shortcuts.
-- Opening a new file collapses both tools. Conversation state remains scoped
-  to its file. Switching tabs does not discard search, reader scroll or drafts.
-- Before shrinking the reading column below 320 logical pixels, tools become
-  mutually exclusive overlays. Opening one closes the other, without clearing
-  either tool's data. At 640x400, the player uses compact controls and a smaller
-  preview; chat has its own scroll area and a reachable composer/close button.
-- A tool overlay must not cover the other tool's trigger. Preserve the
-  responsive playlist drawer and settings access.
+- Opening a new file returns to summary and collapses chat/player. Conversation
+  and composer state remain scoped to their file within this app session.
+- At narrow/short sizes, chat remains inline, never becomes a right drawer.
+  The reader scrolls; suggestions wrap and the composer remains reachable.
+  At 640x400 the shelf uses compact controls and a smaller preview; tools must
+  not shrink the reader below 160 logical pixels in height. If necessary,
+  opening the player temporarily conceals chat; reopening chat closes that
+  compact shelf, without clearing either tool's data. The transcript stays a
+  full reading view. Preserve responsive playlist/settings access.
+
+### Inviting inline composer
+
+The expanded chat's empty state has a compact waveform mark, **คุยต่อจากสรุป**,
+a short **อยากต่อยอดประเด็นไหน? / What would you like to explore?** heading,
+and three lightweight starters: next actions, unclear points and prompt
+drafting. Selecting a starter fills the composer for review; it never sends.
+If a draft already exists, confirm replacement or let the person cancel.
+
+Use a generous multiline composer with restrained accent border, file-context
+label, separate microphone and Send controls, and provider/destination text.
+Do not enclose the whole conversation in nested cards. Once messages exist,
+the thread replaces the large welcome text and starters; the composer and
+context remain. Preserve the revised mock's dark/light theme compatibility,
+readable type, and keyboard focus. All assistant messages remain visible when
+the chat is reopened; opening it does not reset to the welcome state.
 
 ### Player shelf
 
@@ -104,7 +151,7 @@ covering the preview temporarily conceals the native surface. Hidden mode
 must not break audio timing or mpv's render lifecycle. A rendering failure
 shows an actionable error rather than a fake still preview.
 
-## File-scoped chat
+## File-scoped content chat
 
 ### Scope and lifetime
 
@@ -145,9 +192,10 @@ out-of-order or superseded deltas are ignored. Late events cannot append to
 another file's messages or finish another request.
 
 Switching files or changing provider settings cancels the active request.
-Hiding chat does not. A cancelled/failed response remains visibly partial,
-excluded from future context; Retry resends the same turn without duplicating
-its user message. Stop cancels the underlying HTTP stream, not just its UI.
+Hiding chat or switching to transcript does not. A cancelled/failed response
+remains visibly partial, excluded from future context; Retry resends the same
+turn without duplicating its user message. Stop cancels the underlying HTTP
+stream, not just its UI.
 No automatic retry that could duplicate a billed request.
 
 ### Bounded context
@@ -193,6 +241,64 @@ preserves the prior setting. Saving does not change a running summary, replace
 the saved summary, or invoke AI. Regeneration remains the existing deliberate
 Summarize/Regenerate action. A late chat answer never overwrites a newer draft.
 
+## Microphone dictation into the composer
+
+### User-visible behavior
+
+- This is speech-to-text for a short chat question, not meeting recording,
+  voice calling or an audio message to the provider. The mic icon is next to,
+  but visually distinct from, Send. Permission is requested only after an
+  explicit mic click. No permission prompt or capture on startup/tool opening.
+- Reuse the installed local Whisper model; no cloud speech service or silent
+  model download. If unavailable, link to the existing model setup and keep
+  normal text chat working. A transcript alone does not imply a model exists.
+- State machine: idle -> requesting permission -> recording -> transcribing
+  -> reviewable text -> idle. Errors return to idle without deleting a draft.
+  While recording, show an unmistakable active mic/Stop button and elapsed
+  time. A second click stops capture and begins transcription. Cancel discards
+  the capture. Stop automatically at 60 seconds; do not continuously listen.
+- The existing draft remains intact during capture. After transcription, show
+  a proposed insertion before committing it to the composer. Insert appends
+  to the current draft, with a separator; Discard preserves it unchanged.
+  Never replace edits made while transcription was running. The inserted text
+  remains editable, and only a later Send starts a chat inference request.
+- Empty/silent capture produces a recoverable message, not fabricated text.
+  Permission denial, unavailable device, busy model and transcription failure
+  have distinct localized recovery paths. No permission retry loop.
+- Hiding chat, switching to transcript, changing files, opening another app
+  (window blur after the OS permission dialog has resolved), or closing Velo
+  cancels capture/transcription and releases the mic. It never inserts a late
+  result into a different file. A completed draft is not cleared. Disable
+  Send while capture or dictation transcription is active.
+- To prevent the recording capturing Velo's own audio, pause playing media
+  before capture; display that it was paused, and do not auto-resume playback.
+  This explicit mic action is the only visibility-related playback exception.
+
+### Boundaries and resources
+
+Add an independent Rust `dictation/` service with a platform input-capture
+adapter, a bounded in-memory PCM buffer and cancellation/session identity.
+Normalize the default input device's audio to 16 kHz mono `f32` before calling
+the existing Whisper engine. The command layer connects dictation to model
+availability/engine invocation; it must never use the transcript file job or
+overwrite cached recording transcripts. Release PCM buffers after completion
+or cancellation; do not save microphone audio or dictated text to disk/logs.
+
+Use explicit start/stop/cancel IPC commands and events keyed by canonical
+media path and dictation session ID. No raw audio crosses the webview or goes
+to a model provider. Serialize Whisper use with media transcription in Rust,
+not only by disabled UI controls. A busy engine reports an error rather than
+starting a second expensive model instance. Keep callbacks bounded and do
+transcription/resampling outside real-time capture callbacks.
+
+The app bundle must declare a localized microphone usage description and
+honor OS permission/device access on macOS and Windows. Capturing audio
+requires a new native input adapter; the current repo has no microphone
+capture implementation. The implementation plan must pin its capture backend,
+permission API, resampling strategy and dependency review before code changes.
+No fallback to browser/cloud speech recognition. OS or model unavailability
+must leave ordinary text entry and summarization usable.
+
 ## Error and privacy behavior
 
 Handle missing configuration/key, connection failure, authentication failure,
@@ -212,21 +318,31 @@ cloud fallback. Do not change the installed app's settings or keychain for QA.
 Write failing behavior tests before implementation. Tests must invoke real
 store/component interactions, not rely solely on searching rendered strings.
 
-- Frontend: both hidden initially; repeated rail clicks and close buttons;
-  keyboard activation/Escape/focus; desktop independence and narrow mutual
-  exclusion; no playback/model IPC from toggles; reader state retained;
+- Frontend: summary default and all three rail icons inactive initially;
+  transcript full-reader toggle and inline chat switching/restoration;
+  repeated rail clicks/close buttons; keyboard activation/Escape/focus;
+  compact-player constraints; no playback/model IPC from visibility toggles;
+  reader state retained; welcome/starters versus existing conversation;
   hidden-player playback and citations; chat history/file switching, duplicate
   events, cancellation/retry and provider changes; prompt draft/save/cancel;
-  safe rendering and timestamp preference; Thai/English accessible labels.
+  safe rendering and timestamp preference; Thai/English accessible labels;
+  mic permission/start/stop/cancel, pause-without-resume, stale dictation,
+  append confirmation against concurrent draft edits, no automatic Send.
 - Rust: context size boundaries, Thai/UTF-8 selection and grounding metadata;
   request identity and cancellation; chat/summary exclusion; mock Ollama,
   OpenAI-compatible and DeepSeek requests/streaming/failures; no media payload
-  or credential leak; native viewport validation and coordinate conversion.
+  or credential leak; native viewport validation and coordinate conversion;
+  bounded microphone buffers, normalization, 60-second limit, silence, engine
+  exclusion, cancellation and no microphone cache writes.
 - Native macOS QA: real synthetic moving video and audio-only input, hidden
   playback, aspect-fit preview, resize/Retina/fullscreen, both tools together,
-  overlays, minimum window 640x400, keyboard editing, both themes and locales.
+  overlays, minimum window 640x400, keyboard editing, both themes and locales;
+  dictation using injected synthetic samples and permission/device errors.
   Use an isolated test app identifier/data directory. Do not replace
   `/Applications/Velo.app` or call a paid provider using the user's key.
+- Physical microphone QA is user-assisted: the user initiates capture after
+  knowing what is recorded. Without it, report real-device/OS permission and
+  recognition-quality checks as unverified, not covered by synthetic tests.
 - Run `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test`,
   `npm run typecheck`, `npm run lint`, and `npx vitest run`; additionally run
   version/release-script checks and a macOS app bundle build because native
@@ -235,16 +351,19 @@ store/component interactions, not rely solely on searching rendered strings.
   If no Windows runner is available, explicitly report that gap; do not claim
   Windows preview behavior verified from macOS tests.
 
-Success means the selected reading-first layout works with both tools closed,
-each icon predictably toggles its tool, video genuinely fits its preview,
-audio continues while hidden, chat stays within the correct file, and neither
-discussion nor prompt saving silently regenerates the summary.
+Success means summary is the default with three inactive rail icons,
+transcript occupies the full reader when selected, chat opens inline, and
+player visibility does not interrupt audio. Video genuinely fits its preview,
+chat stays within the correct file, dictation requires review/manual Send,
+and neither discussion nor prompt saving silently regenerates the summary.
 
 ## Deliberate exclusions and next gate
 
 No persistent chat archive, multiple threads per file, uploads, web search,
-voice input, embeddings, new account system, automatic summary replacement,
-new provider integrations, version bump, PR, push, merge or release.
+voice conversation, meeting recording, cloud speech recognition, embeddings,
+new account system, automatic summary replacement, new provider integrations,
+version bump, PR, push, merge or release. Short offline composer dictation is
+explicitly in scope, not the excluded continuous-recording features.
 
 The user reviews this written spec next. After approval, prepare the detailed
 implementation plan and request its review/execution method before product
