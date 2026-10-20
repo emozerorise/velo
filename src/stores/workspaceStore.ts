@@ -7,6 +7,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const mode = ref<WorkspaceMode>('reading');
   const chatOpen = ref(false);
   const playerOpen = ref(false);
+  const viewportError = ref(false);
   const chatVisible = computed(() => view.value === 'summary' && chatOpen.value && mode.value === 'reading');
 
   function toggleTranscript() { view.value = view.value === 'summary' ? 'transcript' : 'summary'; }
@@ -23,5 +24,5 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     chatOpen.value = false;
     playerOpen.value = false;
   }
-  return { view, mode, chatOpen, playerOpen, chatVisible, toggleTranscript, toggleChat, togglePlayer, resetForMedia, showVideo, showReading };
+  return { view, mode, chatOpen, playerOpen, viewportError, chatVisible, toggleTranscript, toggleChat, togglePlayer, resetForMedia, showVideo, showReading };
 });

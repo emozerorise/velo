@@ -48,6 +48,7 @@ pub fn run() {
                 cached_history: Mutex::new(history_data),
             };
             app.manage(storage_state);
+            app.manage(commands::VideoViewportState::default());
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);
@@ -121,6 +122,7 @@ pub fn run() {
             commands::player_set_mute,
             commands::player_set_speed,
             commands::player_set_aspect_ratio,
+            commands::player_set_video_viewport,
             commands::player_select_audio_track,
             commands::player_select_subtitle_track,
             commands::player_add_subtitle_file,

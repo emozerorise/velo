@@ -5,6 +5,7 @@ export const en = {
   'workspace.summaryTitle': 'Content summary',
   'workspace.chatTitle': 'Discuss this summary',
   'workspace.playerTitle': 'Player',
+  'workspace.viewportError': 'Could not position the video preview. Close and reopen the player to try again.',
   'workspace.tools': 'Workspace tools',
   'workspace.chatUnavailable': 'Content chat will be available here after the chat feature is enabled.',
   'workspace.noFile': 'No file open',

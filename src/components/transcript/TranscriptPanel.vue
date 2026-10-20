@@ -37,6 +37,7 @@
         </div>
       </div>
       <div v-if="reading && workspace.playerOpen" id="workspace-player" class="shrink-0 border-t border-fg/10">
+        <p v-if="workspace.viewportError" role="alert" class="p-3 text-xs text-danger">{{ t('workspace.viewportError') }}</p>
         <ReadingTransport v-if="player.mediaInfo" />
         <p v-else class="p-6 text-sm text-fg/45">{{ t('summary.openFirst') }}</p>
       </div>
