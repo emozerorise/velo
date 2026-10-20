@@ -1,8 +1,9 @@
 # Summary-first reading tools, content chat and dictation
 
-Status: approved for implementation planning on 21 October 2026, including the
-first-launch welcome state. Product implementation awaits plan review and
-execution-method selection.
+Status: approved for implementation on 21 October 2026, including the
+first-launch welcome state. The user selected native, task-by-task execution
+on the existing branch, preserving all prior work. Completion is recorded
+separately in the task ledgers and QA report.
 
 ## Intent and approved visual direction
 
@@ -391,9 +392,8 @@ new account system, automatic summary replacement, new provider integrations,
 version bump, PR, push, merge or release. Short offline composer dictation is
 explicitly in scope, not the excluded continuous-recording features.
 
-The written spec is approved for planning. Review the three linked plans in
+The written spec and the three linked plans are approved for native execution:
 `../plans/2026-10-21-summary-workspace.md`,
 `../plans/2026-10-21-content-chat.md` and
-`../plans/2026-10-21-composer-dictation.md`, then select an execution method
-before product code changes. This document does not claim implementation or
-test completion.
+`../plans/2026-10-21-composer-dictation.md`. This document does not itself claim
+implementation or test completion.

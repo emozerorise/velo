@@ -1322,8 +1322,8 @@ quality is not asserted without a user-supplied key and an allowed input.
 
 ### 31.17 Summary-First Workspace, Content Chat and Dictation (Planned)
 
-Approved for implementation planning on 2026-10-21; this section does not
-claim product implementation. The reviewed design is in
+Approved for native task-by-task implementation on 2026-10-21; this section
+does not claim product completion. The reviewed design is in
 `docs/superpowers/specs/2026-10-21-reading-tools-chat-design.md`.
 
 **UI.** Start on **Content summary / สรุปเนื้อหา**, not transcript. Remove the

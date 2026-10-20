@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4 text-[14px] leading-[1.85] text-fg/80 select-text">
+  <div class="summary-body space-y-4 text-[14px] leading-[1.85] text-fg/80 select-text">
     <div
       v-for="(node, index) in nodes"
       :key="index"
@@ -8,7 +8,7 @@
     >
       <span
         v-if="node.type === 'bullet'"
-        class="mt-[0.8em] h-1 w-1 rounded-full bg-fg/30 shrink-0"
+        class="summary-bullet mt-[0.8em] h-1 w-1 rounded-full bg-fg/30 shrink-0"
         aria-hidden="true"
       />
       <div class="min-w-0 flex-1">

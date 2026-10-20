@@ -42,14 +42,21 @@
   </div>
 
   <!-- Running -->
-  <div v-else-if="store.isRunning" class="flex-1 flex flex-col min-h-0 p-5 gap-4">
+  <div
+    v-else-if="store.isRunning"
+    class="flex-1 flex flex-col min-h-0 p-5 gap-4"
+  >
     <div class="w-full">
-      <div class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5">
+      <div
+        class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5"
+      >
         <span class="flex items-center gap-1.5">
           <Loader2 class="w-3 h-3 animate-spin text-accent" />
           {{ stageLabel }}
         </span>
-        <span v-if="store.chained" class="font-mono text-fg/35">{{ stepLabel }}</span>
+        <span v-if="store.chained" class="font-mono text-fg/35">{{
+          stepLabel
+        }}</span>
       </div>
       <div class="h-1 rounded-full bg-fg/10 overflow-hidden">
         <div
@@ -81,10 +88,25 @@
 
   <!-- Finished -->
   <template v-else-if="store.hasSummary">
-    <div class="shrink-0 px-5 py-4 border-b border-fg/10 bg-surface space-y-3">
-      <div class="flex items-center gap-2 min-w-0">
-        <Sparkles class="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
-        <h2 class="text-base font-semibold text-fg/95">{{ t('summary.readingTitle') }}</h2>
+    <div
+      class="summary-toolbar shrink-0 px-5 py-4 border-b border-fg/10 bg-surface space-y-3"
+      :class="{ 'summary-toolbar-reading': reading }"
+    >
+      <div class="summary-model-row flex items-center gap-2 min-w-0">
+        <Sparkles
+          v-if="!reading"
+          class="w-4 h-4 text-accent shrink-0"
+          aria-hidden="true"
+        />
+        <component
+          :is="reading ? 'h1' : 'h2'"
+          :class="
+            reading
+              ? 'text-[40px] leading-[48px] font-semibold tracking-tight text-fg/95'
+              : 'text-base font-semibold text-fg/95'
+          "
+          >{{ t('summary.readingTitle') }}</component
+        >
         <span
           class="ml-auto text-[11px] text-fg/45 font-mono truncate"
           :title="store.summary?.model"
@@ -93,16 +115,26 @@
         </span>
       </div>
       <div class="flex flex-wrap gap-2 summary-actions">
-        <button @click="copy(summaryForCopy(store.summary?.markdown ?? '', showTimestamps))">
+        <button
+          @click="
+            copy(summaryForCopy(store.summary?.markdown ?? '', showTimestamps))
+          "
+        >
           <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
           <Copy v-else class="w-3.5 h-3.5" />
-          <span aria-live="polite">{{ copied ? t('summary.copied') : t('summary.copy') }}</span>
+          <span aria-live="polite">{{
+            copied ? t('summary.copied') : t('summary.copy')
+          }}</span>
         </button>
         <button @click="regenerate">
           <RefreshCw class="w-3.5 h-3.5" />
           {{ t('summary.again') }}
         </button>
-        <button v-if="!reading" :aria-pressed="expanded" @click="emit('toggle-reading')">
+        <button
+          v-if="!reading"
+          :aria-pressed="expanded"
+          @click="emit('toggle-reading')"
+        >
           <Minimize2 v-if="expanded" class="w-3.5 h-3.5" />
           <Maximize2 v-else class="w-3.5 h-3.5" />
           {{ expanded ? t('summary.collapse') : t('summary.expand') }}
@@ -115,14 +147,23 @@
         >
           <Clock class="w-3.5 h-3.5" aria-hidden="true" />
           {{ t('summary.showTimestamps') }}
-          <Check v-if="showTimestamps" class="w-3 h-3 text-accent" aria-hidden="true" />
+          <Check
+            v-if="showTimestamps"
+            class="w-3 h-3 text-accent"
+            aria-hidden="true"
+          />
         </button>
-        <button @click="promptOpen = true" @keydown.space.stop.prevent="promptOpen = true">
+        <button
+          @click="promptOpen = true"
+          @keydown.space.stop.prevent="promptOpen = true"
+        >
           <Pencil class="w-3.5 h-3.5" aria-hidden="true" />
           {{ t('summary.editPrompt') }}
         </button>
       </div>
-      <p v-if="optionsError" role="alert" class="text-xs text-danger">{{ optionsError }}</p>
+      <p v-if="optionsError" role="alert" class="text-xs text-danger">
+        {{ optionsError }}
+      </p>
     </div>
 
     <p
@@ -132,8 +173,14 @@
       {{ t('summary.stale') }}
     </p>
 
-    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-5 bg-inset/[0.08]">
-      <div class="max-w-[46rem] mx-auto space-y-4">
+    <div
+      class="summary-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-5"
+      :class="reading ? 'summary-reading' : 'bg-inset/[0.08]'"
+    >
+      <div
+        class="mx-auto"
+        :class="reading ? 'max-w-[64rem] space-y-7' : 'max-w-[46rem] space-y-4'"
+      >
         <template
           v-for="(section, index) in sections"
           :key="`${store.summary?.created_at}-${index}`"
@@ -144,10 +191,14 @@
             >
               <List class="w-4 h-4 text-fg/45 shrink-0" aria-hidden="true" />
               <span class="flex-1">{{ section.title }}</span>
-              <span class="text-[11px] font-normal text-fg/45 group-open:hidden">{{
-                t('summary.showDetails')
-              }}</span>
-              <ChevronDown class="w-4 h-4 text-fg/45 group-open:rotate-180" aria-hidden="true" />
+              <span
+                class="text-[11px] font-normal text-fg/45 group-open:hidden"
+                >{{ t('summary.showDetails') }}</span
+              >
+              <ChevronDown
+                class="w-4 h-4 text-fg/45 group-open:rotate-180"
+                aria-hidden="true"
+              />
             </summary>
             <div class="px-4 pb-4">
               <SummarySectionBody
@@ -160,16 +211,21 @@
           <section
             v-else
             class="summary-card p-4"
-            :class="{ 'border-accent/20 bg-accent/[0.04]': section.kind === 'overview' }"
+            :class="{
+              'border-accent/20 bg-accent/[0.04]': section.kind === 'overview',
+            }"
           >
             <h3
               v-if="section.title"
-              class="flex items-center gap-2 text-sm font-semibold text-fg/95 mb-3"
+              class="flex items-center gap-2 font-semibold text-fg/95 mb-3"
+              :class="reading ? 'text-[22px]' : 'text-sm'"
             >
               <component
                 :is="sectionIcon(section.kind)"
                 class="w-4 h-4 shrink-0"
-                :class="section.kind === 'actions' ? 'text-success' : 'text-accent'"
+                :class="
+                  section.kind === 'actions' ? 'text-success' : 'text-accent'
+                "
                 aria-hidden="true"
               />
               {{ section.title }}
@@ -181,7 +237,10 @@
             />
           </section>
         </template>
-        <p v-if="showTimestamps" class="text-[11px] leading-relaxed text-fg/40 px-1">
+        <p
+          v-if="showTimestamps"
+          class="text-[11px] leading-relaxed text-fg/40 px-1"
+        >
           {{ t('summary.citationHint') }}
         </p>
       </div>
@@ -189,12 +248,22 @@
   </template>
 
   <!-- Nothing yet: the one-click run lives here -->
-  <div v-else class="flex-1 flex flex-col items-center justify-center text-center p-8 gap-4">
+  <div
+    v-else
+    class="summary-empty flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center p-8 gap-4"
+  >
     <Sparkles class="w-8 h-8 text-fg/25" />
     <p class="text-xs text-fg/45 max-w-[15rem]">
-      {{ transcripts.hasTranscript ? t('summary.empty') : t('summary.emptyChained') }}
+      {{
+        transcripts.hasTranscript
+          ? t('summary.empty')
+          : t('summary.emptyChained')
+      }}
     </p>
-    <button class="text-xs text-accent hover:underline" @click="promptOpen = true">
+    <button
+      class="text-xs text-accent hover:underline"
+      @click="promptOpen = true"
+    >
       {{ t('summary.editPrompt') }}
     </button>
 
@@ -202,7 +271,11 @@
       class="w-full h-9 rounded-xl bg-blue-500 hover:bg-blue-400 active:scale-[0.98] text-white text-[13px] font-semibold transition-all"
       @click="store.transcribeAndSummarise()"
     >
-      {{ transcripts.hasTranscript ? t('summary.runSummaryOnly') : t('summary.run') }}
+      {{
+        transcripts.hasTranscript
+          ? t('summary.runSummaryOnly')
+          : t('summary.run')
+      }}
     </button>
 
     <button
@@ -224,7 +297,10 @@
       }}
     </p>
 
-    <div v-if="store.error" class="w-full text-[11px] text-danger/90 break-words">
+    <div
+      v-if="store.error"
+      class="w-full text-[11px] text-danger/90 break-words"
+    >
       <p>{{ store.error }}</p>
       <p v-if="errorHint" class="mt-1 text-fg/45">{{ errorHint }}</p>
       <button
@@ -274,11 +350,18 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
-import { groupSummarySections, summaryForCopy, type SummarySection } from '@/utils/summaryMarkdown';
+import {
+  groupSummarySections,
+  summaryForCopy,
+  type SummarySection,
+} from '@/utils/summaryMarkdown';
 import { providerHost as hostFor } from '@/utils/providerLocation';
 
 defineProps<{ expanded?: boolean; reading?: boolean }>();
-const emit = defineEmits<{ (e: 'goto-transcript'): void; (e: 'toggle-reading'): void }>();
+const emit = defineEmits<{
+  (e: 'goto-transcript'): void;
+  (e: 'toggle-reading'): void;
+}>();
 
 const store = useSummaryStore();
 const transcripts = useTranscriptStore();
@@ -291,18 +374,27 @@ const PULL_COMMAND = 'ollama pull qwen3:30b-instruct';
 const copied = ref(false);
 const promptOpen = ref(false);
 const optionsError = ref('');
-const showTimestamps = computed(() => settings.settings.general.show_summary_timestamps !== false);
+const showTimestamps = computed(
+  () => settings.settings.general.show_summary_timestamps !== false,
+);
 async function toggleTimestamps() {
   if (settings.summaryOptionsSaving) return;
   optionsError.value = '';
-  if (!(await settings.saveSummaryOptions({ showTimestamps: !showTimestamps.value })))
+  if (
+    !(await settings.saveSummaryOptions({
+      showTimestamps: !showTimestamps.value,
+    }))
+  )
     optionsError.value = t('summary.optionsSaveError');
 }
 const hasMedia = computed(() => player.mediaInfo !== null);
 const isOllama = computed(
-  () => (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
+  () =>
+    (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
 );
-const sections = computed(() => groupSummarySections(store.summary?.markdown ?? ''));
+const sections = computed(() =>
+  groupSummarySections(store.summary?.markdown ?? ''),
+);
 function sectionIcon(kind: SummarySection['kind']) {
   return {
     overview: AlignLeft,
@@ -341,13 +433,19 @@ const stageLabel = computed(() => {
 });
 
 const stepLabel = computed(() => t('summary.stepOf', { step: store.step }));
-const percentLabel = computed(() => `${Math.round(Math.max(0, store.progress) * 100)}%`);
+const percentLabel = computed(
+  () => `${Math.round(Math.max(0, store.progress) * 100)}%`,
+);
 
 /// The two failures worth spelling out, since both have a one-line fix.
 const errorHint = computed(() => {
   const message = store.error ?? '';
   if (message.includes('Could not reach')) {
-    return t(isOllama.value ? 'summary.hintUnreachable' : 'summary.hintRemoteUnreachable');
+    return t(
+      isOllama.value
+        ? 'summary.hintUnreachable'
+        : 'summary.hintRemoteUnreachable',
+    );
   }
   if (message.includes('took too long')) return t('summary.hintSlow');
   if (message.includes('not available on this server')) {
@@ -382,6 +480,76 @@ function transcribeOnly() {
 </script>
 
 <style scoped>
+.summary-toolbar-reading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 24px 40px 16px;
+}
+.summary-toolbar-reading .summary-model-row {
+  display: contents;
+}
+.summary-toolbar-reading .summary-actions {
+  margin: 0;
+}
+.summary-reading {
+  padding: 32px 40px;
+}
+.summary-reading .summary-card {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+.summary-reading :deep(.summary-body) {
+  font-size: 18px;
+}
+.summary-reading :deep(.summary-bullet) {
+  width: 7px;
+  height: 7px;
+  background: rgb(var(--velo-accent));
+}
+.summary-reading details > summary {
+  padding: 12px 0;
+}
+.summary-reading details > div {
+  padding: 0 0 12px;
+}
+.summary-empty > button {
+  max-width: 360px;
+}
+@media (max-height: 550px) {
+  .summary-toolbar {
+    padding: 8px 16px;
+  }
+  .summary-model-row,
+  .summary-toolbar-reading .summary-model-row {
+    display: none;
+  }
+  .summary-toolbar-reading {
+    padding: 8px 16px;
+  }
+  .summary-reading {
+    padding: 16px 24px;
+  }
+  .summary-actions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-top: 0;
+  }
+  .summary-actions button {
+    flex-shrink: 0;
+  }
+  .summary-scroll {
+    min-height: 160px;
+  }
+  .summary-empty {
+    justify-content: flex-start;
+    padding: 12px 24px;
+    gap: 8px;
+  }
+}
 .summary-actions button {
   @apply inline-flex items-center gap-1.5 rounded-lg border border-fg/10 bg-fg/[0.03] px-2.5 py-2 text-xs text-fg/70 transition-colors hover:bg-fg/[0.08] hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
 }

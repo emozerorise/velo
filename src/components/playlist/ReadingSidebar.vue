@@ -4,9 +4,12 @@
     :class="{ 'is-open': open }"
     :aria-label="t('playlist.title')"
   >
-    <div data-tauri-drag-region class="h-[76px] shrink-0 flex items-end gap-2 px-5 pb-4">
-      <AudioLines class="w-6 h-6 text-accent" aria-hidden="true" />
-      <span class="text-[25px] font-semibold tracking-tight text-fg">Velo</span>
+    <div
+      data-tauri-drag-region
+      class="h-[84px] shrink-0 flex items-end gap-2 px-5 pb-4"
+    >
+      <AudioLines class="w-8 h-8 text-accent" aria-hidden="true" />
+      <span class="text-[32px] font-semibold tracking-tight text-fg">Velo</span>
       <button
         class="sidebar-close ml-auto p-1 text-fg/60"
         :aria-label="t('workspace.closePlaylist')"
@@ -17,10 +20,12 @@
     </div>
     <div class="flex gap-1 px-4 pb-5">
       <button
-        class="flex-1 flex items-center gap-2 rounded-xl border border-fg/15 px-3 py-3 text-sm text-fg/90 hover:bg-fg/5"
+        class="flex-1 flex items-center gap-2 rounded-xl border border-fg/15 px-3 py-3 text-base text-fg/90 hover:bg-fg/5"
         @click="openFileDialog"
       >
-        <CirclePlus class="w-4 h-4 text-accent" aria-hidden="true" />{{ t('workspace.openFile') }}
+        <CirclePlus class="w-4 h-4 text-accent" aria-hidden="true" />{{
+          t('workspace.openFile')
+        }}
       </button>
       <button
         class="px-2 text-fg/55 hover:text-fg rounded-lg"
@@ -31,7 +36,7 @@
         <FolderOpen class="w-4 h-4" />
       </button>
     </div>
-    <p class="px-5 py-3 border-t border-fg/5 text-xs text-fg/45">
+    <p class="px-5 py-3 border-t border-fg/5 text-sm text-fg/45">
       {{ t('workspace.playlistFiles') }}
     </p>
     <div class="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
@@ -59,14 +64,28 @@
             class="w-4 h-4 text-accent shrink-0"
             aria-hidden="true"
           />
-          <FileAudio v-else class="w-4 h-4 text-fg/50 shrink-0" aria-hidden="true" />
+          <FileAudio
+            v-else
+            class="w-4 h-4 text-fg/50 shrink-0"
+            aria-hidden="true"
+          />
           <span class="min-w-0"
-            ><span class="block truncate text-[13px] text-fg/85">{{ item.fileName }}</span
+            ><span class="block truncate text-[13px] text-fg/85">{{
+              item.fileName
+            }}</span
             ><span
-              v-if="index === playlist.currentIndex ? player.duration > 0 : item.duration"
+              v-if="
+                index === playlist.currentIndex
+                  ? player.duration > 0
+                  : item.duration
+              "
               class="block text-xs text-fg/40 mt-1 font-mono"
               >{{
-                formatTime(index === playlist.currentIndex ? player.duration : (item.duration ?? 0))
+                formatTime(
+                  index === playlist.currentIndex
+                    ? player.duration
+                    : (item.duration ?? 0),
+                )
               }}</span
             ></span
           >
@@ -79,12 +98,17 @@
           <X class="w-3.5 h-3.5" />
         </button>
       </div>
-      <p v-if="!playlist.items.length" class="px-3 py-5 text-sm leading-relaxed text-fg/40">
-        {{ t('playlist.emptyHint') }}
-      </p>
+      <div
+        v-if="!playlist.items.length"
+        class="px-4 py-8 text-center space-y-2"
+      >
+        <FileText class="w-8 h-8 mx-auto mb-3 text-fg/50" aria-hidden="true" />
+        <p class="text-base text-fg/85">{{ t('workspace.noFiles') }}</p>
+        <p class="text-sm text-fg/45">{{ t('workspace.filesAppearHere') }}</p>
+      </div>
     </div>
     <button
-      class="flex items-center gap-3 px-5 py-5 text-sm text-fg/65 hover:text-fg border-t border-fg/5"
+      class="flex items-center gap-3 px-5 py-5 text-base text-fg/65 hover:text-fg border-t border-fg/5"
       @click="settings.openSettings()"
     >
       <Settings class="w-4 h-4" aria-hidden="true" />{{ t('topbar.settings') }}
@@ -93,7 +117,16 @@
 </template>
 
 <script setup lang="ts">
-import { AudioLines, CirclePlus, FileAudio, FolderOpen, Play, Settings, X } from '@lucide/vue';
+import {
+  AudioLines,
+  CirclePlus,
+  FileAudio,
+  FileText,
+  FolderOpen,
+  Play,
+  Settings,
+  X,
+} from '@lucide/vue';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -112,7 +145,7 @@ const { t } = useI18n();
 
 <style scoped>
 .reading-sidebar {
-  width: 272px;
+  width: 280px;
 }
 .sidebar-close {
   display: none;

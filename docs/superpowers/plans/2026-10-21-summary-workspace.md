@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - This is plan 1 of 3; continue with [content chat](2026-10-21-content-chat.md), then [dictation](2026-10-21-composer-dictation.md).
-- Status: ready for human plan review; no implementation or test completion claimed.
+- Status: approved for native task-by-task execution on the existing branch; completion is recorded in the task ledger and QA report.
 - Preserve all existing dirty work on `codex/summary-prompt-controls`; review its diff before editing and commit only task-owned changes.
 - Summary default; no text tabs; rail order transcript, chat, player. Chat/player initially closed, no automatic inference/download/permission request.
 - Main title **สรุปเนื้อหา / Content summary**; transcript **บทถอดเสียง / Transcript**; chat **คุยต่อจากสรุป / Discuss this summary**.
