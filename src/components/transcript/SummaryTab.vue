@@ -81,27 +81,33 @@
 
   <!-- Finished -->
   <template v-else-if="store.hasSummary">
-    <div class="flex items-center gap-2 px-3 py-2 border-b border-fg/5 bg-inset/20">
-      <span class="flex-1 text-[11px] text-fg/40 font-mono truncate">
-        {{ store.summary?.model }}
-      </span>
-
-      <button
-        class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
-        :title="t('summary.copy')"
-        @click="copy(store.summary?.markdown ?? '')"
-      >
-        <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
-        <Copy v-else class="w-3.5 h-3.5" />
-      </button>
-
-      <button
-        class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
-        :title="t('summary.again')"
-        @click="regenerate"
-      >
-        <RefreshCw class="w-3.5 h-3.5" />
-      </button>
+    <div class="shrink-0 px-5 py-4 border-b border-fg/10 bg-surface space-y-3">
+      <div class="flex items-center gap-2 min-w-0">
+        <Sparkles class="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
+        <h2 class="text-base font-semibold text-fg/95">{{ t('summary.readingTitle') }}</h2>
+        <span
+          class="ml-auto text-[11px] text-fg/45 font-mono truncate"
+          :title="store.summary?.model"
+        >
+          {{ store.summary?.model }}
+        </span>
+      </div>
+      <div class="flex flex-wrap gap-2 summary-actions">
+        <button @click="copy(store.summary?.markdown ?? '')">
+          <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
+          <Copy v-else class="w-3.5 h-3.5" />
+          <span aria-live="polite">{{ copied ? t('summary.copied') : t('summary.copy') }}</span>
+        </button>
+        <button @click="regenerate">
+          <RefreshCw class="w-3.5 h-3.5" />
+          {{ t('summary.again') }}
+        </button>
+        <button :aria-pressed="expanded" @click="emit('toggle-reading')">
+          <Minimize2 v-if="expanded" class="w-3.5 h-3.5" />
+          <Maximize2 v-else class="w-3.5 h-3.5" />
+          {{ expanded ? t('summary.collapse') : t('summary.expand') }}
+        </button>
+      </div>
     </div>
 
     <p
@@ -111,31 +117,49 @@
       {{ t('summary.stale') }}
     </p>
 
-    <div class="flex-1 overflow-y-auto px-4 py-3">
-      <template v-for="(node, index) in nodes" :key="index">
-        <h3
-          v-if="node.type === 'heading'"
-          class="text-[11px] font-semibold uppercase tracking-wide text-accent mt-4 first:mt-0 mb-1.5"
+    <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-5 bg-inset/[0.08]">
+      <div class="max-w-[46rem] mx-auto space-y-4">
+        <template
+          v-for="(section, index) in sections"
+          :key="`${store.summary?.created_at}-${index}`"
         >
-          {{ node.text }}
-        </h3>
-
-        <p
-          v-else-if="node.type === 'paragraph'"
-          class="text-[12.5px] leading-relaxed text-fg/75 mb-2"
-        >
-          <SummaryLine :parts="node.parts" @seek="store.jumpTo" />
-        </p>
-
-        <div
-          v-else
-          class="flex gap-1.5 text-[12.5px] leading-relaxed text-fg/75 mb-1"
-          :style="{ paddingLeft: `${node.depth * 0.9}rem` }"
-        >
-          <span class="text-fg/25 select-none">•</span>
-          <span><SummaryLine :parts="node.parts" @seek="store.jumpTo" /></span>
-        </div>
-      </template>
+          <details v-if="section.kind === 'topics'" class="summary-card group">
+            <summary
+              class="flex items-center gap-2 p-4 cursor-pointer list-none text-sm font-semibold text-fg/85 focus-visible:outline focus-visible:outline-accent rounded-2xl"
+            >
+              <List class="w-4 h-4 text-fg/45 shrink-0" aria-hidden="true" />
+              <span class="flex-1">{{ section.title }}</span>
+              <span class="text-[11px] font-normal text-fg/45 group-open:hidden">{{
+                t('summary.showDetails')
+              }}</span>
+              <ChevronDown class="w-4 h-4 text-fg/45 group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <div class="px-4 pb-4">
+              <SummarySectionBody :nodes="section.nodes" @seek="store.jumpTo" />
+            </div>
+          </details>
+          <section
+            v-else
+            class="summary-card p-4"
+            :class="{ 'border-accent/20 bg-accent/[0.04]': section.kind === 'overview' }"
+          >
+            <h3
+              v-if="section.title"
+              class="flex items-center gap-2 text-sm font-semibold text-fg/95 mb-3"
+            >
+              <component
+                :is="sectionIcon(section.kind)"
+                class="w-4 h-4 shrink-0"
+                :class="section.kind === 'actions' ? 'text-success' : 'text-accent'"
+                aria-hidden="true"
+              />
+              {{ section.title }}
+            </h3>
+            <SummarySectionBody :nodes="section.nodes" @seek="store.jumpTo" />
+          </section>
+        </template>
+        <p class="text-[11px] leading-relaxed text-fg/40 px-1">{{ t('summary.citationHint') }}</p>
+      </div>
     </div>
   </template>
 
@@ -196,17 +220,33 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Check, Copy, FileAudio, Loader2, RefreshCw, Sparkles } from '@lucide/vue';
-import SummaryLine from './SummaryLine.vue';
+import {
+  Check,
+  Copy,
+  FileAudio,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Maximize2,
+  Minimize2,
+  List,
+  ChevronDown,
+  CircleCheck,
+  ListTodo,
+  CircleHelp,
+  AlignLeft,
+} from '@lucide/vue';
+import SummarySectionBody from './SummarySectionBody.vue';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
-import { parseSummary } from '@/utils/summaryMarkdown';
+import { groupSummarySections, type SummarySection } from '@/utils/summaryMarkdown';
 import { providerHost as hostFor } from '@/utils/providerLocation';
 
-const emit = defineEmits<{ (e: 'goto-transcript'): void }>();
+defineProps<{ expanded?: boolean }>();
+const emit = defineEmits<{ (e: 'goto-transcript'): void; (e: 'toggle-reading'): void }>();
 
 const store = useSummaryStore();
 const transcripts = useTranscriptStore();
@@ -221,7 +261,17 @@ const hasMedia = computed(() => player.mediaInfo !== null);
 const isOllama = computed(
   () => (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
 );
-const nodes = computed(() => parseSummary(store.summary?.markdown ?? ''));
+const sections = computed(() => groupSummarySections(store.summary?.markdown ?? ''));
+function sectionIcon(kind: SummarySection['kind']) {
+  return {
+    overview: AlignLeft,
+    decisions: CircleCheck,
+    actions: ListTodo,
+    topics: List,
+    questions: CircleHelp,
+    other: AlignLeft,
+  }[kind];
+}
 
 const providerHost = computed(() => {
   const url = store.status?.base_url ?? '';
@@ -289,3 +339,15 @@ function transcribeOnly() {
   void transcripts.generate();
 }
 </script>
+
+<style scoped>
+.summary-actions button {
+  @apply inline-flex items-center gap-1.5 rounded-lg border border-fg/10 bg-fg/[0.03] px-2.5 py-2 text-xs text-fg/70 transition-colors hover:bg-fg/[0.08] hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent;
+}
+.summary-card {
+  @apply rounded-2xl border border-fg/[0.08] bg-surface;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+</style>

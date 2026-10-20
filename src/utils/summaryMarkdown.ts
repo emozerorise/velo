@@ -15,6 +15,49 @@ export type SummaryNode =
   | { type: 'bullet'; parts: InlinePart[]; depth: number }
   | { type: 'paragraph'; parts: InlinePart[] };
 
+export type SummarySection = {
+  title: string | null;
+  kind: 'overview' | 'decisions' | 'actions' | 'topics' | 'questions' | 'other';
+  nodes: Exclude<SummaryNode, { type: 'heading' }>[];
+};
+
+export function groupSummarySections(markdown: string): SummarySection[] {
+  const kinds: Record<string, SummarySection['kind']> = {
+    overview: 'overview',
+    ภาพรวม: 'overview',
+    decisions: 'decisions',
+    สิ่งที่ตัดสินใจ: 'decisions',
+    'action items': 'actions',
+    งานที่ต้องทำ: 'actions',
+    'topics discussed': 'topics',
+    ประเด็นที่คุยกัน: 'topics',
+    'open questions': 'questions',
+    เรื่องที่ยังค้าง: 'questions',
+  };
+  const sections: SummarySection[] = [];
+  for (const node of parseSummary(markdown)) {
+    if (node.type === 'heading') {
+      const heading = node.text.toLowerCase();
+      sections.push({
+        title: node.text,
+        kind: Object.prototype.hasOwnProperty.call(kinds, heading) ? kinds[heading] : 'other',
+        nodes: [],
+      });
+    } else {
+      if (!sections.length) sections.push({ title: null, kind: 'other', nodes: [] });
+      sections[sections.length - 1].nodes.push(node);
+    }
+  }
+  // Only presentation changes: copying and caching keep the model's original Markdown.
+  const priority = (section: SummarySection): number => {
+    if (section.title === null) return -1;
+    return { overview: 0, decisions: 1, actions: 2, topics: 3, questions: 4, other: 5 }[
+      section.kind
+    ];
+  };
+  return sections.sort((a, b) => priority(a) - priority(b));
+}
+
 /** `[mm:ss]` or `[h:mm:ss]`, the two shapes the prompt asks for. */
 const STAMP = /\[(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\]/g;
 const BOLD = /\*\*(.+?)\*\*/g;
