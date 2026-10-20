@@ -8,7 +8,7 @@ import { useUpdateStore } from '@/stores/updateStore';
 import { useToast } from './useToast';
 import { useI18n } from './useI18n';
 
-export function useKeyboardShortcuts() {
+export function useKeyboardShortcuts({ register = false }: { register?: boolean } = {}) {
   const player = usePlayerStore();
   const playlist = usePlaylistStore();
   const transcript = useTranscriptStore();
@@ -101,10 +101,10 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         if (e.shiftKey) {
           player.seek(-30, true);
-          showToast(t('toast.seekBackward', { seconds: 30 }));
+          showToast(t('toast.seekBackward', { seconds: 30 }), 1500, 'seek');
         } else {
           player.seek(-5, true);
-          showToast(t('toast.seekBackward', { seconds: 5 }));
+          showToast(t('toast.seekBackward', { seconds: 5 }), 1500, 'seek');
         }
         break;
 
@@ -112,10 +112,10 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         if (e.shiftKey) {
           player.seek(30, true);
-          showToast(t('toast.seekForward', { seconds: 30 }));
+          showToast(t('toast.seekForward', { seconds: 30 }), 1500, 'seek');
         } else {
           player.seek(5, true);
-          showToast(t('toast.seekForward', { seconds: 5 }));
+          showToast(t('toast.seekForward', { seconds: 5 }), 1500, 'seek');
         }
         break;
 
@@ -165,13 +165,12 @@ export function useKeyboardShortcuts() {
     }
   }
 
-  onMounted(() => {
-    window.addEventListener('keydown', handleKeyDown);
-  });
-
-  onUnmounted(() => {
-    window.removeEventListener('keydown', handleKeyDown);
-  });
+  // Buttons reuse the actions, but only App owns the global listener. Auto-hide
+  // remounts the controls, so registering in every consumer multiplies seeks.
+  if (register) {
+    onMounted(() => window.addEventListener('keydown', handleKeyDown));
+    onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
+  }
 
   return {
     openFileDialog,

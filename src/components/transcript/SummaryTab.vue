@@ -93,7 +93,7 @@
         </span>
       </div>
       <div class="flex flex-wrap gap-2 summary-actions">
-        <button @click="copy(store.summary?.markdown ?? '')">
+        <button @click="copy(summaryForCopy(store.summary?.markdown ?? '', showTimestamps))">
           <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
           <Copy v-else class="w-3.5 h-3.5" />
           <span aria-live="polite">{{ copied ? t('summary.copied') : t('summary.copy') }}</span>
@@ -102,12 +102,27 @@
           <RefreshCw class="w-3.5 h-3.5" />
           {{ t('summary.again') }}
         </button>
-        <button :aria-pressed="expanded" @click="emit('toggle-reading')">
+        <button v-if="!reading" :aria-pressed="expanded" @click="emit('toggle-reading')">
           <Minimize2 v-if="expanded" class="w-3.5 h-3.5" />
           <Maximize2 v-else class="w-3.5 h-3.5" />
           {{ expanded ? t('summary.collapse') : t('summary.expand') }}
         </button>
+        <button
+          :aria-pressed="showTimestamps"
+          :disabled="settings.summaryOptionsSaving"
+          @click="toggleTimestamps"
+          @keydown.space.stop.prevent="toggleTimestamps"
+        >
+          <Clock class="w-3.5 h-3.5" aria-hidden="true" />
+          {{ t('summary.showTimestamps') }}
+          <Check v-if="showTimestamps" class="w-3 h-3 text-accent" aria-hidden="true" />
+        </button>
+        <button @click="promptOpen = true" @keydown.space.stop.prevent="promptOpen = true">
+          <Pencil class="w-3.5 h-3.5" aria-hidden="true" />
+          {{ t('summary.editPrompt') }}
+        </button>
       </div>
+      <p v-if="optionsError" role="alert" class="text-xs text-danger">{{ optionsError }}</p>
     </div>
 
     <p
@@ -135,7 +150,11 @@
               <ChevronDown class="w-4 h-4 text-fg/45 group-open:rotate-180" aria-hidden="true" />
             </summary>
             <div class="px-4 pb-4">
-              <SummarySectionBody :nodes="section.nodes" @seek="store.jumpTo" />
+              <SummarySectionBody
+                :nodes="section.nodes"
+                :show-timestamps="showTimestamps"
+                @seek="store.jumpTo"
+              />
             </div>
           </details>
           <section
@@ -155,10 +174,16 @@
               />
               {{ section.title }}
             </h3>
-            <SummarySectionBody :nodes="section.nodes" @seek="store.jumpTo" />
+            <SummarySectionBody
+              :nodes="section.nodes"
+              :show-timestamps="showTimestamps"
+              @seek="store.jumpTo"
+            />
           </section>
         </template>
-        <p class="text-[11px] leading-relaxed text-fg/40 px-1">{{ t('summary.citationHint') }}</p>
+        <p v-if="showTimestamps" class="text-[11px] leading-relaxed text-fg/40 px-1">
+          {{ t('summary.citationHint') }}
+        </p>
       </div>
     </div>
   </template>
@@ -169,6 +194,9 @@
     <p class="text-xs text-fg/45 max-w-[15rem]">
       {{ transcripts.hasTranscript ? t('summary.empty') : t('summary.emptyChained') }}
     </p>
+    <button class="text-xs text-accent hover:underline" @click="promptOpen = true">
+      {{ t('summary.editPrompt') }}
+    </button>
 
     <button
       class="w-full h-9 rounded-xl bg-blue-500 hover:bg-blue-400 active:scale-[0.98] text-white text-[13px] font-semibold transition-all"
@@ -216,6 +244,7 @@
       </div>
     </div>
   </div>
+  <SummaryPromptEditor :open="promptOpen" @close="promptOpen = false" />
 </template>
 
 <script setup lang="ts">
@@ -235,17 +264,20 @@ import {
   ListTodo,
   CircleHelp,
   AlignLeft,
+  Clock,
+  Pencil,
 } from '@lucide/vue';
 import SummarySectionBody from './SummarySectionBody.vue';
+import SummaryPromptEditor from './SummaryPromptEditor.vue';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
-import { groupSummarySections, type SummarySection } from '@/utils/summaryMarkdown';
+import { groupSummarySections, summaryForCopy, type SummarySection } from '@/utils/summaryMarkdown';
 import { providerHost as hostFor } from '@/utils/providerLocation';
 
-defineProps<{ expanded?: boolean }>();
+defineProps<{ expanded?: boolean; reading?: boolean }>();
 const emit = defineEmits<{ (e: 'goto-transcript'): void; (e: 'toggle-reading'): void }>();
 
 const store = useSummaryStore();
@@ -257,6 +289,15 @@ const { t } = useI18n();
 const PULL_COMMAND = 'ollama pull qwen3:30b-instruct';
 
 const copied = ref(false);
+const promptOpen = ref(false);
+const optionsError = ref('');
+const showTimestamps = computed(() => settings.settings.general.show_summary_timestamps !== false);
+async function toggleTimestamps() {
+  if (settings.summaryOptionsSaving) return;
+  optionsError.value = '';
+  if (!(await settings.saveSummaryOptions({ showTimestamps: !showTimestamps.value })))
+    optionsError.value = t('summary.optionsSaveError');
+}
 const hasMedia = computed(() => player.mediaInfo !== null);
 const isOllama = computed(
   () => (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',

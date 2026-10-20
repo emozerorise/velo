@@ -1,6 +1,8 @@
 # Summary-first reading tools, content chat and dictation
 
-Status: awaiting written-spec review; product implementation has not started.
+Status: approved for implementation planning on 21 October 2026, including the
+first-launch welcome state. Product implementation awaits plan review and
+execution-method selection.
 
 ## Intent and approved visual direction
 
@@ -110,6 +112,30 @@ the thread replaces the large welcome text and starters; the composer and
 context remain. Preserve the revised mock's dark/light theme compatibility,
 readable type, and keyboard focus. All assistant messages remain visible when
 the chat is reopened; opening it does not reset to the welcome state.
+
+### First launch and no-file welcome
+
+![First-launch welcome](assets/2026-10-21-summary-first-welcome.png)
+
+With no media selected, show the **สรุปเนื้อหา** heading, an empty playlist and
+a calm welcome with one primary **เปิดไฟล์เสียงหรือวิดีโอ / Open audio or video**
+action. The existing sidebar open-file/folder actions and drag-and-drop still
+work. A brief Open -> Transcribe -> Summarize and ask explanation is guidance,
+not an indication that jobs have started. Avoid promising transcription
+accuracy; use **แปลงเสียงเป็นข้อความ / Turn audio into text**, not the mock's
+illustrative quality claim. There is no chat composer, player or live mic.
+
+Keep all three tool icons visible but inactive. Clicking transcript/player
+without media shows the corresponding open-file empty state; chat focuses the
+welcome's open-file action and announces that a file/transcript is required.
+Request no microphone permission, provider inference, model discovery or model
+download until an explicit relevant action. Local cache/settings reads and the
+existing configured app-update check are not AI generation and stay unchanged.
+
+After a file opens, remain on summary: show its cached summary or the existing
+manual generation/setup state. A missing speech model or provider is explained
+when that function is requested; never start a download or inference from
+opening the file. Preserve the transcript-only path if AI is unavailable.
 
 ### Player shelf
 
@@ -365,6 +391,9 @@ new account system, automatic summary replacement, new provider integrations,
 version bump, PR, push, merge or release. Short offline composer dictation is
 explicitly in scope, not the excluded continuous-recording features.
 
-The user reviews this written spec next. After approval, prepare the detailed
-implementation plan and request its review/execution method before product
-code changes. This document does not claim implementation or test completion.
+The written spec is approved for planning. Review the three linked plans in
+`../plans/2026-10-21-summary-workspace.md`,
+`../plans/2026-10-21-content-chat.md` and
+`../plans/2026-10-21-composer-dictation.md`, then select an execution method
+before product code changes. This document does not claim implementation or
+test completion.

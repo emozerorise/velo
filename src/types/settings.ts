@@ -3,6 +3,7 @@ export interface GeneralSettings {
   language: string;
   remember_playback_position: boolean;
   auto_play_next: boolean;
+  show_summary_timestamps: boolean;
 }
 
 export interface VideoSettings {

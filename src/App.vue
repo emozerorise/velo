@@ -1,7 +1,7 @@
 <template>
   <div
     class="relative w-full h-full overflow-hidden select-none bg-transparent"
-    :class="{ 'cursor-none': !areControlsVisible && playerStore.state === 'playing' }"
+    :class="{ 'cursor-none': !transcriptStore.isReadingMode && !areControlsVisible && playerStore.state === 'playing' }"
   >
     <!-- Toast HUD -->
     <ToastStack />
@@ -9,13 +9,15 @@
     <!-- TopBar (auto-hiding) -->
     <Transition name="fade-bar">
       <TopBar
-        v-if="areControlsVisible || playerStore.state !== 'playing'"
+        v-if="!transcriptStore.isReadingMode && (areControlsVisible || playerStore.state !== 'playing')"
         class="fixed top-0 inset-x-0 z-30"
+        :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       />
     </Transition>
 
     <!-- Center Video Interaction / Gesture Layer (Clicks on empty area) -->
     <div
+      v-if="!transcriptStore.isReadingMode"
       class="absolute inset-0 z-10"
       @click="onVideoClick"
       @dblclick="toggleFullscreen"
@@ -23,7 +25,7 @@
 
     <!-- Empty state -->
     <div
-      v-if="!hasMedia && playlistStore.items.length === 0"
+      v-if="!transcriptStore.isReadingMode && !hasMedia && playlistStore.items.length === 0"
       class="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none p-6"
     >
       <div class="pointer-events-auto w-full max-w-[320px] flex flex-col items-center text-center">
@@ -76,15 +78,16 @@
     <!-- Bottom Controls Overlay (auto-hiding) -->
     <Transition name="fade-bar">
       <div
-        v-if="areControlsVisible || playerStore.state !== 'playing'"
+        v-if="!transcriptStore.isReadingMode && (areControlsVisible || playerStore.state !== 'playing')"
         class="fixed bottom-0 inset-x-0 z-30"
+        :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       >
-        <ControlOverlay />
+        <ControlOverlay :compact="transcriptStore.isPanelOpen" />
       </div>
     </Transition>
 
     <!-- Side Drawer: Playlist -->
-    <PlaylistDrawer />
+    <PlaylistDrawer v-if="!transcriptStore.isReadingMode" />
 
     <!-- Side Drawer: Transcript -->
     <TranscriptPanel />
@@ -133,7 +136,9 @@ const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
 const updates = useUpdateStore();
 
-const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
+const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts({
+  register: true,
+});
 const { areControlsVisible } = useAutoHideControls();
 const { t } = useI18n();
 usePlaybackHistory();
@@ -206,4 +211,6 @@ onUnmounted(() => {
 .fade-bar-leave-to {
   opacity: 0;
 }
+
+.video-with-transcript { right: min(26rem, 50vw); width: auto; }
 </style>

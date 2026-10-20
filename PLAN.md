@@ -1196,6 +1196,18 @@ when a transcript finishes on its own.
 `TranscriptPanel.vue` gains a two-tab header — **Transcript | Summary** —
 inside the existing 26rem drawer. The transcript tab is unchanged.
 
+**Existing transcript-first workspace (post-v0.8.0; superseded by the planned
+summary-first workspace below).** The same panel now starts as an
+opaque full-window reader with the existing playlist on the left. Watch video
+reveals the native mpv surface and reduces the reader to a right-hand drawer;
+Read full window reverses it. This is frontend view state only: neither action
+reloads media, seeks, transcribes, or summarises. Both tab bodies stay mounted
+so search, scroll and summary options survive mode and tab changes. The video
+toolbar and compact transport use the space left by the drawer; the reading
+transport remains visible while audio plays. Narrow windows collapse the
+playlist into a dismissible sidebar. Cached transcript reading does not need
+the Whisper model; the model is required only to generate a new transcript.
+
 Summary tab states:
 
 | State | Content |
@@ -1307,3 +1319,51 @@ payloads, split Thai text and failure cases. Frontend tests cover deliberate
 preset switching, preserved settings and bilingual destination warnings.
 These tests use no real API key and make no cloud requests; live summary
 quality is not asserted without a user-supplied key and an allowed input.
+
+### 31.17 Summary-First Workspace, Content Chat and Dictation (Planned)
+
+Approved for implementation planning on 2026-10-21; this section does not
+claim product implementation. The reviewed design is in
+`docs/superpowers/specs/2026-10-21-reading-tools-chat-design.md`.
+
+**UI.** Start on **Content summary / สรุปเนื้อหา**, not transcript. Remove the
+two text tabs. Three right-rail icons control transcript (full reader;
+press again to return), inline chat below the summary, and an optional native
+media shelf. Chat/player start closed; toggling visibility must not reload,
+seek, pause or generate. Retain search, scroll, drafts and source data. The
+no-file welcome offers Open audio or video; setup/download/inference remain
+explicit actions. The existing configured updater is unaffected.
+
+**Native surface.** Fit the existing mpv output to a validated viewport
+reported by the preview element, rather than revealing a cropped part of a
+full-window video. Keep frame transport out of IPC and use one player. Native
+surface lifetime must support uninterrupted audio behind the opaque reader.
+
+**Chat.** Reuse configured provider/dialect and write-only credentials. Rust
+loads file-scoped transcript/summary snapshots in the command layer and emits
+request-keyed deltas. In-memory conversations last for the app session. Send
+is manual, context is bounded, excerpts are disclosed, citations are checked
+against supplied sources, and a drafted prompt is reviewed before saving
+global summary instructions. Saving a prompt never regenerates a summary.
+
+**Dictation.** A separate mic control captures at most 60 seconds into memory,
+uses local Whisper to propose editable composer text, and never sends audio
+to the model provider. Request OS permission only on mic click; stop capture
+on concealment or file/window changes. Pause Velo audio before capture and
+leave it paused. Serialize Whisper with file transcription and discard stale
+results. Ordinary text entry works without the speech model or microphone.
+
+Deliver in order using these separately testable implementation plans:
+
+1. `docs/superpowers/plans/2026-10-21-summary-workspace.md` — welcome, rail,
+   reading state, native media shelf and visual QA.
+2. `docs/superpowers/plans/2026-10-21-content-chat.md` — grounded streaming
+   chat, request isolation, provider reuse and prompt handoff.
+3. `docs/superpowers/plans/2026-10-21-composer-dictation.md` — native mic,
+   local speech decoding, reviewable insertion and full verification.
+
+The six repository checks, version/release-script checks and a macOS bundle
+build are required at the final gate. Windows surface behavior and physical
+microphone recognition require explicit platform/device evidence; mocks do
+not substitute for those checks. No version bump, release or installed-app
+replacement is authorized by this design task.

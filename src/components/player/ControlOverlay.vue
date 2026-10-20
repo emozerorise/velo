@@ -1,5 +1,5 @@
 <template>
-  <div class="w-full max-w-5xl mx-auto px-4 pb-4 pointer-events-auto">
+  <div class="w-full max-w-5xl mx-auto pointer-events-auto" :class="compact ? 'px-2 pb-2' : 'px-4 pb-4'">
     <!-- Fully opaque. A gradient or blurred panel would veil the video, which
          is a native window behind this one. -->
     <div
@@ -7,10 +7,11 @@
     >
       <TimelineBar />
 
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center justify-between" :class="compact ? 'flex-wrap gap-2' : 'gap-4'">
         <!-- Playback -->
         <div class="flex items-center gap-1">
           <IconButton
+            v-if="!compact"
             :title="t('controls.previous')"
             size="md"
             :disabled="!playlistStore.hasPrevious"
@@ -29,6 +30,7 @@
           </button>
 
           <IconButton
+            v-if="!compact"
             :title="t('controls.next')"
             size="md"
             :disabled="!playlistStore.hasNext"
@@ -38,7 +40,7 @@
           </IconButton>
 
           <!-- Volume -->
-          <div class="flex items-center gap-2 ml-2">
+          <div v-if="!compact" class="flex items-center gap-2 ml-2">
             <IconButton
               :title="playerStore.muted ? t('controls.unmute') : t('controls.mute')"
               size="md"
@@ -71,8 +73,8 @@
 
         <!-- Tracks & view -->
         <div class="flex items-center gap-1">
-          <AudioTrackSelector />
-          <SubtitleTrackSelector />
+          <AudioTrackSelector v-if="!compact" />
+          <SubtitleTrackSelector v-if="!compact" />
           <SpeedSelector />
 
           <IconButton
@@ -114,6 +116,7 @@ import { useI18n } from '@/composables/useI18n';
 import { formatTime } from '@/utils/formatters';
 
 const playerStore = usePlayerStore();
+defineProps<{ compact?: boolean }>();
 const playlistStore = usePlaylistStore();
 const { toggleFullscreen } = useKeyboardShortcuts();
 const { t } = useI18n();

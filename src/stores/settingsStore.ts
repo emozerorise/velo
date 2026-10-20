@@ -17,6 +17,7 @@ export const useSettingsStore = defineStore('settings', () => {
       language: 'en',
       remember_playback_position: true,
       auto_play_next: true,
+      show_summary_timestamps: true,
     },
     video: {
       hardware_acceleration: true,
@@ -53,6 +54,38 @@ export const useSettingsStore = defineStore('settings', () => {
     recent_files: [],
     resume_positions: {},
   });
+
+  const summaryOptionsSaving = ref(false);
+  async function saveSummaryOptions(options: {
+    showTimestamps?: boolean;
+    instructions?: string;
+  }): Promise<boolean> {
+    if (summaryOptionsSaving.value) return false;
+    summaryOptionsSaving.value = true;
+    const next = {
+      ...settings.value,
+      general: { ...settings.value.general },
+      summary: { ...settings.value.summary },
+    };
+    if (options.showTimestamps !== undefined)
+      next.general.show_summary_timestamps = options.showTimestamps;
+    if (options.instructions !== undefined) next.summary.instructions = options.instructions;
+    try {
+      await settingsService.save(next);
+      // Commit only these fields after disk succeeds; a failed save must not
+      // pretend a new prompt or reading preference will survive a restart.
+      if (options.showTimestamps !== undefined)
+        settings.value.general.show_summary_timestamps = options.showTimestamps;
+      if (options.instructions !== undefined)
+        settings.value.summary.instructions = options.instructions;
+      return true;
+    } catch (error) {
+      console.error('Failed to save summary options:', error);
+      return false;
+    } finally {
+      summaryOptionsSaving.value = false;
+    }
+  }
 
   async function loadSettings() {
     try {
@@ -138,6 +171,8 @@ export const useSettingsStore = defineStore('settings', () => {
     history,
     loadSettings,
     saveSettings,
+    saveSummaryOptions,
+    summaryOptionsSaving,
     openSettings,
     recordPlayback,
     applyTheme,

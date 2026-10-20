@@ -28,7 +28,7 @@
         :title="t('topbar.transcript')"
         size="md"
         :active="transcriptStore.isPanelOpen"
-        @click="transcriptStore.togglePanel()"
+        @click="transcriptStore.showReading()"
       >
         <Captions class="w-[18px] h-[18px]" />
       </IconButton>
@@ -37,7 +37,7 @@
         :title="t('topbar.playlist')"
         size="md"
         :active="playlistStore.isDrawerOpen"
-        @click="playlistStore.toggleDrawer()"
+        @click="playlistStore.toggleDrawer(); transcriptStore.isPanelOpen = false"
       >
         <ListVideo class="w-[18px] h-[18px]" />
       </IconButton>

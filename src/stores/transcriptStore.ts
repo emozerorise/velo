@@ -27,7 +27,8 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const player = usePlayerStore();
   const settings = useSettingsStore();
 
-  const isPanelOpen = ref(false);
+  const isPanelOpen = ref(true);
+  const isReadingMode = ref(true);
   const transcript = ref<Transcript | null>(null);
   const engine = ref<TranscriptEngineStatus | null>(null);
   // Language and vocabulary live in the persisted settings: the terms an
@@ -250,8 +251,24 @@ export const useTranscriptStore = defineStore('transcript', () => {
     player.seekAbsolute(seconds);
   }
 
-  // Both drawers occupy the right edge, so only one can be up at a time.
+  // View changes never reload media or restart an expensive transcript job.
+  function showVideo() {
+    isReadingMode.value = false;
+    isPanelOpen.value = true;
+    usePlaylistStore().isDrawerOpen = false;
+  }
+
+  function showReading() {
+    isReadingMode.value = true;
+    isPanelOpen.value = true;
+    usePlaylistStore().isDrawerOpen = false;
+  }
+
   function togglePanel() {
+    if (isReadingMode.value) {
+      showVideo();
+      return;
+    }
     isPanelOpen.value = !isPanelOpen.value;
     if (isPanelOpen.value) {
       usePlaylistStore().isDrawerOpen = false;
@@ -260,6 +277,9 @@ export const useTranscriptStore = defineStore('transcript', () => {
 
   return {
     isPanelOpen,
+    isReadingMode,
+    showVideo,
+    showReading,
     transcript,
     engine,
     language,

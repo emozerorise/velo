@@ -8,6 +8,7 @@ import { groupSummarySections, parseInline, parseSummary } from '@/utils/summary
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { setLocale } from '@/composables/useI18n';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 describe('summary reading sections', () => {
   it('treats headings matching JavaScript property names as ordinary model text', () => {
@@ -70,6 +71,24 @@ describe('summary reading presentation', () => {
       markdown:
         '## Overview\nA short overview.\n## Topics discussed\n- Context [00:10]\n## Decisions\n- Ship it [00:20]\n## Action items\n- **Owner**: follow up [00:30]',
     };
+  });
+
+  it('hides citation controls without changing the cached summary', async () => {
+    const settings = useSettingsStore();
+    settings.settings.general = { ...settings.settings.general, show_summary_timestamps: false };
+    const original = useSummaryStore().summary?.markdown;
+    const html = await renderToString(createSSRApp(SummaryTab).use(getActivePinia()!));
+    expect(html).not.toContain('Jump to 00:20');
+    expect(html).not.toContain('ข้ามไปที่ 00:20');
+    expect(html).toContain('Ship it');
+    expect(useSummaryStore().summary?.markdown).toBe(original);
+  });
+
+  it.each(['en', 'th'])('offers timestamp and prompt controls (%s)', async (locale) => {
+    setLocale(locale);
+    const html = await renderToString(createSSRApp(SummaryTab).use(getActivePinia()!));
+    expect(html).toContain(locale === 'th' ? 'แสดงเวลา' : 'Show timestamps');
+    expect(html).toContain(locale === 'th' ? 'แก้ prompt' : 'Edit prompt');
   });
 
   it.each(['en', 'th'])(

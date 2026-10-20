@@ -12,7 +12,11 @@
         aria-hidden="true"
       />
       <div class="min-w-0 flex-1">
-        <SummaryLine :parts="node.parts" @seek="emit('seek', $event)" />
+        <SummaryLine
+          :parts="node.parts"
+          :show-timestamps="showTimestamps"
+          @seek="emit('seek', $event)"
+        />
       </div>
     </div>
     <p v-if="!nodes.length" class="text-sm text-fg/40">{{ t('summary.notSpecified') }}</p>
@@ -24,7 +28,9 @@ import SummaryLine from './SummaryLine.vue';
 import type { SummarySection } from '@/utils/summaryMarkdown';
 import { useI18n } from '@/composables/useI18n';
 
-defineProps<{ nodes: SummarySection['nodes'] }>();
+withDefaults(defineProps<{ nodes: SummarySection['nodes']; showTimestamps?: boolean }>(), {
+  showTimestamps: true,
+});
 const emit = defineEmits<{ (e: 'seek', seconds: number): void }>();
 const { t } = useI18n();
 </script>

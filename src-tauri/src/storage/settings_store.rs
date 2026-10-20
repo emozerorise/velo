@@ -12,6 +12,12 @@ pub struct GeneralSettings {
     pub language: String,
     pub remember_playback_position: bool,
     pub auto_play_next: bool,
+    #[serde(default = "default_show_summary_timestamps")]
+    pub show_summary_timestamps: bool,
+}
+
+fn default_show_summary_timestamps() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,6 +141,7 @@ impl Default for AppSettings {
                 language: "en".into(),
                 remember_playback_position: true,
                 auto_play_next: true,
+                show_summary_timestamps: true,
             },
             video: VideoSettings {
                 hardware_acceleration: true,
@@ -289,5 +296,32 @@ mod tests {
         assert!(settings.updates.auto_check);
         assert_eq!(settings.updates.last_checked_at, 0);
         assert!(settings.updates.skipped_version.is_empty());
+    }
+
+    #[test]
+    fn legacy_settings_show_summary_timestamps_without_resetting_preferences() {
+        let mut legacy = serde_json::to_value(AppSettings::default()).unwrap();
+        legacy["general"]
+            .as_object_mut()
+            .unwrap()
+            .remove("show_summary_timestamps");
+        legacy["summary"]["instructions"] = serde_json::json!("Keep the agreed owner");
+        legacy["general"]["language"] = serde_json::json!("th");
+        let parsed: AppSettings = serde_json::from_value(legacy).unwrap();
+        let saved = serde_json::to_value(parsed).unwrap();
+        assert_eq!(saved["general"]["show_summary_timestamps"], true);
+        assert_eq!(saved["general"]["language"], "th");
+        assert_eq!(saved["summary"]["instructions"], "Keep the agreed owner");
+    }
+
+    #[test]
+    fn hidden_summary_timestamps_survive_a_settings_roundtrip() {
+        let mut saved = serde_json::to_value(AppSettings::default()).unwrap();
+        saved["general"]["show_summary_timestamps"] = serde_json::json!(false);
+        let parsed: AppSettings = serde_json::from_value(saved).unwrap();
+        assert_eq!(
+            serde_json::to_value(parsed).unwrap()["general"]["show_summary_timestamps"],
+            false
+        );
     }
 }

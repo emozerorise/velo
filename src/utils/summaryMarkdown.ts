@@ -21,6 +21,12 @@ export type SummarySection = {
   nodes: Exclude<SummaryNode, { type: 'heading' }>[];
 };
 
+export function summaryForCopy(markdown: string, showTimestamps: boolean): string {
+  return showTimestamps
+    ? markdown
+    : markdown.replace(new RegExp(`[ \\t]*${STAMP.source}`, 'g'), '');
+}
+
 export function groupSummarySections(markdown: string): SummarySection[] {
   const kinds: Record<string, SummarySection['kind']> = {
     overview: 'overview',
