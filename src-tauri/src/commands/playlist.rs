@@ -11,7 +11,8 @@ pub struct ScanResult {
 }
 
 const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "mp4", "mkv", "mov", "avi", "webm", "flv", "m4v", "ts", "wmv", "mpg", "mpeg", "vob",
+    "mp4", "mkv", "mov", "avi", "webm", "flv", "m4v", "ts", "wmv", "mpg", "mpeg", "vob", "mp3",
+    "wav", "m4a", "aac", "flac", "ogg", "opus",
 ];
 
 #[tauri::command]
@@ -39,5 +40,47 @@ fn scan_dir_recursive(dir: &Path, files: &mut Vec<String>) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn scans_audio_and_video_in_nested_folders_and_skips_other_files() {
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("velo-media-scan-{id}"));
+        fs::create_dir_all(dir.join("nested")).expect("create fixture directory");
+
+        let media = [
+            "meeting.mp3",
+            "meeting.MP4",
+            "nested/voice.WAV",
+            "nested/voice.m4a",
+            "nested/voice.aac",
+            "nested/voice.flac",
+            "nested/voice.ogg",
+            "nested/voice.opus",
+        ];
+        for name in media
+            .iter()
+            .chain(["notes.txt", "cover.jpg", "no-extension"].iter())
+        {
+            fs::write(dir.join(name), []).expect("create fixture file");
+        }
+
+        let result = playlist_scan_directory(dir.to_string_lossy().into_owned()).await;
+        fs::remove_dir_all(&dir).expect("remove fixture directory");
+
+        let mut expected: Vec<String> = media
+            .iter()
+            .map(|name| dir.join(name).to_string_lossy().into_owned())
+            .collect();
+        expected.sort();
+        assert_eq!(result.expect("scan fixture directory").files, expected);
     }
 }

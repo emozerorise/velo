@@ -44,7 +44,7 @@
             @click="openFileDialog"
           >
             <FolderOpen class="w-4 h-4" />
-            <span>{{ t('app.openVideo') }}</span>
+            <span>{{ t('app.openMedia') }}</span>
           </button>
 
           <button
