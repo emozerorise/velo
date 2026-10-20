@@ -2,7 +2,8 @@
   <Transition name="slide">
     <div
       v-if="store.isPanelOpen"
-      class="fixed inset-y-0 right-0 z-40 w-[26rem] max-w-full bg-surface border-l border-fg/10 flex flex-col pointer-events-auto"
+      class="fixed inset-y-0 right-0 z-40 max-w-full bg-surface border-l border-fg/10 flex flex-col pointer-events-auto shadow-2xl"
+      :class="tab === 'summary' ? (expanded ? 'w-[56rem]' : 'w-[32rem]') : 'w-[26rem]'"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3.5 border-b border-fg/10">
@@ -16,6 +17,7 @@
 
         <button
           class="p-1 rounded-lg text-fg/50 hover:text-fg hover:bg-fg/10 transition-colors"
+          :aria-label="t('summary.closePanel')"
           @click="store.isPanelOpen = false"
         >
           <X class="w-4 h-4" />
@@ -41,7 +43,12 @@
       </div>
 
       <TranscriptTab v-if="tab === 'transcript'" />
-      <SummaryTab v-else @goto-transcript="tab = 'transcript'" />
+      <SummaryTab
+        v-else
+        :expanded="expanded"
+        @toggle-reading="expanded = !expanded"
+        @goto-transcript="tab = 'transcript'"
+      />
     </div>
   </Transition>
 </template>
@@ -65,6 +72,7 @@ const TABS = [
 // App.vue keeps this panel mounted, so the chosen tab survives the drawer
 // being closed and reopened.
 const tab = ref<(typeof TABS)[number]['id']>('transcript');
+const expanded = ref(false);
 </script>
 
 <style scoped>
@@ -76,5 +84,12 @@ const tab = ref<(typeof TABS)[number]['id']>('transcript');
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-enter-active,
+  .slide-leave-active {
+    transition: none;
+  }
 }
 </style>
