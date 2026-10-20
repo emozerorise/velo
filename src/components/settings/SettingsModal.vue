@@ -212,14 +212,19 @@
             <span class="block text-xs text-fg/50">{{ t('settings.aiProviderDesc') }}</span>
           </div>
           <select
-            v-model="localSettings.summary.provider"
+            v-model="providerSelection"
             class="bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none"
             @change="onProviderChange"
           >
             <option value="ollama">{{ t('settings.aiProvider.ollama') }}</option>
             <option value="openai">{{ t('settings.aiProvider.openai') }}</option>
+            <option value="deepseek">{{ t('settings.aiProvider.deepseek') }}</option>
           </select>
         </div>
+
+        <p v-if="providerSelection === 'deepseek'" class="text-xs text-fg/55 leading-relaxed">
+          {{ t('settings.aiDeepSeekHint') }}
+        </p>
 
         <!-- Server Address -->
         <div class="flex items-center justify-between gap-4">
@@ -395,6 +400,7 @@ import { useSummaryStore, SUMMARY_LANGUAGES } from '@/stores/summaryStore';
 import { useToast } from '@/composables/useToast';
 import { formatBytes } from '@/utils/formatters';
 import { providerHost as hostFor, providerIsRemote } from '@/utils/providerLocation';
+import { selectSummaryProvider } from '@/utils/summaryProviders';
 
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
@@ -432,15 +438,18 @@ const keyError = ref<string | null>(null);
 const providerHost = computed(() => hostFor(localSettings.summary.base_url));
 const isRemoteProvider = computed(() => providerIsRemote(localSettings.summary.base_url));
 
-// The two dialects disagree about whether the version segment belongs in the
-// address, so switching preset fills in the one that provider expects.
+const providerSelection = computed({
+  get: () => localSettings.summary.provider,
+  set: (provider: string) => {
+    localSettings.summary = selectSummaryProvider(localSettings.summary, provider);
+  },
+});
+
 async function onProviderChange() {
-  localSettings.summary.base_url =
-    localSettings.summary.provider === 'openai'
-      ? 'https://api.openai.com/v1'
-      : 'http://localhost:11434';
   summaryStore.models = [];
   testResult.value = null;
+  apiKeyDraft.value = '';
+  keyError.value = null;
   await save();
   await summaryStore.refreshStatus();
 }

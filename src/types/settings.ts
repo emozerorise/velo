@@ -31,7 +31,7 @@ export interface TranscriptSettings {
 }
 
 export interface SummarySettings {
-  /** 'ollama' | 'openai' — picks the transport, never inferred from the URL. */
+  /** 'ollama' | 'openai' | 'deepseek' — explicit transport, never inferred from the URL. */
   provider: string;
   base_url: string;
   model: string;

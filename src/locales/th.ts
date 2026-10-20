@@ -137,7 +137,7 @@ export const th: Messages = {
   'summary.openFirst': 'เปิดวิดีโอหรือไฟล์เสียงก่อน',
   'summary.notConfigured': 'ยังไม่ได้ตั้งค่าโมเดล',
   'summary.notConfiguredDesc':
-    'Velo สรุปด้วยโมเดลที่คุณรันเอง ตั้งค่าว่าจะให้ใช้ตัวไหนได้ในหน้าตั้งค่า',
+    'เลือกโมเดลในเครื่องหรือผู้ให้บริการบนคลาวด์สำหรับเขียนบทสรุปได้ในหน้าตั้งค่า AI',
   'summary.openSettings': 'ไปที่ตั้งค่า',
   'summary.pullHint': 'ยังไม่มีโมเดล? ติดตั้ง Ollama แล้วสั่ง:',
   'summary.empty': 'ไฟล์นี้ยังไม่มีบทสรุป',
@@ -162,6 +162,10 @@ export const th: Messages = {
   'summary.hintUnreachable': 'เซิร์ฟเวอร์โมเดลเปิดอยู่หรือเปล่า ลองสั่ง: ollama serve',
   'summary.hintSlow': 'โมเดลเขียนไม่ทันในเวลาที่กำหนด ลองใช้โมเดลเล็กลงจะเร็วกว่า',
   'summary.hintModel': 'ยังไม่ได้โหลดโมเดลนี้ ลองสั่ง: ollama pull {model}',
+  'summary.hintRemoteUnreachable':
+    'ตรวจการเชื่อมต่ออินเทอร์เน็ตและที่อยู่เซิร์ฟเวอร์ของผู้ให้บริการในหน้าตั้งค่า AI',
+  'summary.hintRemoteModel':
+    'ผู้ให้บริการไม่มีโมเดล {model} กดทดสอบในหน้าตั้งค่า AI แล้วเลือกโมเดลที่มีให้ใช้',
   'summary.fixApiKey': 'เปิดหน้าตั้งค่า AI',
   'summary.lang.auto': 'ตามภาษาที่ประชุม',
   'summary.lang.th': 'ไทย',
@@ -172,8 +176,11 @@ export const th: Messages = {
   'settings.aiProviderDesc': 'เซิร์ฟเวอร์แบบไหนที่จะเป็นคนเขียนบทสรุป',
   'settings.aiProvider.ollama': 'Ollama (ในเครื่องนี้)',
   'settings.aiProvider.openai': 'เข้ากันได้กับ OpenAI',
+  'settings.aiProvider.deepseek': 'DeepSeek',
+  'settings.aiDeepSeekHint':
+    'บันทึก API key ของ DeepSeek ด้านล่าง แล้วกดทดสอบเพื่อเลือกโมเดล ปิดโหมดคิดวิเคราะห์สำหรับงานสรุปไว้ให้แล้ว',
   'settings.aiBaseUrl': 'ที่อยู่เซิร์ฟเวอร์',
-  'settings.aiBaseUrlDesc': 'Ollama ใช้ที่อยู่เปล่า ๆ ส่วนเจ้าอื่นต้องมี /v1 ต่อท้าย',
+  'settings.aiBaseUrlDesc': 'ใช้ Base URL ของผู้ให้บริการ ไม่ต้องต่อ /chat/completions',
   'settings.aiModel': 'โมเดล',
   'settings.aiModelDesc': 'กดทดสอบการเชื่อมต่อ แล้วเลือกจากที่เซิร์ฟเวอร์มีจริง',
   'settings.aiTest': 'ทดสอบ',

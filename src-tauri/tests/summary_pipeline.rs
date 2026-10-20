@@ -18,12 +18,25 @@ use velo_lib::summary::transport::{self, ChatRequest, Ollama, OpenAi};
 /// A one-shot HTTP server. Returns its base URL and a channel carrying the
 /// request it received, so a test can assert on what was actually sent.
 fn spawn_server(status: u16, frames: Vec<String>, gap: Duration) -> (String, Receiver<String>) {
+    spawn_byte_server(
+        status,
+        frames.into_iter().map(String::into_bytes).collect(),
+        gap,
+    )
+}
+
+fn spawn_byte_server(
+    status: u16,
+    frames: Vec<Vec<u8>>,
+    gap: Duration,
+) -> (String, Receiver<String>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("could not bind");
     let port = listener.local_addr().expect("no local addr").port();
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
         let (mut stream, _) = listener.accept().expect("no connection");
+        stream.set_nodelay(true).expect("disable buffering");
 
         // Read the head, then however much body it declared.
         let mut data = Vec::new();
@@ -65,7 +78,7 @@ fn spawn_server(status: u16, frames: Vec<String>, gap: Duration) -> (String, Rec
         let _ = stream.flush();
 
         for frame in frames {
-            if stream.write_all(frame.as_bytes()).is_err() {
+            if stream.write_all(&frame).is_err() {
                 return;
             }
             let _ = stream.flush();
@@ -169,6 +182,202 @@ async fn streams_an_openai_answer() {
         "wrong route: {}",
         sent
     );
+}
+
+#[tokio::test]
+async fn deepseek_streams_only_the_answer_with_a_key_and_thinking_disabled() {
+    let (base, requests) = spawn_server(
+        200,
+        vec![
+            ": keep-alive\n\n".into(),
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"private thoughts\"}}]}\n\n".into(),
+            "data: {\"choices\":[{\"delta\":{\"content\":\"สรุป [00:01]\"},\"finish_reason\":null}]}\n\n".into(),
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n".into(),
+            "data: [DONE]\n\n".into(),
+        ],
+        Duration::from_millis(5),
+    );
+    let dialect = transport::dialect_for("deepseek");
+    let req = ChatRequest {
+        model: "deepseek-flash".into(),
+        max_tokens: 4_096,
+        ..request()
+    };
+    let mut deltas = String::new();
+    let mut thinking = 0;
+    let answer = transport::stream_chat(
+        dialect.as_ref(),
+        &base,
+        Some("sk-test-only"),
+        &req,
+        &AtomicBool::new(false),
+        |text| deltas.push_str(text),
+        || thinking += 1,
+    )
+    .await
+    .expect("DeepSeek stream failed");
+    assert_eq!(answer, "สรุป [00:01]");
+    assert_eq!(deltas, "สรุป [00:01]");
+    assert_eq!(thinking, 1);
+    let sent = requests.recv().expect("request");
+    assert!(sent.starts_with("POST /chat/completions "));
+    assert!(sent
+        .to_ascii_lowercase()
+        .contains("authorization: bearer sk-test-only\r\n"));
+    let body: serde_json::Value =
+        serde_json::from_str(sent.split_once("\r\n\r\n").unwrap().1).unwrap();
+    assert_eq!(body["thinking"]["type"], "disabled");
+    assert_eq!(body["model"], "deepseek-flash");
+    assert_eq!(body["max_tokens"], 4_096);
+}
+
+#[tokio::test]
+async fn deepseek_lists_models_with_bearer_auth() {
+    let (base, requests) = spawn_server(
+        200,
+        vec![r#"{"object":"list","data":[{"id":"deepseek-flash","object":"model","owned_by":"deepseek"},{"id":"deepseek-v4-pro","object":"model","owned_by":"deepseek"}]}"#.into()],
+        Duration::ZERO,
+    );
+    let dialect = transport::dialect_for("deepseek");
+    let names = transport::list_models(dialect.as_ref(), &base, Some("sk-test-only"))
+        .await
+        .expect("DeepSeek probe");
+    assert_eq!(names, vec!["deepseek-flash", "deepseek-v4-pro"]);
+    let sent = requests.recv().expect("request");
+    assert!(sent.starts_with("GET /models "));
+    assert!(sent
+        .to_ascii_lowercase()
+        .contains("authorization: bearer sk-test-only\r\n"));
+}
+
+#[tokio::test]
+async fn deepseek_keeps_thai_characters_split_across_network_reads() {
+    let frame = "data: {\"choices\":[{\"delta\":{\"content\":\"สรุป [00:01]\"}}]}\n\n";
+    let split = frame.find('ส').unwrap() + 1;
+    let (base, _) = spawn_byte_server(
+        200,
+        vec![
+            frame.as_bytes()[..split].to_vec(),
+            frame.as_bytes()[split..].to_vec(),
+            b"data: [DONE]\n\n".to_vec(),
+        ],
+        Duration::from_millis(50),
+    );
+    let dialect = transport::dialect_for("deepseek");
+    let answer = transport::stream_chat(
+        dialect.as_ref(),
+        &base,
+        None,
+        &request(),
+        &AtomicBool::new(false),
+        |_| {},
+        || {},
+    )
+    .await
+    .expect("split UTF-8 stream");
+    assert_eq!(answer, "สรุป [00:01]");
+}
+
+#[tokio::test]
+async fn deepseek_does_not_treat_a_token_limit_as_a_complete_summary() {
+    let (base, _) = spawn_server(
+        200,
+        vec![
+            "data: {\"choices\":[{\"delta\":{\"content\":\"unfinished\"}}]}\n\n".into(),
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"length\"}]}\n\n".into(),
+            "data: [DONE]\n\n".into(),
+        ],
+        Duration::from_millis(5),
+    );
+    let dialect = transport::dialect_for("deepseek");
+    let mut partial = String::new();
+    let error = transport::stream_chat(
+        dialect.as_ref(),
+        &base,
+        None,
+        &request(),
+        &AtomicBool::new(false),
+        |text| partial.push_str(text),
+        || {},
+    )
+    .await
+    .expect_err("a truncated answer must not be saved as complete");
+    assert!(error.to_string().contains("output limit"));
+    assert_eq!(partial, "unfinished");
+}
+
+#[tokio::test]
+async fn deepseek_does_not_accept_an_empty_answer_after_done() {
+    let (base, _) = spawn_server(
+        200,
+        vec![
+            "data: {\"choices\":[{\"delta\":{\"content\":\"   \"}}]}\n\n".into(),
+            "data: [DONE]\n\n".into(),
+        ],
+        Duration::ZERO,
+    );
+    let dialect = transport::dialect_for("deepseek");
+    let error = transport::stream_chat(
+        dialect.as_ref(),
+        &base,
+        None,
+        &request(),
+        &AtomicBool::new(false),
+        |_| {},
+        || {},
+    )
+    .await
+    .expect_err("an empty summary must not be saved");
+    assert!(error.to_string().contains("returned nothing"));
+}
+
+#[tokio::test]
+async fn deepseek_reports_in_stream_failures_instead_of_saving_partial_answers() {
+    for (frame, expected) in [
+        (
+            r#"{"choices":[{"delta":{},"finish_reason":"content_filter"}]}"#,
+            "content filter",
+        ),
+        (
+            r#"{"error":{"message":"provider unavailable","type":"server_error","code":"server_error"}}"#,
+            "reported an error",
+        ),
+        (
+            r#"{"choices":[{"delta":{},"finish_reason":"insufficient_system_resource"}]}"#,
+            "interrupted",
+        ),
+        (
+            r#"{"choices":[{"delta":{},"finish_reason":"aborted"}]}"#,
+            "interrupted",
+        ),
+        (
+            r#"{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}"#,
+            "interrupted",
+        ),
+    ] {
+        let (base, _) = spawn_server(
+            200,
+            vec![
+                "data: {\"choices\":[{\"delta\":{\"content\":\"unfinished\"}}]}\n\n".into(),
+                format!("data: {frame}\n\n"),
+                "data: [DONE]\n\n".into(),
+            ],
+            Duration::ZERO,
+        );
+        let dialect = transport::dialect_for("deepseek");
+        let error = transport::stream_chat(
+            dialect.as_ref(),
+            &base,
+            None,
+            &request(),
+            &AtomicBool::new(false),
+            |_| {},
+            || {},
+        )
+        .await
+        .expect_err("a provider failure must not be saved as a completed summary");
+        assert!(error.to_string().contains(expected), "{error}");
+    }
 }
 
 #[tokio::test]

@@ -1279,3 +1279,31 @@ an 8B local model summarizes Thai meetings well enough to be the primary path.
    `.md` next to the video file is deferred.
 3. **Per-file provider override** — currently a global setting only. Revisit
    only if the local/cloud split turns out to be per-meeting in practice.
+
+### 31.16 DeepSeek Preset (v0.7.0)
+
+The explicit `deepseek` provider reuses OpenAI's URLs, model discovery and
+SSE answer format, but adds `thinking: {type: "disabled"}` only to its own
+requests. [DeepSeek's API](https://api-docs.deepseek.com/api/create-chat-completion/)
+enables thinking by default; spending the output budget on reasoning is not
+useful for this five-section summary. Its `reasoning_content` deltas are
+recognised separately and never shown as answer text.
+
+Selecting the preset fills the documented root `https://api.deepseek.com`
+and `deepseek-flash`; discovery remains authoritative, so the model is not
+limited to a hardcoded list. Loading settings never selects or migrates a
+provider. Credentials retain the same host-keyed, write-only OS storage.
+
+DeepSeek gets 4096 answer tokens and 2048 note tokens, with a further 2048
+tokens reserved from the chunk input budget for the larger answer. The
+existing local/OpenAI limits remain 2048/1024. A DeepSeek `length` or
+`content_filter` finish, or an in-stream error, fails the job instead of
+saving partial text as a completed summary. Empty answers are rejected on
+both normal completion and EOF. Network bytes are decoded only after an
+entire SSE/NDJSON line arrives so split UTF-8 characters survive.
+
+Rust mock-server tests cover routes, authentication, discovery, thinking-off
+payloads, split Thai text and failure cases. Frontend tests cover deliberate
+preset switching, preserved settings and bilingual destination warnings.
+These tests use no real API key and make no cloud requests; live summary
+quality is not asserted without a user-supplied key and an allowed input.

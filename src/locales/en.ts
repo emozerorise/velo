@@ -139,7 +139,7 @@ export const en = {
   'summary.openFirst': 'Open a video or audio file first',
   'summary.notConfigured': 'No model set up yet',
   'summary.notConfiguredDesc':
-    'Velo writes the summary with a model you run yourself. Point it at one in Settings.',
+    'Choose a local model or a cloud provider in AI settings to write summaries.',
   'summary.openSettings': 'Open settings',
   'summary.pullHint': 'Not running one yet? Install Ollama, then run:',
   'summary.empty': 'No summary for this file yet.',
@@ -164,6 +164,10 @@ export const en = {
   'summary.hintUnreachable': 'Is the model server running? Try: ollama serve',
   'summary.hintSlow': 'The model did not finish in time. A smaller model answers faster.',
   'summary.hintModel': 'That model is not pulled yet. Try: ollama pull {model}',
+  'summary.hintRemoteUnreachable':
+    'Check your internet connection and the provider’s server address in AI settings.',
+  'summary.hintRemoteModel':
+    'The provider does not offer {model}. Test the connection in AI settings and choose an available model.',
   'summary.fixApiKey': 'Open AI settings',
   'summary.lang.auto': 'Same as the meeting',
   'summary.lang.th': 'ไทย',
@@ -174,8 +178,11 @@ export const en = {
   'settings.aiProviderDesc': 'Which kind of server writes the summaries',
   'settings.aiProvider.ollama': 'Ollama (this machine)',
   'settings.aiProvider.openai': 'OpenAI-compatible',
+  'settings.aiProvider.deepseek': 'DeepSeek',
+  'settings.aiDeepSeekHint':
+    'Save your DeepSeek API key below, then test the connection to choose a model. Thinking is disabled for summaries.',
   'settings.aiBaseUrl': 'Server address',
-  'settings.aiBaseUrlDesc': 'Ollama wants its bare address; other servers want the /v1 path',
+  'settings.aiBaseUrlDesc': 'Use the provider’s base URL, not the full /chat/completions endpoint',
   'settings.aiModel': 'Model',
   'settings.aiModelDesc': 'Test the connection to pick from what the server has',
   'settings.aiTest': 'Test',
