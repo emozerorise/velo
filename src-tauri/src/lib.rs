@@ -1,5 +1,6 @@
 //! Core library implementation for Velo video player.
 
+pub mod chat;
 pub mod commands;
 pub mod errors;
 pub mod jobs;
