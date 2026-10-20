@@ -38,5 +38,9 @@ Files: `.github/workflows/release.yml`, `scripts/update-manifest.mjs`, `tests/re
 - [x] Write manifest-generator tests using real temporary fixture archives and signature files. Require exactly the two macOS platforms, correct HTTPS asset URLs and version, and reject absent/blank inputs. Run `node --test tests/release/*.check.mjs` red.
 - [x] Implement the generator, signing step after dylib repair, draft release uploads and a final manifest/publish job gated on both builds. Generate a protected updater key if none exists, provision the Actions Secret without logging it, and embed only its public key.
 - [x] Verify actual archive signatures locally, and run the manifest tests green. Document key location/backup requirements and manual installation of the first updater version. The real repaired bundle passed signature verification; changing one byte was rejected. Release CI runs the same verification for each architecture.
-- [ ] Run fmt/clippy/cargo test, typecheck/lint/Vitest, manifest tests and a local Apple Silicon bundle build. Push/merge the feature PR after CI passes.
+- [x] Run fmt/clippy/cargo test, typecheck/lint/Vitest, manifest tests and a local Apple Silicon bundle build. Push/merge the feature PR after CI passes.
 - [ ] Bump all version sources with `npm run release 0.6.0`, push/merge its release PR, then tag merged main. Wait for both architectures and manifest publication; verify assets, endpoint, tag commit, and clean local main.
+
+Final smoke-test finding: manual update controls could save defaults before
+startup finished loading settings. Cancelled the first unpublished, asset-free
+draft build and added a regression test and readiness guard before retrying.
