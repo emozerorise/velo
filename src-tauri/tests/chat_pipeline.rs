@@ -4,10 +4,16 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
+use velo_lib::chat::types::{ChatErrorCode, ChatEvent};
+use velo_lib::chat::{run_turn, ChatInput, ChatState};
+use velo_lib::commands::chat::{canonical_path, load_snapshot, status_from_snapshot};
 use velo_lib::jobs::JobCancel;
+use velo_lib::storage::settings_store::SummarySettings;
 use velo_lib::summary::transport::{
     self, ConversationRequest, DeepSeek, Ollama, OpenAi, WireMessage, WireRole,
 };
+use velo_lib::summary::{Summary, SummaryStore};
+use velo_lib::transcript::{Transcript, TranscriptSegment, TranscriptStore};
 
 mod jobs {
     use velo_lib::jobs::{JobGate, JobResource};
@@ -286,4 +292,407 @@ async fn chat_rejects_silent_eof_and_bounded_output() {
         .await
         .is_err());
     }
+}
+
+fn input(base: &str, provider: &str, id: &str) -> ChatInput {
+    ChatInput {
+        path: "/synthetic.wav".into(),
+        request_id: id.into(),
+        settings: SummarySettings {
+            provider: provider.into(),
+            base_url: base.into(),
+            model: "synthetic".into(),
+            context_tokens: 8192,
+            ..SummarySettings::default()
+        },
+        segments: vec![TranscriptSegment {
+            start: 0.0,
+            end: 9.0,
+            text: "A synthetic decision".into(),
+        }],
+        summary: None,
+        history: vec![],
+        message: "Next?".into(),
+        language: "en".into(),
+        api_key: (provider == "deepseek").then(|| "synthetic-key".into()),
+    }
+}
+
+#[tokio::test]
+async fn runner_uses_each_dialect_and_emits_matching_grounding_metadata() {
+    for (provider, frame) in [
+        ("ollama", "{\"message\":{\"content\":\"answer [00:00]\"},\"done\":true}\n"),
+        ("openai", "data: {\"choices\":[{\"delta\":{\"content\":\"answer [00:00]\"},\"finish_reason\":\"stop\"}]}\n"),
+        ("deepseek", "data: {\"choices\":[{\"delta\":{\"content\":\"answer [00:00]\"},\"finish_reason\":\"stop\"}]}\n"),
+    ] {
+        let (base, received) = server(ok(frame));
+        let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed = events.clone();
+        let answer = run_turn(input(&base, provider, "turn"), JobCancel::new(), Arc::new(move |event| observed.lock().unwrap().push(event))).await.unwrap();
+        assert_eq!(answer.sources[0].start, 0.0);
+        let events = events.lock().unwrap();
+        assert!(events.iter().any(|e| matches!(e, ChatEvent::Ready(ready) if ready.sources == answer.sources && ready.text == answer.text)));
+        assert!(events.iter().any(|e| matches!(e, ChatEvent::Delta(delta) if delta.sequence == 1 && delta.request_id == "turn")));
+        let sent = received.recv().unwrap();
+        assert!(!sent.contains("base64")); assert!(!sent.contains("audio_url"));
+        if provider == "deepseek" { assert!(sent.contains("\"thinking\":{\"type\":\"disabled\"}")); }
+    }
+}
+
+#[tokio::test]
+async fn no_transcript_rejects_before_http() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let mut turn = input(
+        &format!("http://{}", listener.local_addr().unwrap()),
+        "ollama",
+        "empty",
+    );
+    turn.segments.clear();
+    let error = run_turn(turn, JobCancel::new(), Arc::new(|_| {}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, ChatErrorCode::MissingTranscript);
+    assert!(listener.accept().is_err());
+}
+
+#[tokio::test]
+async fn switch_cancel_drops_old_turn() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let (accepted, ready) = tokio::sync::oneshot::channel();
+    let (release, wait) = mpsc::channel::<()>();
+    thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        read_request(&mut stream);
+        let _ = accepted.send(());
+        let _ = wait.recv_timeout(Duration::from_secs(2));
+    });
+    let cancel = JobCancel::new();
+    let signal = cancel.clone();
+    let events = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let captured = events.clone();
+    let result = tokio::join!(
+        run_turn(
+            input(&base, "ollama", "old"),
+            cancel,
+            Arc::new(move |e| captured.lock().unwrap().push(e))
+        ),
+        async move {
+            ready.await.unwrap();
+            signal.cancel();
+        }
+    )
+    .0;
+    release.send(()).unwrap();
+    assert_eq!(result.unwrap_err().code, ChatErrorCode::Cancelled);
+    assert!(!events
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|e| matches!(e, ChatEvent::Ready(_))));
+}
+
+#[tokio::test]
+async fn late_completion_cannot_release_new_job() {
+    use velo_lib::jobs::{JobGate, JobResource};
+    let gate = JobGate::default();
+    let state = ChatState::default();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let (accepted, ready) = tokio::sync::oneshot::channel();
+    let (release, wait) = mpsc::channel::<()>();
+    thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        read_request(&mut stream);
+        let _ = accepted.send(());
+        let _ = wait.recv_timeout(Duration::from_secs(2));
+    });
+    let (terminal, mut event) = tokio::sync::mpsc::unbounded_channel();
+    state
+        .start(
+            input(&base, "ollama", "old"),
+            gate.try_acquire(JobResource::ChatModel, "old").unwrap(),
+            Arc::new(move |e| {
+                let _ = terminal.send(e);
+            }),
+        )
+        .unwrap();
+    ready.await.unwrap();
+    assert!(state
+        .start(
+            input(&base, "ollama", "old"),
+            JobGate::default()
+                .try_acquire(JobResource::ChatModel, "duplicate")
+                .unwrap(),
+            Arc::new(|_| {})
+        )
+        .is_err());
+    state.cancel("old");
+    tokio::time::timeout(Duration::from_millis(250), event.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    tokio::time::timeout(Duration::from_millis(250), async {
+        while state.active_request().is_some() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    release.send(()).unwrap();
+    let lease = gate.try_acquire(JobResource::ChatModel, "new").unwrap();
+    state.cancel("old");
+    assert!(gate.try_acquire(JobResource::ChatModel, "third").is_err());
+    drop(lease);
+}
+
+struct Fixture(std::path::PathBuf);
+impl Fixture {
+    fn new() -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "velo-chat-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        Self(root)
+    }
+    fn media(&self) -> String {
+        self.0.join("media.wav").to_str().unwrap().to_string()
+    }
+}
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn canonical_aliases_share_identity() {
+    let root = Fixture::new();
+    std::fs::write(root.media(), b"synthetic").unwrap();
+    let alias = root.0.join(".").join("media.wav");
+    assert_eq!(
+        canonical_path(&root.media()).unwrap(),
+        canonical_path(alias.to_str().unwrap()).unwrap()
+    );
+    let error = canonical_path("/not/a/private/existing/path").unwrap_err();
+    assert!(!error.message.contains("/not/a/private"));
+}
+
+#[test]
+fn status_does_not_probe() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let settings = SummarySettings {
+        base_url: format!("http://{}", listener.local_addr().unwrap()),
+        ..SummarySettings::default()
+    };
+    let status = status_from_snapshot("/canonical.wav".into(), &settings, true, false);
+    assert!(status.has_transcript && status.configured);
+    assert!(!status.has_key);
+    assert!(listener.accept().is_err());
+}
+
+#[test]
+fn summary_without_cloud_key_remains_readable() {
+    let root = Fixture::new();
+    let store = SummaryStore::open(root.0.join("summaries")).unwrap();
+    let summary = Summary {
+        path: root.media(),
+        model: "synthetic".into(),
+        language: "en".into(),
+        markdown: "Cached facts".into(),
+        created_at: 0,
+        source_segments: 1,
+    };
+    store.save(&summary).unwrap();
+    let settings = SummarySettings {
+        provider: "deepseek".into(),
+        base_url: "https://api.deepseek.com".into(),
+        model: "synthetic".into(),
+        ..SummarySettings::default()
+    };
+    let status = status_from_snapshot(summary.path.clone(), &settings, true, false);
+    assert!(!status.has_key);
+    assert_eq!(store.load(&summary.path).unwrap().markdown, "Cached facts");
+}
+
+#[tokio::test]
+async fn chat_never_writes_summary_or_transcript_cache() {
+    let root = Fixture::new();
+    std::fs::write(root.media(), b"synthetic").unwrap();
+    let transcripts = TranscriptStore::open(root.0.join("transcripts")).unwrap();
+    let summaries = SummaryStore::open(root.0.join("summaries")).unwrap();
+    let alias = root
+        .0
+        .join(".")
+        .join("media.wav")
+        .to_str()
+        .unwrap()
+        .to_string();
+    transcripts
+        .save(&Transcript {
+            path: alias.clone(),
+            language: "en".into(),
+            model: "synthetic".into(),
+            prompt: "".into(),
+            created_at: 0,
+            segments: input("", "ollama", "").segments,
+        })
+        .unwrap();
+    summaries
+        .save(&Summary {
+            path: alias,
+            model: "synthetic".into(),
+            language: "en".into(),
+            markdown: "Cached".into(),
+            created_at: 0,
+            source_segments: 1,
+        })
+        .unwrap();
+    let snapshot = || {
+        ["transcripts", "summaries"]
+            .into_iter()
+            .flat_map(|dir| {
+                std::fs::read_dir(root.0.join(dir))
+                    .unwrap()
+                    .map(|entry| {
+                        let file = entry.unwrap().path();
+                        (file.clone(), std::fs::read(file).unwrap())
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    let before = snapshot();
+    let (path, transcript, summary) =
+        load_snapshot(&root.media(), &transcripts, &summaries).unwrap();
+    let (base, _) = server(ok("{\"message\":{\"content\":\"Answer\"},\"done\":true}\n"));
+    let mut turn = input(&base, "ollama", "cache");
+    turn.path = path;
+    turn.segments = transcript.segments;
+    turn.summary = summary.map(|s| s.markdown);
+    run_turn(turn, JobCancel::new(), Arc::new(|_| {}))
+        .await
+        .unwrap();
+    assert_eq!(before, snapshot());
+}
+
+#[tokio::test]
+async fn runner_errors_have_stable_codes_without_provider_body() {
+    for (status, code) in [
+        (401, ChatErrorCode::Auth),
+        (429, ChatErrorCode::RateLimit),
+        (500, ChatErrorCode::Provider),
+    ] {
+        let (base, _) = server(format!(
+            "HTTP/1.1 {status} Error\r\nConnection: close\r\n\r\nprivate source synthetic-secret"
+        ));
+        let error = run_turn(
+            input(&base, "ollama", "error"),
+            JobCancel::new(),
+            Arc::new(|_| {}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, code);
+        assert!(!error.message.contains("private"));
+        assert!(!error.message.contains("secret"));
+    }
+}
+
+#[tokio::test]
+async fn cancelled_reservation_never_starts_http_after_preflight() {
+    use velo_lib::jobs::{JobGate, JobResource};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let state = ChatState::default();
+    let gate = JobGate::default();
+    let pending = state.reserve("pending").unwrap();
+    state.cancel("pending");
+    let error = pending
+        .start(
+            input(&base, "ollama", "pending"),
+            gate.try_acquire(JobResource::ChatModel, "pending").unwrap(),
+            Arc::new(|_| {}),
+        )
+        .unwrap_err();
+    assert_eq!(error.code, ChatErrorCode::Cancelled);
+    assert!(listener.accept().is_err());
+    assert!(state.active_request().is_none());
+    assert!(gate.try_acquire(JobResource::ChatModel, "next").is_ok());
+}
+
+#[test]
+fn invalid_destination_cannot_expose_url_credentials() {
+    for base in [
+        "data:text/plain,synthetic-secret",
+        "https://user:synthetic-secret@example.com/v1?key=synthetic-secret",
+    ] {
+        let settings = SummarySettings {
+            base_url: base.into(),
+            ..SummarySettings::default()
+        };
+        let status = status_from_snapshot("/canonical.wav".into(), &settings, true, false);
+        assert!(!status.configured);
+        assert!(!status.base_url.contains("synthetic-secret"));
+    }
+}
+
+#[test]
+fn canonical_cache_miss_uses_latest_alias_without_migrating_files() {
+    let root = Fixture::new();
+    std::fs::write(root.media(), b"synthetic").unwrap();
+    std::fs::create_dir(root.0.join("nested")).unwrap();
+    let store = TranscriptStore::open(root.0.join("transcripts")).unwrap();
+    let summaries = SummaryStore::open(root.0.join("summaries")).unwrap();
+    for (alias, created_at, text) in [
+        (root.0.join(".").join("media.wav"), 1, "old"),
+        (
+            root.0.join("nested").join("..").join("media.wav"),
+            2,
+            "latest",
+        ),
+    ] {
+        let path = alias.to_str().unwrap().to_string();
+        store
+            .save(&Transcript {
+                path: path.clone(),
+                language: "en".into(),
+                model: "synthetic".into(),
+                prompt: "".into(),
+                created_at,
+                segments: vec![TranscriptSegment {
+                    start: 0.0,
+                    end: 1.0,
+                    text: text.into(),
+                }],
+            })
+            .unwrap();
+        summaries
+            .save(&Summary {
+                path,
+                language: "en".into(),
+                model: "synthetic".into(),
+                created_at,
+                source_segments: 1,
+                markdown: text.into(),
+            })
+            .unwrap();
+    }
+    let (_, transcript, summary) = load_snapshot(&root.media(), &store, &summaries).unwrap();
+    assert_eq!(transcript.segments[0].text, "latest");
+    assert_eq!(summary.unwrap().markdown, "latest");
+    assert_eq!(
+        std::fs::read_dir(root.0.join("transcripts"))
+            .unwrap()
+            .count(),
+        2
+    );
 }

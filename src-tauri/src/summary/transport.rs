@@ -12,7 +12,7 @@
 //! bodies and reads single frames, so the streaming machinery below is
 //! written once and shared.
 
-use crate::errors::{Result, VeloError};
+use crate::errors::{ModelErrorCode, Result, VeloError};
 use crate::jobs::JobCancel;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -409,23 +409,47 @@ fn http_error(status: reqwest::StatusCode, model: &str) -> VeloError {
         _ => format!("The provider returned {}", status),
     };
 
-    VeloError::Summary(message)
+    model_error(
+        match status.as_u16() {
+            401 | 403 => ModelErrorCode::Auth,
+            429 => ModelErrorCode::RateLimit,
+            _ => ModelErrorCode::Provider,
+        },
+        message,
+    )
+}
+
+fn model_error(code: ModelErrorCode, message: impl Into<String>) -> VeloError {
+    VeloError::Model {
+        code,
+        message: message.into(),
+    }
+}
+fn legacy_error(error: VeloError) -> VeloError {
+    VeloError::Summary(error.to_string())
 }
 
 fn transport_error(e: reqwest::Error) -> VeloError {
     if e.is_connect() {
-        VeloError::Summary("Could not reach the model server".into())
+        model_error(
+            ModelErrorCode::Connection,
+            "Could not reach the model server",
+        )
     } else if e.is_timeout() {
-        VeloError::Summary("The model server took too long to answer".into())
+        model_error(
+            ModelErrorCode::Timeout,
+            "The model server took too long to answer",
+        )
     } else {
-        VeloError::Summary("The model request failed".into())
+        model_error(ModelErrorCode::Provider, "The model request failed")
     }
 }
 
 fn completed_answer(answer: String) -> Result<String> {
     if answer.trim().is_empty() {
-        Err(VeloError::Summary(
-            "The model returned nothing. It may have run out of context.".into(),
+        Err(model_error(
+            ModelErrorCode::Empty,
+            "The model returned nothing. It may have run out of context.",
         ))
     } else {
         Ok(answer)
@@ -435,6 +459,16 @@ fn completed_answer(answer: String) -> Result<String> {
 /// Ask the server what it has. Used before a long job starts, so a stopped
 /// server is found in seconds rather than after an hour of transcription.
 pub async fn list_models(
+    dialect: &dyn ChatDialect,
+    base_url: &str,
+    api_key: Option<&str>,
+) -> Result<Vec<String>> {
+    list_models_inner(dialect, base_url, api_key)
+        .await
+        .map_err(legacy_error)
+}
+
+async fn list_models_inner(
     dialect: &dyn ChatDialect,
     base_url: &str,
     api_key: Option<&str>,
@@ -484,6 +518,7 @@ pub async fn stream_chat(
         on_thinking,
     )
     .await
+    .map_err(legacy_error)
 }
 
 pub async fn stream_conversation(
@@ -543,7 +578,7 @@ impl CancelSignal<'_> {
 }
 
 fn cancelled_error() -> VeloError {
-    VeloError::Summary("Cancelled".into())
+    model_error(ModelErrorCode::Cancelled, "Cancelled")
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -601,16 +636,18 @@ async fn stream_body(
                 return Err(cancelled_error());
             }
             if strict && buffer.len().saturating_add(piece.len()) > 256 * 1024 {
-                return Err(VeloError::Summary(
-                    "The provider stream exceeded the line limit".into(),
+                return Err(model_error(
+                    ModelErrorCode::Context,
+                    "The provider stream exceeded the line limit",
                 ));
             }
             buffer.extend_from_slice(piece);
             if !eof && !piece.ends_with(b"\n") {
                 continue;
             }
-            let line = std::str::from_utf8(&buffer)
-                .map_err(|_| VeloError::Summary("The provider sent invalid UTF-8".into()))?;
+            let line = std::str::from_utf8(&buffer).map_err(|_| {
+                model_error(ModelErrorCode::Provider, "The provider sent invalid UTF-8")
+            })?;
             let frame = dialect.frame(line.trim());
             buffer.clear();
             let terminal = matches!(frame, Frame::Done | Frame::DoneText(_));
@@ -618,7 +655,9 @@ async fn stream_body(
                 Frame::Empty => {}
                 Frame::Thinking => on_thinking(),
                 Frame::Done => {}
-                Frame::Failed(message) => return Err(VeloError::Summary(message.into())),
+                Frame::Failed(message) => {
+                    return Err(model_error(ModelErrorCode::Provider, message))
+                }
                 Frame::Text(text) | Frame::DoneText(text) => {
                     let text = match stripper.as_mut() {
                         Some(stripper) => stripper.push(&text),
@@ -626,8 +665,9 @@ async fn stream_body(
                     };
                     if !text.is_empty() {
                         if strict && answer.len().saturating_add(text.len()) > 64 * 1024 {
-                            return Err(VeloError::Summary(
-                                "The provider answer exceeded the output limit".into(),
+                            return Err(model_error(
+                                ModelErrorCode::Context,
+                                "The provider answer exceeded the output limit",
                             ));
                         }
                         answer.push_str(&text);
@@ -644,8 +684,9 @@ async fn stream_body(
         }
     }
     if strict {
-        Err(VeloError::Summary(
-            "The provider stream ended before completion".into(),
+        Err(model_error(
+            ModelErrorCode::Incomplete,
+            "The provider stream ended before completion",
         ))
     } else {
         completed_answer(answer)

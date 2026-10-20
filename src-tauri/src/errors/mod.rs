@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug, Serialize)]
@@ -21,6 +21,26 @@ pub enum VeloError {
 
     #[error("{0}")]
     Summary(String),
+
+    #[error("{message}")]
+    Model {
+        code: ModelErrorCode,
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelErrorCode {
+    Auth,
+    Connection,
+    RateLimit,
+    Provider,
+    Context,
+    Timeout,
+    Empty,
+    Incomplete,
+    Cancelled,
 }
 
 pub type Result<T> = std::result::Result<T, VeloError>;

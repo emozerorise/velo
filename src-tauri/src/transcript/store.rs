@@ -20,6 +20,10 @@ impl TranscriptStore {
             .map_err(|e| VeloError::Storage(format!("Could not get app data dir: {}", e)))?
             .join("transcripts");
 
+        Self::open(dir)
+    }
+
+    pub fn open(dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&dir)
             .map_err(|e| VeloError::Storage(format!("Could not create transcript dir: {}", e)))?;
 
@@ -57,6 +61,32 @@ impl TranscriptStore {
         let file = self.file_for(media_path);
         let content = fs::read_to_string(file).ok()?;
         serde_json::from_str(&content).ok()
+    }
+
+    pub fn load_canonical(&self, canonical: &str) -> Option<Transcript> {
+        let matches = |transcript: &Transcript| {
+            fs::canonicalize(&transcript.path).ok().as_deref() == Some(Path::new(canonical))
+        };
+        self.load(canonical).filter(matches).or_else(|| {
+            // Old caches keep the path used when they were created, including
+            // symlink aliases. Resolve identity without renaming or rewriting.
+            fs::read_dir(&self.dir)
+                .ok()?
+                .filter_map(|entry| {
+                    let path = entry.ok()?.path();
+                    if path.extension()?.to_str()? != "json" {
+                        return None;
+                    }
+                    let transcript: Transcript =
+                        serde_json::from_str(&fs::read_to_string(path).ok()?).ok()?;
+                    matches(&transcript).then_some(transcript)
+                })
+                .max_by(|a, b| {
+                    a.created_at
+                        .cmp(&b.created_at)
+                        .then_with(|| a.path.cmp(&b.path))
+                })
+        })
     }
 
     pub fn save(&self, transcript: &Transcript) -> Result<()> {

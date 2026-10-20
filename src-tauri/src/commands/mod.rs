@@ -1,3 +1,4 @@
+pub mod chat;
 pub mod player;
 pub mod playlist;
 pub mod settings;
@@ -5,6 +6,7 @@ pub mod summary;
 pub mod tracks;
 pub mod transcript;
 
+pub use chat::*;
 pub use player::*;
 pub use playlist::*;
 pub use settings::*;

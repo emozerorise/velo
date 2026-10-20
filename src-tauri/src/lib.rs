@@ -52,6 +52,7 @@ pub fn run() {
             app.manage(storage_state);
             app.manage(commands::VideoViewportState::default());
             app.manage(jobs::JobGate::default());
+            app.manage(chat::ChatState::default());
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);
@@ -173,6 +174,9 @@ pub fn run() {
             commands::summary_generate,
             commands::summary_cancel,
             commands::summary_delete,
+            commands::chat_status,
+            commands::chat_send,
+            commands::chat_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running velo application");

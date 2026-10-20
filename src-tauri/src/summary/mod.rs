@@ -83,7 +83,7 @@ impl SummaryState {
         Ok(Self {
             store: Arc::new(SummaryStore::new(app_handle)?),
             active: Mutex::new(None),
-            credentials: ApiKeyStore::default(),
+            credentials: ApiKeyStore::for_app(&app_handle.config().identifier),
         })
     }
 

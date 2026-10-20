@@ -88,7 +88,7 @@ fn prefix(text: &str, bytes: usize) -> &str {
     &text[..end]
 }
 
-fn validate(
+pub(super) fn validate(
     segments: &[TranscriptSegment],
     history: &[ChatHistoryMessage],
     message: &str,
