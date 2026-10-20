@@ -4,6 +4,7 @@
     <label class="flex items-center gap-3">
       <input
         type="checkbox"
+        :disabled="!updates.currentVersion"
         :checked="settings.settings.updates.auto_check"
         @change="setAutoCheck(($event.target as HTMLInputElement).checked)"
       >
@@ -12,7 +13,7 @@
     <p class="text-xs leading-relaxed text-fg/50">{{ t('updates.autoHint') }}</p>
     <button
       class="self-start rounded-lg border border-fg/20 px-3 py-2 hover:bg-fg/10 disabled:opacity-40"
-      :disabled="updates.operating || ['downloaded', 'ready'].includes(updates.phase)"
+      :disabled="!updates.currentVersion || updates.operating || ['downloaded', 'ready'].includes(updates.phase)"
       @click="check()"
     >
       {{ t(updates.phase === 'checking' ? 'updates.checking' : 'updates.check') }}
@@ -49,10 +50,12 @@ const { t } = useI18n();
 const checked = ref(false);
 const preferenceError = ref('');
 async function check() {
+  if (!updates.currentVersion) return;
   await updates.checkForUpdates(true);
   checked.value = true;
 }
 async function setAutoCheck(enabled: boolean) {
+  if (!updates.currentVersion) return;
   const saved = await settings.saveSettings({
     ...settings.settings,
     updates: { ...settings.settings.updates, auto_check: enabled },

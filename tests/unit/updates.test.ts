@@ -257,7 +257,7 @@ describe('in-app updates', () => {
       setLocale(language);
       const notice = await renderToString(createSSRApp(UpdateNotice));
       expect(notice).toContain('0.7.0');
-      expect(notice).toMatch(/<button[^>]* disabled/);
+      expect(notice).toMatch(/<button[^>]*\sdisabled(?:[=>\s])/);
       const settings = await renderToString(createSSRApp(UpdateSection));
       expect(settings).toContain('&lt;script&gt;');
       expect(settings).not.toContain('<script>');
@@ -266,6 +266,17 @@ describe('in-app updates', () => {
       store.dismissed = false;
     }
     setLocale('en');
+  });
+
+  it('disables manual checks until startup has loaded saved settings and the current version', async () => {
+    const store = useUpdateStore();
+    const pending = await renderToString(createSSRApp(UpdateSection));
+    expect(pending).toMatch(/<button[^>]*\sdisabled(?:[=>\s])/);
+    expect(pending).toMatch(/<input[^>]*\sdisabled(?:[=>\s])/);
+    await store.start();
+    const ready = await renderToString(createSSRApp(UpdateSection));
+    expect(ready).not.toMatch(/<button[^>]*\sdisabled(?:[=>\s])/);
+    expect(ready).not.toMatch(/<input[^>]*\sdisabled(?:[=>\s])/);
   });
 
   it('keeps restart failures retryable and blocks duplicate relaunches', async () => {
