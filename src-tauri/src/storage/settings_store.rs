@@ -92,6 +92,24 @@ impl Default for SummarySettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateSettings {
+    pub auto_check: bool,
+    pub last_checked_at: u64,
+    pub skipped_version: String,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            auto_check: true,
+            last_checked_at: 0,
+            skipped_version: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppSettings {
     pub version: u32,
     pub general: GeneralSettings,
@@ -104,6 +122,8 @@ pub struct AppSettings {
     pub transcript: TranscriptSettings,
     #[serde(default)]
     pub summary: SummarySettings,
+    #[serde(default)]
+    pub updates: UpdateSettings,
 }
 
 impl Default for AppSettings {
@@ -134,6 +154,7 @@ impl Default for AppSettings {
             },
             transcript: TranscriptSettings::default(),
             summary: SummarySettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 }
@@ -253,5 +274,20 @@ mod tests {
             serde_json::from_str(&json).expect("Deserialization failed");
         assert_eq!(deserialized.version, original.version);
         assert_eq!(deserialized.general.theme, original.general.theme);
+    }
+
+    #[test]
+    fn update_preferences_default_without_resetting_older_settings() {
+        let mut legacy = serde_json::to_value(AppSettings::default()).expect("serialize settings");
+        legacy
+            .as_object_mut()
+            .expect("settings object")
+            .remove("updates");
+        legacy["general"]["language"] = serde_json::json!("th");
+        let settings: AppSettings = serde_json::from_value(legacy).expect("legacy settings");
+        assert_eq!(settings.general.language, "th");
+        assert!(settings.updates.auto_check);
+        assert_eq!(settings.updates.last_checked_at, 0);
+        assert!(settings.updates.skipped_version.is_empty());
     }
 }

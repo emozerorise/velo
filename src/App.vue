@@ -92,6 +92,15 @@
     <!-- Modals -->
     <SettingsModal />
     <MediaInfoModal />
+    <UpdateNotice />
+    <div
+      v-if="updates.blocking"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 text-white"
+      role="status"
+      aria-live="polite"
+    >
+      {{ t(updates.phase === 'restarting' ? 'updates.restarting' : 'updates.installing') }}
+    </div>
   </div>
 </template>
 
@@ -105,6 +114,8 @@ import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
 import SettingsModal from '@/components/settings/SettingsModal.vue';
 import MediaInfoModal from '@/components/player/MediaInfoModal.vue';
 import ToastStack from '@/components/common/ToastStack.vue';
+import UpdateNotice from '@/components/updates/UpdateNotice.vue';
+import { useUpdateStore } from '@/stores/updateStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -120,6 +131,7 @@ const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
+const updates = useUpdateStore();
 
 const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
 const { areControlsVisible } = useAutoHideControls();
@@ -129,6 +141,7 @@ usePlaybackHistory();
 let clickTimeout: number | null = null;
 
 function onVideoClick() {
+  if (updates.blocking) return;
   if (clickTimeout) {
     clearTimeout(clickTimeout);
     clickTimeout = null;
@@ -136,7 +149,7 @@ function onVideoClick() {
   }
 
   clickTimeout = window.setTimeout(() => {
-    playerStore.togglePlay();
+    if (!updates.blocking) playerStore.togglePlay();
     clickTimeout = null;
   }, 200);
 }
@@ -171,9 +184,11 @@ onMounted(async () => {
   await transcriptStore.initListeners();
   await summaryStore.initListeners();
   await settingsStore.loadSettings();
+  void updates.start();
 });
 
 onUnmounted(() => {
+  updates.stop();
   document.documentElement.classList.remove('video-surface-active');
   playerStore.cleanupListeners();
   transcriptStore.cleanupListeners();
