@@ -11,6 +11,7 @@
       :aria-label="t(tool.label)"
       :title="t(tool.label)"
       :aria-pressed="tool.active"
+      :aria-expanded="tool.id === 'transcript' ? undefined : tool.active"
       :aria-controls="tool.controls"
       class="w-[52px] h-[52px] grid place-items-center rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
       :class="
@@ -31,10 +32,14 @@
 import { computed } from 'vue';
 import { FileText, MessageCircle, MonitorPlay } from '@lucide/vue';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
 import { toolMayClose } from '@/utils/toolKeyboard';
 import type { WorkspaceTool } from '@/types/workspace';
 const workspace = useWorkspaceStore();
+const player = usePlayerStore();
+const emit = defineEmits<{ (event: 'welcome-chat'): void }>();
+function toggleChat() { if (player.mediaInfo) workspace.toggleChat(); else emit('welcome-chat'); }
 const { t } = useI18n();
 const buttons = new Map<WorkspaceTool, HTMLElement>();
 function registerButton(tool: WorkspaceTool, element: unknown) {
@@ -67,7 +72,7 @@ const tools = computed(
         icon: MessageCircle,
         active: workspace.chatVisible,
         controls: 'workspace-chat',
-        action: workspace.toggleChat,
+        action: toggleChat,
       },
       {
         id: 'player',

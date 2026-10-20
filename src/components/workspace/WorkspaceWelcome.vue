@@ -20,6 +20,7 @@
         {{ t('workspace.welcomeDescription') }}
       </p>
       <button
+        ref="openButton"
         data-testid="welcome-open-file"
         class="welcome-open inline-flex items-center justify-center gap-3 rounded-2xl bg-blue-500 hover:bg-blue-400 px-8 py-4 text-white font-semibold text-lg sm:text-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
         @click="openFileDialog"
@@ -51,11 +52,14 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { FileAudio, FileText, AudioLines, CirclePlus } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 const { t } = useI18n();
 const { openFileDialog } = useKeyboardShortcuts();
+const openButton = ref<HTMLButtonElement | null>(null);
+defineExpose({ focusOpen: () => openButton.value?.focus() });
 const steps = [
   {
     icon: FileAudio,

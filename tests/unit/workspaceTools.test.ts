@@ -164,6 +164,7 @@ describe('summary-first workspace tools', () => {
   });
 
   it('chat_from_transcript_returns_to_summary', async () => {
+    loaded();
     const workspace = useWorkspaceStore();
     const view = mountView(WorkspaceRail, {}, getActivePinia()!);
     view.find('tool-transcript').trigger('click');
@@ -323,6 +324,7 @@ describe('summary-first workspace tools', () => {
   it.each(['transcript', 'chat', 'player'])(
     'escape_restores_own_trigger (%s)',
     async (tool) => {
+      loaded();
       const view = mountView(WorkspaceRail, {}, getActivePinia()!);
       const button = view.find(`tool-${tool}`);
       button.trigger('click');
@@ -338,6 +340,27 @@ describe('summary-first workspace tools', () => {
       view.unmount();
     },
   );
+
+  it('no-file chat focuses the welcome action without probing or opening a composer', async () => {
+    const view = mountView(TranscriptPanel, {}, getActivePinia()!);
+    view.find('tool-chat').trigger('click');
+    await nextTick();
+    expect(view.find('welcome-open-file').focusCount).toBe(1);
+    expect(useWorkspaceStore().chatVisible).toBe(false);
+    await vi.waitFor(() =>
+      expect(
+        view
+          .nodes()
+          .some(
+            (node) =>
+              node.props['aria-live'] === 'polite' &&
+              node.text.includes('Open a file'),
+          ),
+      ).toBe(true),
+    );
+    expect(invoke).not.toHaveBeenCalled();
+    view.unmount();
+  });
 
   it('focused_button_space_never_reaches_global_player', async () => {
     const dispose = mountComposable(() =>

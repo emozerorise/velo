@@ -119,40 +119,33 @@
         id="workspace-summary"
         class="workspace-reader flex-1 min-h-0 flex flex-col bg-surface"
       >
-        <WorkspaceWelcome v-if="!player.mediaInfo" />
+        <WorkspaceWelcome v-if="!player.mediaInfo" ref="welcome" />
+        <p v-if="!player.mediaInfo" class="sr-only" aria-live="polite">
+          {{ welcomeAnnouncement }}
+        </p>
         <div v-show="!!player.mediaInfo" class="flex-1 min-h-0 flex flex-col">
           <SummaryTab
             :expanded="reading"
             :reading="reading"
             @toggle-reading="reading ? store.showVideo() : store.showReading()"
             @goto-transcript="workspace.view = 'transcript'"
-          />
-        </div>
-        <div
-          v-show="workspace.chatVisible"
-          id="workspace-chat"
-          class="border-t border-fg/10 px-6 py-4"
-          @keydown.esc.stop="closeTool('chat', $event)"
-        >
-          <slot name="chat">
-            <p class="text-sm font-medium text-fg/85">
-              {{ t('workspace.chatTitle') }}
-            </p>
-            <p class="mt-1 text-xs text-fg/45">
-              {{
-                t(
-                  player.mediaInfo
-                    ? 'workspace.chatUnavailable'
-                    : 'summary.openFirst',
-                )
-              }}
-            </p>
-          </slot>
+          >
+            <template #default="{ scrollElement }">
+              <InlineChat
+                v-show="workspace.chatVisible && !!player.mediaInfo"
+                :visible="workspace.chatVisible && !!player.mediaInfo"
+                :scroll-element="scrollElement"
+                @close="closeChat"
+                @transcript="workspace.view = 'transcript'"
+                @keydown.esc.stop="closeTool('chat', $event)"
+              />
+            </template>
+          </SummaryTab>
         </div>
       </div>
       <PlayerShelf :video-element="videoElement" @close="focusTool('player')" />
     </div>
-    <WorkspaceRail ref="rail" />
+    <WorkspaceRail ref="rail" @welcome-chat="focusWelcome" />
   </section>
 </template>
 
@@ -165,6 +158,7 @@ import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
 import PlayerShelf from '@/components/player/PlayerShelf.vue';
 import WorkspaceRail from '@/components/workspace/WorkspaceRail.vue';
 import WorkspaceWelcome from '@/components/workspace/WorkspaceWelcome.vue';
+import InlineChat from '@/components/chat/InlineChat.vue';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -185,6 +179,22 @@ const currentTitle = computed(
 );
 const sidebarOpen = ref(false);
 const rail = ref<InstanceType<typeof WorkspaceRail> | null>(null);
+const welcome = ref<InstanceType<typeof WorkspaceWelcome> | null>(null);
+const welcomeAnnouncement = ref('');
+function closeChat() {
+  workspace.closeTool('chat');
+  focusTool('chat');
+}
+function focusWelcome() {
+  workspace.view = 'summary';
+  workspace.chatOpen = false;
+  workspace.playerOpen = false;
+  welcomeAnnouncement.value = '';
+  void nextTick(() => {
+    welcome.value?.focusOpen();
+    welcomeAnnouncement.value = t('chat.welcomeRequired');
+  });
+}
 useWorkspaceLayout();
 function focusTool(tool: WorkspaceTool) {
   void nextTick(() => rail.value?.focusTool(tool));

@@ -1,4 +1,4 @@
-import { createRenderer, type Component } from 'vue';
+import { createRenderer, h, reactive, type Component } from 'vue';
 import type { Pinia } from 'pinia';
 
 export class TestNode extends EventTarget {
@@ -9,6 +9,8 @@ export class TestNode extends EventTarget {
   text = '';
   value = '';
   scrollTop = 0;
+  scrollHeight = 0;
+  clientHeight = 0;
   focusCount = 0;
   focus() {
     this.focusCount++;
@@ -86,15 +88,20 @@ export function mountView(
 ) {
   teleportRoot.children = [];
   const root = new TestNode();
-  const app = renderer.createApp(component, props).use(pinia);
+  const inputProps = reactive({ ...props });
+  const app = renderer
+    .createApp({ render: () => h(component, { ...inputProps }) })
+    .use(pinia);
   app.mount(root);
   function all(node: TestNode): TestNode[] {
     return [node, ...node.children.flatMap(all)];
   }
   return {
-    nodes: () => all(root),
+    updateProps: (next: Record<string, unknown>) =>
+      Object.assign(inputProps, next),
+    nodes: () => [...all(root), ...all(teleportRoot)],
     find(testId: string): TestNode {
-      const found = all(root).find(
+      const found = [...all(root), ...all(teleportRoot)].find(
         (node) => node.props['data-testid'] === testId,
       );
       if (!found) throw new Error(`Missing test node: ${testId}`);

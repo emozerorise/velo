@@ -55,6 +55,7 @@ export const useSummaryStore = defineStore('summary', () => {
   const mapped = ref(0);
   const mapTotal = ref(0);
   const error = ref<string | null>(null);
+  const credentialRevision = ref(0);
 
   let unlistenFunctions: (() => void)[] = [];
 
@@ -177,6 +178,7 @@ export const useSummaryStore = defineStore('summary', () => {
   async function setApiKey(key: string): Promise<boolean> {
     try {
       await summaryService.setApiKey(key);
+      credentialRevision.value++;
       await refreshStatus();
       error.value = null;
       return true;
@@ -189,6 +191,7 @@ export const useSummaryStore = defineStore('summary', () => {
   async function clearApiKey(): Promise<boolean> {
     try {
       await summaryService.clearApiKey();
+      credentialRevision.value++;
       await refreshStatus();
       error.value = null;
       return true;
@@ -315,6 +318,7 @@ export const useSummaryStore = defineStore('summary', () => {
     summary,
     status,
     models,
+    credentialRevision,
     stage,
     chained,
     streamed,

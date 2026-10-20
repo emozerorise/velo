@@ -62,4 +62,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   status: 'streaming' | 'complete' | 'failed' | 'cancelled';
+  replyTo?: string;
+  sources?: ChatSource[];
+  coverage?: ChatCoverage;
+  clientOmittedPairs?: number;
 }

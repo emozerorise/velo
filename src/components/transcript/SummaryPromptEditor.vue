@@ -69,7 +69,7 @@ import BaseModal from '@/components/common/BaseModal.vue';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useI18n } from '@/composables/useI18n';
 
-const props = defineProps<{ open: boolean }>();
+const props = defineProps<{ open: boolean; initialDraft?: string }>();
 const emit = defineEmits<{ (event: 'close'): void }>();
 const settings = useSettingsStore();
 const { t } = useI18n();
@@ -85,7 +85,7 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
-      draft.value = settings.settings.summary.instructions;
+      draft.value = props.initialDraft ?? settings.settings.summary.instructions;
       error.value = '';
     }
   },

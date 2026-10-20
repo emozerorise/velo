@@ -127,6 +127,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useChatStore } from '@/stores/chatStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
@@ -137,6 +138,7 @@ const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
+const chatStore = useChatStore();
 const updates = useUpdateStore();
 const videoElement = ref<HTMLElement | null>(null);
 
@@ -182,8 +184,9 @@ watch(
 // contents -- cached ones load instantly, the rest show the generate prompt.
 watch(
   () => playerStore.mediaInfo?.path,
-  () => {
+  (path) => {
     useWorkspaceStore().resetForMedia();
+    void chatStore.prepare(path ?? '');
     void transcriptStore.loadForCurrentMedia();
     void summaryStore.loadForCurrentMedia();
   }
@@ -193,6 +196,7 @@ onMounted(async () => {
   await playerStore.initListeners();
   await transcriptStore.initListeners();
   await summaryStore.initListeners();
+  await chatStore.initListeners();
   await settingsStore.loadSettings();
   void updates.start();
 });
@@ -203,6 +207,8 @@ onUnmounted(() => {
   playerStore.cleanupListeners();
   transcriptStore.cleanupListeners();
   summaryStore.cleanupListeners();
+  void chatStore.cancel();
+  chatStore.cleanupListeners();
 });
 </script>
 
