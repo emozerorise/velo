@@ -149,7 +149,7 @@
         @update:model-value="chat.setDraft"
         @send="chat.send()"
         @cancel="chat.cancel()"
-        ><template #dictation><slot name="dictation" /></template
+        ><template #dictation><slot name="dictation"><DictationControl @focus="composer?.focus()" /></slot></template
       ></ChatComposer>
     </template>
     <p class="text-xs text-fg/60 leading-relaxed">
@@ -167,6 +167,7 @@ import { computed, nextTick, onScopeDispose, ref, watch } from 'vue';
 import { AudioLines, FileAudio, X } from '@lucide/vue';
 import ChatMessage from './ChatMessage.vue';
 import ChatComposer from './ChatComposer.vue';
+import DictationControl from './DictationControl.vue';
 import SummaryPromptEditor from '@/components/transcript/SummaryPromptEditor.vue';
 import { useChatStore } from '@/stores/chatStore';
 import { usePlayerStore } from '@/stores/playerStore';

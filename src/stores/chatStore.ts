@@ -80,6 +80,7 @@ export const useChatStore = defineStore('chat', () => {
   const preparing = ref(false);
   const active = ref<Active | null>(null);
   const listenersReady = ref(false);
+  const dictationBusy = ref(false);
   let prepareGeneration = 0;
   let listenerGeneration = 0;
   let requestedPath: string | null = null;
@@ -122,6 +123,7 @@ export const useChatStore = defineStore('chat', () => {
       (status.value.provider !== 'deepseek' || status.value.has_key) &&
       !summaries.isRunning &&
       !isRunning.value &&
+      !dictationBusy.value &&
       !!draft.value.trim() &&
       !draftTooLong.value,
   );
@@ -284,6 +286,7 @@ export const useChatStore = defineStore('chat', () => {
     if (
       !attempt ||
       isRunning.value ||
+      dictationBusy.value ||
       summaries.isRunning ||
       !status.value?.configured ||
       !status.value.has_transcript ||
@@ -388,6 +391,7 @@ export const useChatStore = defineStore('chat', () => {
     errorCode: error,
     draftTooLong,
     canSend,
+    dictationBusy,
     coverage,
     sources,
     clientOmittedPairs,

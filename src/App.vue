@@ -128,6 +128,7 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useChatStore } from '@/stores/chatStore';
+import { useDictationStore } from '@/stores/dictationStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
@@ -139,6 +140,7 @@ const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
 const chatStore = useChatStore();
+const dictationStore = useDictationStore();
 const updates = useUpdateStore();
 const videoElement = ref<HTMLElement | null>(null);
 
@@ -197,6 +199,7 @@ onMounted(async () => {
   await transcriptStore.initListeners();
   await summaryStore.initListeners();
   await chatStore.initListeners();
+  await dictationStore.initListeners();
   await settingsStore.loadSettings();
   void updates.start();
 });
@@ -209,6 +212,7 @@ onUnmounted(() => {
   summaryStore.cleanupListeners();
   void chatStore.cancel();
   chatStore.cleanupListeners();
+  dictationStore.cleanupListeners();
 });
 </script>
 
