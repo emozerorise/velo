@@ -130,7 +130,7 @@ const omitted = computed(
     (props.message.clientOmittedPairs ?? 0),
 );
 function seek(seconds: number) {
-  void player.seek(seconds, false);
+  player.seekAbsolute(seconds);
 }
 </script>
 <style scoped>
