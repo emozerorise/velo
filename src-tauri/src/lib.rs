@@ -54,6 +54,17 @@ pub fn run() {
             app.manage(commands::VideoViewportState::default());
             app.manage(jobs::JobGate::default());
             app.manage(chat::ChatState::default());
+            let dictation = dictation::DictationState::default();
+            app.manage(dictation.clone());
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(move |event| match event {
+                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                        dictation.cancel_all()
+                    }
+                    tauri::WindowEvent::Focused(false) => dictation.cancel_on_blur(),
+                    _ => {}
+                });
+            }
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);
@@ -178,6 +189,9 @@ pub fn run() {
             commands::chat_status,
             commands::chat_send,
             commands::chat_cancel,
+            commands::dictation_start,
+            commands::dictation_stop,
+            commands::dictation_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running velo application");

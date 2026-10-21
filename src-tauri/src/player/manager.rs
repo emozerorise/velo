@@ -49,6 +49,10 @@ impl PlayerManager {
         self.core.raw_handle()
     }
 
+    pub fn current_path(&self) -> Option<String> {
+        self.core.get_property_string("path")
+    }
+
     /// True while mpv sits idle with nothing loaded. Playback commands are
     /// no-ops then: flipping `pause` on an empty core still emits a property
     /// change, which would announce a playback state the app is not in and

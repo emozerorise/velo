@@ -120,7 +120,23 @@ pub fn record_until_stopped(
     backend: &dyn CaptureBackend,
     cancel: &JobCancel,
     stop: &AtomicBool,
+    progress: impl FnMut(u64),
+) -> Result<CapturedAudio> {
+    record_with_limit(
+        backend,
+        cancel,
+        stop,
+        progress,
+        Duration::from_secs(MAX_SECONDS as u64),
+    )
+}
+
+fn record_with_limit(
+    backend: &dyn CaptureBackend,
+    cancel: &JobCancel,
+    stop: &AtomicBool,
     mut progress: impl FnMut(u64),
+    limit: Duration,
 ) -> Result<CapturedAudio> {
     if cancel.flag().load(Ordering::Acquire) {
         return Err(DictationError::Cancelled);
@@ -136,7 +152,7 @@ pub fn record_until_stopped(
         let elapsed = started.elapsed();
         if session.is_complete()?
             || stop.load(Ordering::Acquire)
-            || elapsed >= Duration::from_secs(MAX_SECONDS as u64)
+            || elapsed >= limit.min(Duration::from_secs(MAX_SECONDS as u64))
         {
             return session.stop();
         }
@@ -151,6 +167,20 @@ pub fn record_until_stopped(
 
 #[derive(Default)]
 pub struct NativeCapture;
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn native_error(error: impl std::fmt::Display, fallback: DictationError) -> DictationError {
+    let message = error.to_string().to_ascii_lowercase();
+    if message.contains("80070005")
+        || message.contains("access is denied")
+        || message.contains("permission denied")
+        || message.contains("operation not permitted")
+    {
+        DictationError::PermissionDenied
+    } else {
+        fallback
+    }
+}
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 mod native {
@@ -191,7 +221,12 @@ mod native {
                 move |_| errors.fail(true),
                 None,
             )
-            .map_err(|_| DictationError::CaptureFailed)
+            .map_err(|error| match error {
+                cpal::BuildStreamError::StreamConfigNotSupported => {
+                    DictationError::UnsupportedFormat
+                }
+                _ => native_error(error, DictationError::CaptureFailed),
+            })
     }
     impl CaptureBackend for NativeCapture {
         fn start(&self, cancel: JobCancel) -> Result<Box<dyn CaptureSession>> {
@@ -205,7 +240,7 @@ mod native {
                 .ok_or(DictationError::DeviceUnavailable)?;
             let supported = device
                 .default_input_config()
-                .map_err(|_| DictationError::DeviceUnavailable)?;
+                .map_err(|error| native_error(error, DictationError::DeviceUnavailable))?;
             let format = supported.sample_format();
             let config: cpal::StreamConfig = supported.into();
             let buffer = Arc::new(InputBuffer::new(config.sample_rate.0, config.channels)?);
@@ -230,7 +265,9 @@ mod native {
                 cpal::SampleFormat::F64 => build!(f64),
                 _ => return Err(DictationError::UnsupportedFormat),
             };
-            stream.play().map_err(|_| DictationError::CaptureFailed)?;
+            stream
+                .play()
+                .map_err(|error| native_error(error, DictationError::CaptureFailed))?;
             Ok(Box::new(NativeSession {
                 stream: Some(stream),
                 buffer,
@@ -249,6 +286,67 @@ impl CaptureBackend for NativeCapture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[test]
+    fn native_access_denial_is_a_private_stable_code() {
+        assert_eq!(
+            native_error(
+                "WASAPI Activate failed: HRESULT 0x80070005",
+                DictationError::CaptureFailed
+            ),
+            DictationError::PermissionDenied
+        );
+        assert_eq!(
+            native_error(
+                "synthetic device path: disconnected",
+                DictationError::DeviceUnavailable
+            ),
+            DictationError::DeviceUnavailable
+        );
+    }
+    #[test]
+    fn wall_clock_deadline_stops_without_waiting_for_more_samples() {
+        use std::sync::{atomic::AtomicUsize, Arc};
+        struct Backend(Arc<AtomicUsize>);
+        struct Session(Arc<AtomicUsize>);
+        impl Drop for Session {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl CaptureSession for Session {
+            fn stop(self: Box<Self>) -> Result<CapturedAudio> {
+                Ok(CapturedAudio {
+                    sample_rate: 16000,
+                    mono_samples: vec![0.1],
+                })
+            }
+        }
+        impl CaptureBackend for Backend {
+            fn start(&self, _: JobCancel) -> Result<Box<dyn CaptureSession>> {
+                Ok(Box::new(Session(self.0.clone())))
+            }
+        }
+        let drops = Arc::new(AtomicUsize::new(0));
+        let observed = drops.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = record_with_limit(
+                &Backend(observed),
+                &JobCancel::new(),
+                &AtomicBool::new(false),
+                |_| {},
+                Duration::from_millis(1),
+            );
+            let _ = tx.send(result);
+        });
+        let audio = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("wall-clock limit must close a stalled device")
+            .unwrap();
+        assert_eq!(audio.mono_samples.len(), 1);
+        assert_eq!(drops.load(Ordering::SeqCst), 1);
+    }
     #[test]
     fn capture_limit_never_reallocates() {
         let buffer = InputBuffer::new(8000, 1).unwrap();

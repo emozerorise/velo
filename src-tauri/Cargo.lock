@@ -5328,6 +5328,7 @@ dependencies = [
  "futures-util",
  "keyring",
  "minisign-verify",
+ "objc2",
  "objc2-av-foundation",
  "parking_lot",
  "pkg-config",
