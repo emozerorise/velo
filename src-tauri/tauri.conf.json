@@ -41,7 +41,12 @@
     "active": true,
     "targets": "all",
     "macOS": {
-      "minimumSystemVersion": "11.0"
+      "minimumSystemVersion": "11.0",
+      "infoPlist": "Info.plist",
+      "files": {
+        "Resources/en.lproj/InfoPlist.strings": "resources/en.lproj/InfoPlist.strings",
+        "Resources/th.lproj/InfoPlist.strings": "resources/th.lproj/InfoPlist.strings"
+      }
     },
     "icon": [
       "icons/32x32.png",

@@ -1,13 +1,19 @@
 //! Model/engine/player adapters meet here; dictation never writes source caches.
 use crate::commands::settings::StorageState;
-use crate::dictation::{
-    capture::NativeCapture, permission::NativePermission, types::*, DictationInput, DictationState,
-};
+#[cfg(not(feature = "dictation-qa"))]
+use crate::dictation::{capture::NativeCapture, permission::NativePermission};
+use crate::dictation::{types::*, DictationInput, DictationState};
 use crate::jobs::JobGate;
 use crate::player::PlayerManager;
-use crate::transcript::{engine, model, TranscriptState};
+use crate::transcript::TranscriptState;
+#[cfg(not(feature = "dictation-qa"))]
+use crate::transcript::{engine, model};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
+
+#[cfg(feature = "dictation-qa")]
+#[path = "../../tests/support/dictation_qa.rs"]
+mod qa;
 
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -23,7 +29,15 @@ pub async fn dictation_start(
     player: State<'_, Arc<PlayerManager>>,
 ) -> Result<()> {
     let reservation = dictation.reserve(&session_id)?;
+    #[cfg(not(feature = "dictation-qa"))]
     let model = model::resolve(&transcript.app_data_dir).ok_or(DictationError::MissingModel)?;
+    #[cfg(feature = "dictation-qa")]
+    let adapters = {
+        let _ = &transcript;
+        qa::adapters(&app.config().identifier)?
+    };
+    #[cfg(feature = "dictation-qa")]
+    let model = adapters.model;
     let path = std::fs::canonicalize(&path).map_err(|_| DictationError::InvalidInput)?;
     if !path.is_file() {
         return Err(DictationError::InvalidInput);
@@ -43,6 +57,9 @@ pub async fn dictation_start(
             model,
             language: settings.language,
             vocabulary: settings.prompt,
+            #[cfg(feature = "dictation-qa")]
+            engine: adapters.engine,
+            #[cfg(not(feature = "dictation-qa"))]
             engine: Arc::new(|model, samples, language, vocabulary, cancel| {
                 engine::transcribe(
                     model,
@@ -62,8 +79,26 @@ pub async fn dictation_start(
                 .map_err(|_| DictationError::TranscriptionFailed)
             }),
         },
-        Arc::new(NativePermission),
-        Arc::new(NativeCapture),
+        {
+            #[cfg(feature = "dictation-qa")]
+            {
+                adapters.permission
+            }
+            #[cfg(not(feature = "dictation-qa"))]
+            {
+                Arc::new(NativePermission)
+            }
+        },
+        {
+            #[cfg(feature = "dictation-qa")]
+            {
+                adapters.capture
+            }
+            #[cfg(not(feature = "dictation-qa"))]
+            {
+                Arc::new(NativeCapture)
+            }
+        },
         Arc::new(move || {
             pause_player
                 .pause()

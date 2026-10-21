@@ -75,6 +75,33 @@ describe('reviewed microphone drafts', () => {
   it('no media never starts capture', async () => {
     f.player.mediaInfo = null; await f.dictation.start(); expect(f.starts()).toHaveLength(0);
   });
+  it('hidden document and listener cleanup cancel without restarting capture', async () => {
+    await f.dictation.start(); f.state('recording'); await flushDictation();
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange')); await flushDictation();
+    expect(f.dictation.phase).toBe('idle'); expect(f.starts()).toHaveLength(1);
+    f.dictation.cleanupListeners(); await f.dictation.start();
+    expect(f.events.has('velo://dictation-ready')).toBe(false); expect(f.starts()).toHaveLength(1);
+  });
+  it('completed review survives hiding but never follows another file', async () => {
+    await f.dictation.start(); f.ready(); f.workspace.chatOpen = false;
+    expect(f.dictation.proposal).toBe('ข้อความจากไมค์');
+    f.player.mediaInfo = { ...f.player.mediaInfo!, path: '/b.wav' };
+    expect(f.dictation.proposal).toBeNull(); expect(f.dictation.insert()).toBe(false);
+  });
+  it('delayed recording progress cannot undo Stop', async () => {
+    await f.dictation.start(); f.state('recording'); await flushDictation();
+    await f.dictation.stop(); f.state('recording', 1000); await flushDictation();
+    expect(f.dictation.phase).toBe('transcribing'); expect(f.chat.dictationBusy).toBe(true);
+  });
+  it('does not display raw native diagnostics or overwrite a ready result with a late IPC error', async () => {
+    vi.mocked(invoke).mockRejectedValueOnce('/private/sensitive/device');
+    await f.dictation.start(); expect(f.dictation.errorCode).toBe('capture_failed');
+    let reject!: (error: unknown) => void;
+    vi.mocked(invoke).mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+    const pending = f.dictation.start(); f.ready(); reject('capture_failed'); await pending;
+    expect(f.dictation.phase).toBe('review'); expect(f.dictation.errorCode).toBeNull();
+  });
   it('Stop and Cancel preserve IDs and do not send or resume media', async () => {
     await f.dictation.start(); f.state('recording'); await flushDictation(); const id = f.identity().session_id;
     await f.dictation.stop(); expect(invoke).toHaveBeenCalledWith('dictation_stop', { sessionId: id });

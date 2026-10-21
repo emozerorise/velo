@@ -18,6 +18,26 @@ Thank you for your interest in contributing to Velo! We welcome contributions fr
 
 ---
 
+## Microphone dictation checks
+
+Dictation requires an installed local Whisper model. The first explicit mic
+click may request microphone access; startup and opening chat never do.
+macOS needs the packaged usage description (including its localized resources),
+not merely the permission granted to a development terminal. On Windows, check
+microphone privacy access for desktop apps if WASAPI denies capture.
+
+Audio remains in memory for at most 60 seconds and is transcribed locally.
+Review and insert the proposed text before sending it yourself. Playback pauses
+before capture and never resumes automatically. Text chat does not require a
+speech model. Synthetic adapters verify lifecycle and UI, not real microphone
+permission, Bluetooth behavior or recognition quality; these need deliberate
+user-assisted testing. Never reset a user's privacy database as a test setup.
+
+For native UI acceptance without a microphone, `--features dictation-qa` is an
+explicit, default-off Cargo build variant using `tests/support/dictation_qa.rs`.
+It refuses dictation outside the isolated `com.velo.summary-controls-qa` app ID.
+Never use this variant for distribution; normal builds use native capture.
+
 ## Getting Started
 
 1. **Clone the repository**:
