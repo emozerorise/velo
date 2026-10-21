@@ -460,13 +460,20 @@ async fn late_completion_cannot_release_new_job() {
 struct Fixture(std::path::PathBuf);
 impl Fixture {
     fn new() -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "velo-chat-{}-{}",
-            std::process::id(),
+        Self::with_stamp(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+        )
+    }
+    fn with_stamp(stamp: u128) -> Self {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "velo-chat-{}-{}-{}",
+            std::process::id(),
+            stamp,
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         std::fs::create_dir(&root).unwrap();
         Self(root)
@@ -474,6 +481,14 @@ impl Fixture {
     fn media(&self) -> String {
         self.0.join("media.wav").to_str().unwrap().to_string()
     }
+}
+
+#[test]
+fn fixtures_with_the_same_clock_stamp_do_not_collide() {
+    let first = Fixture::with_stamp(123);
+    let second = Fixture::with_stamp(123);
+    assert_ne!(first.0, second.0);
+    assert!(first.0.is_dir() && second.0.is_dir());
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
