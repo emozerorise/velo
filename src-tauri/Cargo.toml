@@ -33,6 +33,7 @@ whisper-rs = "0.16"
 # Model download on first use. reqwest is already in the tree via Tauri.
 reqwest = { version = "0.13", features = ["stream", "json"] }
 futures-util = { version = "0.3", default-features = false }
+rubato = { version = "=0.16.2", default-features = false }
 # API keys stay in Keychain Services / Windows Credential Manager rather
 # than joining the ordinary settings users attach to bug reports.
 keyring = "4.2"
@@ -41,6 +42,11 @@ keyring = "4.2"
 # Metal gives the GPU path on Apple silicon; other platforms fall back to CPU.
 [target.'cfg(target_os = "macos")'.dependencies]
 whisper-rs = { version = "0.16", features = ["metal"] }
+objc2-av-foundation = { version = "=0.3.2", default-features = false, features = ["std", "AVCaptureDevice", "AVMediaFormat", "block2"] }
+block2 = "=0.6.2"
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+cpal = { version = "=0.16.0", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [

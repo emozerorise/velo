@@ -2,6 +2,7 @@
 
 pub mod chat;
 pub mod commands;
+pub mod dictation;
 pub mod errors;
 pub mod jobs;
 pub mod platform;
