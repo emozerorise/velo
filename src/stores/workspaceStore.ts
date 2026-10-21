@@ -13,6 +13,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const playerOpen = ref(false);
   const viewportError = ref(false);
   const compact = ref(false);
+  const narrow = ref(false);
   const chatVisible = computed(
     () =>
       view.value === 'summary' &&
@@ -59,6 +60,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     playerOpen,
     viewportError,
     compact,
+    narrow,
     chatVisible,
     toggleTranscript,
     toggleChat,

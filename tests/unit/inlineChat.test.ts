@@ -35,6 +35,17 @@ vi.mock("@/services/chatService", () => ({
 }));
 let chatEvents: Map<string, (event: TauriEvent<unknown>) => void>;
 describe("inline chat handlers", () => {
+  it("Stop exposes Retry and retries the original turn without losing newer draft edits", async () => {
+    const chat = useChatStore(); await chat.prepare('/clip.wav');
+    const view = mountView(InlineChat, { visible: true }, getActivePinia()!);
+    chat.setDraft('Original question'); await nextTick(); view.find('chat-send').trigger('click'); await nextTick(); await nextTick();
+    view.find('chat-stop').trigger('click'); await nextTick();
+    chat.setDraft('New unsent edits'); await nextTick();
+    view.find('chat-retry').trigger('click'); await nextTick(); await nextTick();
+    expect(chat.messages.filter(message => message.role === 'user')).toHaveLength(1);
+    expect(chatService.send).toHaveBeenLastCalledWith('/clip.wav', expect.any(String), 'Original question', []);
+    expect(chat.draft).toBe('New unsent edits'); view.unmount();
+  });
   beforeEach(async () => {
     setActivePinia(createPinia());
     setLocale("en");

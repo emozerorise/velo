@@ -4,7 +4,8 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 export function useWorkspaceLayout(): void {
   const workspace = useWorkspaceStore();
   const measure = () => {
-    workspace.compact = window.innerHeight < 650 || window.innerWidth < 900;
+    workspace.narrow = window.innerWidth < 900;
+    workspace.compact = window.innerHeight < 650 || workspace.narrow;
   };
   onMounted(() => {
     measure();

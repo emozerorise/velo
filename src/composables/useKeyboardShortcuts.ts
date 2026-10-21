@@ -71,10 +71,13 @@ export function useKeyboardShortcuts({ register = false }: { register?: boolean 
       e.preventDefault();
       return;
     }
-    // Ignore keystrokes inside text inputs
+    // Native controls own their keyboard activation in either workspace mode.
+    const target = e.target as HTMLElement | null;
     if (
       e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement
+      e.target instanceof HTMLTextAreaElement ||
+      target?.isContentEditable ||
+      ['BUTTON', 'SELECT', 'A', 'SUMMARY'].includes(target?.tagName ?? '')
     ) {
       return;
     }

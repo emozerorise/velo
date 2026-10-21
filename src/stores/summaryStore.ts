@@ -58,6 +58,7 @@ export const useSummaryStore = defineStore('summary', () => {
   const credentialRevision = ref(0);
 
   let unlistenFunctions: (() => void)[] = [];
+  let loadGeneration = 0;
 
   const isRunning = computed(() => stage.value !== null);
   const hasSummary = computed(() => (summary.value?.markdown.length ?? 0) > 0);
@@ -118,6 +119,7 @@ export const useSummaryStore = defineStore('summary', () => {
 
     const u3 = await listen<Summary>('velo://summary-ready', (event) => {
       if (event.payload.path === currentPath()) {
+        loadGeneration++;
         summary.value = event.payload;
         streamed.value = '';
       }
@@ -213,6 +215,7 @@ export const useSummaryStore = defineStore('summary', () => {
   }
 
   async function loadForCurrentMedia() {
+    const generation = ++loadGeneration;
     summary.value = null;
     streamed.value = '';
     error.value = null;
@@ -221,7 +224,8 @@ export const useSummaryStore = defineStore('summary', () => {
     if (!path) return;
 
     try {
-      summary.value = await summaryService.get(path);
+      const cached = await summaryService.get(path);
+      if (generation === loadGeneration && path === currentPath()) summary.value = cached;
     } catch (e) {
       console.error('Failed to load summary:', e);
     }
@@ -304,14 +308,17 @@ export const useSummaryStore = defineStore('summary', () => {
   async function discard() {
     const path = currentPath();
     if (!path) return;
+    const generation = ++loadGeneration;
 
     try {
       await summaryService.remove(path);
     } catch (e) {
       console.error('Failed to clear summary:', e);
     }
-    summary.value = null;
-    streamed.value = '';
+    if (generation === loadGeneration && path === currentPath()) {
+      summary.value = null;
+      streamed.value = '';
+    }
   }
 
   return {

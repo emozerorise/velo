@@ -65,16 +65,18 @@ impl Builder<'_> {
             .map_err(|_| invalid("Invalid conversation"))
     }
     fn finish(self) -> Result<ChatContext> {
+        let mut sources: Vec<_> = self
+            .selected
+            .values()
+            .map(|s| ChatSource {
+                start: s.start,
+                end: s.end,
+            })
+            .collect();
+        sources.dedup();
         Ok(ChatContext {
             messages: self.messages()?,
-            sources: self
-                .selected
-                .values()
-                .map(|s| ChatSource {
-                    start: s.start,
-                    end: s.end,
-                })
-                .collect(),
+            sources,
             coverage: self.coverage,
         })
     }
@@ -221,10 +223,34 @@ fn excerpt(segment: &TranscriptSegment) -> Excerpt<'_> {
     }
 }
 
+fn chunks(segments: &[TranscriptSegment]) -> Vec<Excerpt<'_>> {
+    let mut chunks = Vec::new();
+    for segment in segments {
+        let mut remaining = segment.text.as_str();
+        while !remaining.is_empty() {
+            let mut end = prefix(remaining, 1024).len();
+            if end < remaining.len() {
+                // Non-overlapping slices preserve every byte once. Prefer a
+                // word boundary for Latin text; Thai remains UTF-8 aligned.
+                if let Some(at) = remaining[..end].rfind(char::is_whitespace) {
+                    if at >= 512 {
+                        end = at + remaining[at..].chars().next().unwrap().len_utf8();
+                    }
+                }
+            }
+            let mut part = excerpt(segment);
+            part.text = &remaining[..end];
+            chunks.push(part);
+            remaining = &remaining[end..];
+        }
+    }
+    chunks
+}
+
 fn add_bounded<'a>(
     builder: &mut Builder<'a>,
     index: usize,
-    segment: &'a TranscriptSegment,
+    segment: &Excerpt<'a>,
     budget: usize,
 ) -> Result<()> {
     if builder.selected.contains_key(&index) || segment.text.trim().is_empty() {
@@ -235,8 +261,8 @@ fn add_bounded<'a>(
     let mut hi = segment.text.len().min(budget);
     while lo < hi {
         let mid = lo + (hi - lo).div_ceil(2);
-        let mut source = excerpt(segment);
-        source.text = prefix(&segment.text, mid);
+        let mut source = segment.clone();
+        source.text = prefix(segment.text, mid);
         builder.selected.insert(index, source);
         if builder.size()? <= budget {
             lo = mid;
@@ -244,8 +270,8 @@ fn add_bounded<'a>(
             hi = mid - 1;
         }
     }
-    let mut source = excerpt(segment);
-    source.text = prefix(&segment.text, lo);
+    let mut source = segment.clone();
+    source.text = prefix(segment.text, lo);
     if source.text.trim().is_empty() {
         builder.selected.remove(&index);
     } else {
@@ -338,15 +364,17 @@ pub fn build_context(
             .map(|h| h.content.as_str()),
     );
     let ranges = time_ranges(message);
-    let mut ranked: Vec<_> = segments
+    let chunks = chunks(segments);
+    let mut ranked: Vec<_> = chunks
         .iter()
         .enumerate()
         .filter_map(|(i, s)| {
-            let explicit = ranges
-                .iter()
-                .any(|(start, end)| s.start <= *end && s.end >= *start);
+            let explicit = ranges.iter().any(|(start, end)| {
+                (s.start <= *end && s.end >= *start)
+                    || (s.start.floor() >= *start && s.start.floor() <= *end)
+            });
             let mut matches = HashSet::new();
-            scan_terms(&s.text, |term| {
+            scan_terms(s.text, |term| {
                 if terms.contains(term) {
                     matches.insert(term.to_string());
                 }
@@ -357,7 +385,7 @@ pub fn build_context(
         .collect();
     ranked.sort_by(|a, b| b.1.cmp(&a.1).then(b.2.cmp(&a.2)).then(a.0.cmp(&b.0)));
     if ranked.is_empty() {
-        let mut nonempty = segments
+        let mut nonempty = chunks
             .iter()
             .enumerate()
             .filter(|(_, s)| !s.text.trim().is_empty());
@@ -381,12 +409,12 @@ pub fn build_context(
         }
     } else {
         for (index, _, _) in ranked {
-            add_bounded(&mut builder, index, &segments[index], budget)?;
+            add_bounded(&mut builder, index, &chunks[index], budget)?;
             if index > 0 {
-                add_bounded(&mut builder, index - 1, &segments[index - 1], budget)?;
+                add_bounded(&mut builder, index - 1, &chunks[index - 1], budget)?;
             }
-            if index + 1 < segments.len() {
-                add_bounded(&mut builder, index + 1, &segments[index + 1], budget)?;
+            if index + 1 < chunks.len() {
+                add_bounded(&mut builder, index + 1, &chunks[index + 1], budget)?;
             }
         }
     }

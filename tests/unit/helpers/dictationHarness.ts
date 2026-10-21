@@ -25,6 +25,7 @@ export async function dictationHarness() {
   vi.stubGlobal('document', Object.assign(new EventTarget(), { activeElement: null, visibilityState: 'visible' }));
   vi.stubGlobal('HTMLElement', TestNode); vi.stubGlobal('HTMLInputElement', class extends TestNode {}); vi.stubGlobal('HTMLTextAreaElement', class extends TestNode {});
   vi.stubGlobal('requestAnimationFrame', () => 1); vi.stubGlobal('cancelAnimationFrame', () => {});
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   const events = new Map<string, (event: TauriEvent<unknown>) => void>();
   vi.mocked(listen).mockImplementation(async (name, handler) => { events.set(name, handler); return () => events.delete(name); });
   vi.mocked(invoke).mockImplementation(async (command, args) => {

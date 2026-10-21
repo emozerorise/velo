@@ -87,6 +87,46 @@ mod chat {
         }
 
         #[test]
+        fn oversized_segments_retrieve_unique_latin_and_thai_evidence_near_the_tail() {
+            for term in ["uniquetailtopic", "กำหนดส่งโครงการพิเศษ"]
+            {
+                let text = format!("{} {term} ตกลงวันศุกร์", "irrelevant ".repeat(10000));
+                let segments = vec![TranscriptSegment {
+                    start: 10.42,
+                    end: 300.5,
+                    text,
+                }];
+                let context = build_context(&segments, None, &[], term, 8192, "th").unwrap();
+                let wire = serde_json::to_vec(&context.messages).unwrap();
+                assert!(wire.len() <= 12288);
+                let content = &context.messages.last().unwrap().content;
+                let evidence = content.split("\n\nCurrent question:").next().unwrap();
+                assert!(
+                    evidence.contains(term),
+                    "selected source must include the matching tail, not only its prefix"
+                );
+                assert!(evidence.contains("ตกลงวันศุกร์"));
+                assert_eq!(
+                    context.sources.len(),
+                    1,
+                    "chunks retain and deduplicate the original interval"
+                );
+                assert_eq!(context.sources[0].start, 10.42);
+            }
+        }
+
+        #[test]
+        fn explicit_whole_second_label_selects_its_fractional_source() {
+            let mut segments = segments(100, &"unrelated ".repeat(100));
+            for segment in &mut segments {
+                segment.start += 0.42;
+                segment.end = segment.start + 0.1;
+            }
+            let context = build_context(&segments, None, &[], "00:10", 8192, "en").unwrap();
+            assert!(context.sources.iter().any(|source| source.start == 10.42));
+        }
+
+        #[test]
         fn six_pair_limit_and_oldest_eviction() {
             let history: Vec<_> = (0..6)
                 .flat_map(|i| {

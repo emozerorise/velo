@@ -111,15 +111,15 @@
         {{ t('chat.summaryBusy') }}
       </p>
       <p
-        v-if="chat.errorCode && chat.errorCode !== 'cancelled'"
-        role="alert"
+        v-if="chat.errorCode"
+        :role="chat.errorCode === 'cancelled' ? 'status' : 'alert'"
         class="text-sm text-danger"
       >
         {{ t(`chat.error.${chat.errorCode}`) }}
         <button
           v-if="chat.messages.length"
           data-testid="chat-retry"
-          :disabled="chat.isRunning"
+          :disabled="chat.isRunning || chat.dictationBusy"
           class="text-accent underline ml-2 disabled:opacity-40"
           @click="chat.retry()"
         >

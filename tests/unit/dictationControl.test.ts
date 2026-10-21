@@ -4,6 +4,9 @@ import { getActivePinia } from 'pinia';
 import { invoke } from '@tauri-apps/api/core';
 import { setLocale } from '@/composables/useI18n';
 import InlineChat from '@/components/chat/InlineChat.vue';
+import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
+import { isVideoMasked } from '@/composables/useVideoMask';
+import { useTranscriptStore } from '@/stores/transcriptStore';
 import { mountView } from './helpers/mountView';
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn() }));
@@ -12,6 +15,20 @@ vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: vi.fn() }));
 describe('inline microphone controls', () => {
   let f: Awaited<ReturnType<typeof dictationHarness>>;
   beforeEach(async () => { f = await dictationHarness(); }); afterEach(() => f.cleanup());
+  it('compact playlist conceals/cancels mic and native preview; desktop sidebar does not', async () => {
+    useTranscriptStore().transcript = { path: '/a.wav', language: 'th', model: 'synthetic', prompt: '', created_at: 0, segments: [{ start: 0, end: 60, text: 'Synthetic source' }] };
+    const view = mountView(TranscriptPanel, {}, getActivePinia()!); await flushDictation();
+    const toggle = view.nodes().find(node => node.props['aria-label'] === 'Playlist' && node.tagName === 'BUTTON')!;
+    await f.dictation.start(); f.state('recording'); await flushDictation();
+    toggle.trigger('click'); await flushDictation();
+    expect(isVideoMasked.value).toBe(true); expect(f.dictation.phase).toBe('idle');
+    toggle.trigger('click'); await flushDictation(); expect(isVideoMasked.value).toBe(false); expect(f.starts()).toHaveLength(1);
+    window.innerWidth = 1440; window.innerHeight = 400; window.dispatchEvent(new Event('resize')); await flushDictation();
+    expect(f.workspace.compact).toBe(true);
+    await f.dictation.start(); f.ready(); toggle.trigger('click'); await flushDictation();
+    expect(isVideoMasked.value).toBe(false); expect(f.dictation.proposal).toBe('ข้อความจากไมค์');
+    view.unmount(); expect(isVideoMasked.value).toBe(false);
+  });
   it.each(['en', 'th'])('mic_click_requests_once and second_click_stops_not_sends (%s)', async (locale) => {
     setLocale(locale); const view = mountView(InlineChat, { visible: true }, getActivePinia()!);
     view.find('dictation-toggle').trigger('click'); await flushDictation(); expect(f.starts()).toHaveLength(1);

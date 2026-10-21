@@ -92,4 +92,11 @@ describe('keyboard shortcut ownership', () => {
     press('ArrowRight');
     expect(invoke).not.toHaveBeenCalled();
   });
+  it.each(['BUTTON', 'SELECT', 'A', 'SUMMARY'])('leaves keyboard activation to a focused %s in large video mode', (tagName) => {
+    mountOwnerAndButtons();
+    const event = Object.assign(new Event('keydown', { cancelable: true }), { code: 'Space', key: ' ' });
+    Object.defineProperty(event, 'target', { value: { tagName } });
+    window.dispatchEvent(event);
+    expect(invoke).not.toHaveBeenCalled(); expect(event.defaultPrevented).toBe(false);
+  });
 });

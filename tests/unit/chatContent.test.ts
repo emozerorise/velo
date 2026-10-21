@@ -5,6 +5,15 @@ import { createPinia } from 'pinia';
 import { renderToString } from 'vue/server-renderer';
 import ChatMessage from '@/components/chat/ChatMessage.vue';
 describe('safe generated conversation text', () => {
+  it('resolves supplied fractional start labels to the exact source start without accepting unrelated stamps', () => {
+    for (const source of [{ start: 10.42, end: 12.7 }, { start: 10.92, end: 10.99 }]) {
+      const nodes = parseChatText('[00:10] [00:09]', [source], true);
+      const parts = nodes.flatMap(node => node.type === 'paragraph' ? node.parts : []);
+      expect(parts.filter(part => part.type === 'citation')).toEqual([{ type: 'citation', label: '00:10', seconds: source.start }]);
+      expect(JSON.stringify(parts)).toContain('[00:09]');
+      expect(JSON.stringify(parseChatText('[00:10]', [source], false))).not.toContain('00:10');
+    }
+  });
   it('renders model HTML and external links as escaped readable text', async () => {
     const html = await renderToString(
       createSSRApp(ChatMessage, {

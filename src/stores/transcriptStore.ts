@@ -67,6 +67,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const modelError = ref<string | null>(null);
 
   let unlistenFunctions: (() => void)[] = [];
+  let loadGeneration = 0;
 
   /// The segment covering the playhead. Segments are ordered and
   /// non-overlapping, so a binary search keeps this cheap at 10Hz.
@@ -107,6 +108,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
 
     const u2 = await listen<Transcript>('velo://transcript-ready', (event) => {
       if (event.payload.path === currentPath()) {
+        loadGeneration++;
         transcript.value = event.payload;
       }
       resetJob();
@@ -200,6 +202,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
   /// Called when the player swaps files: drop the old transcript and pick up
   /// a cached one for the new path if there is one.
   async function loadForCurrentMedia() {
+    const generation = ++loadGeneration;
     transcript.value = null;
     error.value = null;
 
@@ -207,7 +210,8 @@ export const useTranscriptStore = defineStore('transcript', () => {
     if (!path) return;
 
     try {
-      transcript.value = await transcriptService.get(path);
+      const cached = await transcriptService.get(path);
+      if (generation === loadGeneration && path === currentPath()) transcript.value = cached;
     } catch (e) {
       console.error('Failed to load transcript:', e);
     }
@@ -245,12 +249,13 @@ export const useTranscriptStore = defineStore('transcript', () => {
   async function discard() {
     const path = currentPath();
     if (!path) return;
+    const generation = ++loadGeneration;
     try {
       await transcriptService.remove(path);
     } catch (e) {
       console.error('Failed to clear transcript:', e);
     }
-    transcript.value = null;
+    if (generation === loadGeneration && path === currentPath()) transcript.value = null;
   }
 
   function jumpTo(seconds: number) {

@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { chatService, newRequestId } from '@/services/chatService';
 import { useSettingsStore } from './settingsStore';
 import { useSummaryStore } from './summaryStore';
+import { useTranscriptStore } from './transcriptStore';
 import { utf8Length } from '@/utils/chatContent';
 import type {
   ChatCoverage,
@@ -73,6 +74,7 @@ function lastMatch<T>(
 export const useChatStore = defineStore('chat', () => {
   const settings = useSettingsStore();
   const summaries = useSummaryStore();
+  const transcripts = useTranscriptStore();
   const threads = reactive(new Map<string, Thread>());
   const aliases = new Map<string, string>();
   const path = ref<string | null>(null);
@@ -82,6 +84,7 @@ export const useChatStore = defineStore('chat', () => {
   const listenersReady = ref(false);
   const dictationBusy = ref(false);
   let prepareGeneration = 0;
+  let availabilityGeneration = 0;
   let listenerGeneration = 0;
   let requestedPath: string | null = null;
   let unsubscribers: (() => void)[] = [];
@@ -366,6 +369,23 @@ export const useChatStore = defineStore('chat', () => {
     unsubscribers = readySubscriptions;
     listenersReady.value = true;
   }
+  async function refreshAvailability() {
+    const source = requestedPath;
+    if (!source) return;
+    if (preparing.value || !path.value) { await prepare(source); return; }
+    const revision = ++availabilityGeneration;
+    const prepared = prepareGeneration;
+    const key = path.value;
+    if (!transcripts.hasTranscript && status.value) status.value.has_transcript = false;
+    try {
+      const next = await chatService.status(source);
+      if (revision === availabilityGeneration && prepared === prepareGeneration && source === requestedPath && key === path.value && next.path === key) status.value = next;
+    } catch { /* Keep the existing provider metadata; Send still validates at IPC. */ }
+  }
+  // Availability refresh must not unmount a focused, editable composer.
+  watch(() => transcripts.transcript, () => {
+    void refreshAvailability();
+  });
   watch(
     () =>
       JSON.stringify([

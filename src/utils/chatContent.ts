@@ -21,10 +21,14 @@ function inline(
   for (const match of text.matchAll(stamp)) {
     const seconds =
       Number(match[1] ?? 0) * 3600 + Number(match[2]) * 60 + Number(match[3]);
+    const validSources = sources.filter(source => Number.isFinite(source.start) && Number.isFinite(source.end) && source.start >= 0 && source.end >= source.start);
+    // Rust labels source starts at whole-second precision. A supplied label
+    // must still seek the actual fractional start, even for subsecond clips.
+    const labelledStart = validSources.find(source => Math.floor(source.start) === seconds);
     const supported =
       Number(match[3]) < 60 &&
       (!match[1] || Number(match[2]) < 60) &&
-      sources.some(
+      (!!labelledStart || validSources.some(
         (source) =>
           Number.isFinite(source.start) &&
           Number.isFinite(source.end) &&
@@ -32,13 +36,13 @@ function inline(
           source.end >= source.start &&
           seconds >= source.start &&
           seconds <= source.end,
-      );
+      ));
     if (!supported) continue;
     const index = match.index!;
     if (index > previous)
       parts.push({ type: 'text', text: text.slice(previous, index) });
     if (showTimestamps)
-      parts.push({ type: 'citation', label: match[0].slice(1, -1), seconds });
+      parts.push({ type: 'citation', label: match[0].slice(1, -1), seconds: labelledStart?.start ?? seconds });
     previous = index + match[0].length;
   }
   if (previous < text.length)

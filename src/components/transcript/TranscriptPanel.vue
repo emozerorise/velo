@@ -167,6 +167,7 @@ import { useI18n } from '@/composables/useI18n';
 import { formatTime } from '@/utils/formatters';
 import { toolMayClose } from '@/utils/toolKeyboard';
 import { useWorkspaceLayout } from '@/composables/useWorkspaceLayout';
+import { useVideoMask } from '@/composables/useVideoMask';
 import type { WorkspaceTool } from '@/types/workspace';
 const store = useTranscriptStore();
 const player = usePlayerStore();
@@ -178,6 +179,9 @@ const currentTitle = computed(
   () => player.mediaInfo?.file_name ?? t('workspace.noFile'),
 );
 const sidebarOpen = ref(false);
+// The narrow playlist has a full-reader backdrop; unlike the permanent
+// desktop sidebar it conceals both microphone controls and native preview.
+useVideoMask(() => sidebarOpen.value && workspace.narrow);
 const rail = ref<InstanceType<typeof WorkspaceRail> | null>(null);
 const welcome = ref<InstanceType<typeof WorkspaceWelcome> | null>(null);
 const welcomeAnnouncement = ref('');
