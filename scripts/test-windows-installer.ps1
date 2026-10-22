@@ -6,7 +6,7 @@ New-Item -ItemType Directory -Force $testRoot | Out-Null
 $process = Start-Process -FilePath $Installer -ArgumentList @('/S', "/D=$installDir") -Wait -PassThru
 if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
 $exe = Join-Path $installDir 'velo.exe'
-foreach ($file in @($exe, "$installDir/libmpv-2.dll", "$installDir/libmpv-provenance.json")) {
+foreach ($file in @($exe, "$installDir/libmpv-2.dll", "$installDir/vulkan-1.dll", "$installDir/libmpv-provenance.json")) {
     if (!(Test-Path $file)) { throw "Installed file missing: $file" }
 }
 # A development PATH would mask a missing packaged dependency.

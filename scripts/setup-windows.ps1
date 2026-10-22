@@ -26,7 +26,18 @@ if ($names -notcontains 'mpv_create' -or $names -notcontains 'mpv_initialize') {
 @('LIBRARY libmpv-2.dll', 'EXPORTS') + $names | Set-Content "$dest/mpv.def" -Encoding ascii
 & lib /nologo "/def:$dest/mpv.def" /machine:x64 "/out:$dest/mpv.lib"
 if ($LASTEXITCODE -ne 0 -or !(Test-Path "$dest/mpv.lib")) { throw 'MSVC import library generation failed' }
-$imports = & dumpbin /nologo /dependents $dll
+# The upstream mpv DLL also imports the Vulkan loader, which is not present
+# on clean Windows machines without a vendor GPU driver. Bundle it locally.
+$vulkanArchive = Join-Path $dest 'vulkan.zip'
+if (!(Test-Path $vulkanArchive)) { Invoke-WebRequest $pin.vulkan.url -OutFile $vulkanArchive }
+if ((Get-FileHash $vulkanArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.vulkan.sha256) {
+    throw 'Vulkan checksum mismatch; refusing to extract downloaded content'
+}
+Expand-Archive $vulkanArchive -DestinationPath "$dest/vulkan" -Force
+$vulkanRoot = Join-Path "$dest/vulkan" $pin.vulkan.directory
+Copy-Item "$vulkanRoot/x64/vulkan-1.dll" "$dest/vulkan-1.dll"
+Copy-Item "$vulkanRoot/VulkanRT-License.txt" "$dest/VulkanRT-License.txt"
+$imports = & dumpbin /nologo /dependents $dll "$dest/vulkan-1.dll"
 if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect libmpv imports' }
 foreach ($line in $imports) {
     if ($line -match '^\s+([\w.-]+\.dll)\s*$') {

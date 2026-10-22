@@ -3,6 +3,8 @@
     "targets": ["nsis"],
     "resources": {
       "windows-deps/libmpv-2.dll": "libmpv-2.dll",
+      "windows-deps/vulkan-1.dll": "vulkan-1.dll",
+      "windows-deps/VulkanRT-License.txt": "licenses/VulkanRT-License.txt",
       "windows-deps/NOTICE.txt": "NOTICE.txt",
       "windows-deps/VELO-LICENSE.txt": "VELO-LICENSE.txt",
       "windows-deps/provenance.json": "libmpv-provenance.json",

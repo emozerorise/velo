@@ -14,6 +14,11 @@ https://github.com/mpv-player/mpv/tree/e471496c56
 FFmpeg source:
 https://git.ffmpeg.org/ffmpeg.git
 
+The application-local Vulkan loader is from LunarG Runtime 1.4.363.0.
+Its pinned archive and source are in libmpv-provenance.json; its complete
+license is installed at licenses/VulkanRT-License.txt. No system driver or
+system-wide Vulkan installation is modified by this installer.
+
 This is an unsigned prerelease, not a production support claim. Windows GPU,
 microphone, sleep behavior and all hardware combinations still require manual
 acceptance. WebView2 may need an Internet connection at first installation.
