@@ -243,23 +243,19 @@
         </div>
 
         <!-- Model, offered from what the server actually has -->
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col gap-2">
           <div class="min-w-0">
             <span class="font-medium text-fg/90">{{ t('settings.aiModel') }}</span>
             <span class="block text-xs text-fg/50">{{ t('settings.aiModelDesc') }}</span>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
-            <input
-              v-model="localSettings.summary.model"
-              type="text"
-              list="velo-summary-models"
-              spellcheck="false"
-              class="w-36 bg-inset/40 border border-fg/15 rounded-lg px-3 py-1.5 text-xs text-fg outline-none font-mono"
-              @change="save"
+          <div class="flex items-start gap-2 min-w-0">
+            <ModelPicker
+              :key="`${localSettings.summary.provider}:${localSettings.summary.base_url}`"
+              :model="localSettings.summary.model"
+              :models="summaryStore.models"
+              :disabled="testing"
+              @change="saveModel"
             />
-            <datalist id="velo-summary-models">
-              <option v-for="name in summaryStore.models" :key="name" :value="name" />
-            </datalist>
             <button
               class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
               :disabled="testing"
@@ -395,6 +391,7 @@ import { ref, reactive, computed, watch } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import UpdateSection from '@/components/updates/UpdateSection.vue';
 import FontSettings from './FontSettings.vue';
+import ModelPicker from './ModelPicker.vue';
 import { useSettingsStore, type SettingsTab } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
@@ -458,6 +455,8 @@ async function onProviderChange() {
 }
 
 async function saveProviderAddress() {
+  summaryStore.models = [];
+  testResult.value = null;
   await save();
   await summaryStore.refreshStatus();
 }
@@ -466,6 +465,7 @@ async function saveProviderAddress() {
 async function testConnection() {
   testing.value = true;
   testResult.value = null;
+  summaryStore.models = [];
   await save();
 
   try {
@@ -542,5 +542,10 @@ watch(
 
 function save(): Promise<boolean> {
   return settingsStore.saveSettings(localSettings);
+}
+
+async function saveModel(model: string) {
+  localSettings.summary.model = model;
+  if (await save()) await summaryStore.refreshStatus();
 }
 </script>
