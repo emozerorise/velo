@@ -60,6 +60,8 @@ pub struct SubtitleSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptSettings {
+    #[serde(default)]
+    pub device: crate::transcript::engine::TranscriptionDevice,
     pub language: String,
     /// Domain vocabulary handed to whisper as its initial prompt. Meetings
     /// that mix Thai with English product terms transcribe far better when
@@ -72,6 +74,7 @@ impl Default for TranscriptSettings {
         Self {
             language: "auto".into(),
             prompt: String::new(),
+            device: Default::default(),
         }
     }
 }
@@ -196,6 +199,8 @@ impl Default for AppSettings {
     }
 }
 
+static SETTINGS_WRITE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
 pub struct SettingsStore {
     file_path: PathBuf,
 }
@@ -226,6 +231,7 @@ impl SettingsStore {
     }
 
     pub fn save(&self, settings: &AppSettings) -> Result<()> {
+        let _write = SETTINGS_WRITE_LOCK.lock();
         let json = serde_json::to_string_pretty(settings)
             .map_err(|e| VeloError::Storage(format!("Failed to serialize settings: {}", e)))?;
 
@@ -242,6 +248,29 @@ impl SettingsStore {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn transcript_device_defaults_for_old_settings_and_round_trips_all_modes() {
+        use crate::transcript::engine::TranscriptionDevice;
+        let mut legacy = serde_json::to_value(super::AppSettings::default()).unwrap();
+        legacy["transcript"]
+            .as_object_mut()
+            .unwrap()
+            .remove("device");
+        legacy["transcript"]["prompt"] = serde_json::json!("Keep my vocabulary");
+        let parsed: super::AppSettings = serde_json::from_value(legacy).unwrap();
+        assert_eq!(parsed.transcript.device, TranscriptionDevice::Auto);
+        assert_eq!(parsed.transcript.prompt, "Keep my vocabulary");
+        for value in ["auto", "gpu", "cpu"] {
+            let mut json = serde_json::to_value(&parsed).unwrap();
+            json["transcript"]["device"] = serde_json::json!(value);
+            let restored: super::AppSettings = serde_json::from_value(json).unwrap();
+            assert_eq!(
+                serde_json::to_value(restored).unwrap()["transcript"]["device"],
+                value
+            );
+        }
+    }
+
     #[test]
     fn font_preferences_are_backward_compatible_and_round_trip() {
         let directory = std::env::temp_dir().join(format!(

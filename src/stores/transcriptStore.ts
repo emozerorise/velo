@@ -1,3 +1,5 @@
+import { useToast } from '@/composables/useToast';
+import { translate } from '@/composables/useI18n';
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { listen } from '@tauri-apps/api/event';
@@ -8,6 +10,8 @@ import { useSettingsStore } from './settingsStore';
 import { useWorkspaceStore } from './workspaceStore';
 import type {
   ModelProgress,
+  TranscriptExecution,
+  TranscriptDeviceEvent,
   Transcript,
   TranscriptEngineStatus,
   TranscriptError,
@@ -54,6 +58,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
     },
   });
 
+  const execution = ref<TranscriptExecution | null>(null);
   const isRunning = ref(false);
   const stage = ref<TranscriptStage | null>(null);
   const progress = ref(-1);
@@ -131,7 +136,15 @@ export const useTranscriptStore = defineStore('transcript', () => {
       void refreshEngine();
     });
 
-    unlistenFunctions = [u1, u2, u3, u4, u5];
+    const u6 = await listen<TranscriptDeviceEvent>('velo://transcript-device', (event) => {
+      if (event.payload.path !== currentPath()) return;
+      execution.value = { device: event.payload.device, fallback: event.payload.fallback };
+      if (event.payload.fallback) {
+        useToast().showToast(translate(event.payload.fallback === 'no_gpu'
+          ? 'transcript.device.noGpu' : 'transcript.device.gpuFailed'), 6000, 'transcript-device');
+      }
+    });
+    unlistenFunctions = [u1, u2, u3, u4, u5, u6];
 
     await refreshEngine();
   }
@@ -204,6 +217,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
   async function loadForCurrentMedia() {
     const generation = ++loadGeneration;
     transcript.value = null;
+    execution.value = null;
     error.value = null;
 
     const path = currentPath();
@@ -222,13 +236,14 @@ export const useTranscriptStore = defineStore('transcript', () => {
     if (!path || isRunning.value) return;
 
     error.value = null;
+    execution.value = null;
     isRunning.value = true;
     stage.value = 'extracting';
     progress.value = -1;
     void settings.saveSettings(settings.settings);
 
     try {
-      await transcriptService.generate(path, language.value, prompt.value);
+      await transcriptService.generate(path, language.value, prompt.value, settings.settings.transcript.device);
     } catch (e) {
       error.value = String(e);
       resetJob();
@@ -296,6 +311,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
     language,
     prompt,
     isRunning,
+    execution,
     stage,
     progress,
     error,

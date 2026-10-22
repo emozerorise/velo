@@ -158,6 +158,7 @@
 
       <!-- Tab Content: Transcription -->
       <div v-if="activeTab === 'transcript'" class="flex flex-col gap-4">
+        <TranscriptionDeviceSettings />
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <span class="font-medium text-fg/90">{{ t('settings.model') }}</span>
@@ -391,6 +392,7 @@ import { ref, reactive, computed, watch } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import UpdateSection from '@/components/updates/UpdateSection.vue';
 import FontSettings from './FontSettings.vue';
+import TranscriptionDeviceSettings from './TranscriptionDeviceSettings.vue';
 import ModelPicker from './ModelPicker.vue';
 import { useSettingsStore, type SettingsTab } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';

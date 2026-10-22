@@ -1,6 +1,14 @@
 import type { Messages } from './en';
 
 export const th: Messages = {
+  'settings.transcriptionDevice': 'ตัวประมวลผลถอดเสียงไฟล์',
+  'settings.transcriptionDevice.auto': 'อัตโนมัติ',
+  'settings.transcriptionDeviceHelp': 'อัตโนมัติและ GPU จะลองใช้ GPU ก่อน หากใช้ไม่ได้จะสลับไป CPU ส่วน CPU จะถอดเสียงโดยไม่ใช้ GPU มีผลกับการถอดเสียงไฟล์ครั้งถัดไป',
+  'settings.transcriptionDeviceSaveError': 'บันทึกตัวประมวลผลไม่สำเร็จ ยังคงใช้การตั้งค่าเดิม',
+  'transcript.device.noGpu': 'ไม่พบ GPU ที่รองรับ จึงใช้ CPU ถอดเสียงครั้งนี้ ซึ่งอาจใช้เวลานานขึ้น',
+  'transcript.device.gpuFailed': 'GPU ถอดเสียงไม่สำเร็จ สลับไป CPU และเริ่มถอดเสียงครั้งนี้ใหม่ ซึ่งอาจใช้เวลานานขึ้น',
+  'transcript.device.used': 'ตัวประมวลผลถอดเสียง: {device}',
+
   'library.title': "คลังไฟล์",
   'library.newProject': "สร้างโปรเจกต์",
   'library.search': "ค้นหาไฟล์ในคลัง…",

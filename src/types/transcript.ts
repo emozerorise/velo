@@ -14,6 +14,15 @@ export interface Transcript {
   segments: TranscriptSegment[];
 }
 
+export interface TranscriptExecution {
+  device: 'gpu' | 'cpu';
+  fallback: 'no_gpu' | 'gpu_failed' | null;
+}
+
+export interface TranscriptDeviceEvent extends TranscriptExecution {
+  path: string;
+}
+
 export type TranscriptStage = 'extracting' | 'transcribing';
 
 export interface TranscriptProgress {

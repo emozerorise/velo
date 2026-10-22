@@ -1,3 +1,4 @@
+import type { TranscriptionDevice } from '@/types/settings';
 import { invoke } from '@tauri-apps/api/core';
 import type { Transcript, TranscriptEngineStatus } from '@/types/transcript';
 
@@ -23,8 +24,8 @@ export const transcriptService = {
     return invoke('transcript_get', { path });
   },
 
-  async generate(path: string, language: string, prompt: string): Promise<void> {
-    return invoke('transcript_generate', { path, language, prompt });
+  async generate(path: string, language: string, prompt: string, device: TranscriptionDevice = 'auto'): Promise<void> {
+    return invoke('transcript_generate', { path, language, prompt, device });
   },
 
   async cancel(): Promise<void> {

@@ -103,6 +103,7 @@
           }}
         </h1>
       </div>
+      <TranscriptionDeviceStatus />
       <!-- Visibility changes must not discard reader search, scroll or drafts. -->
       <div
         v-show="workspace.view === 'transcript'"
@@ -164,6 +165,7 @@ const library = useLibraryStore();
 import { computed, nextTick, ref, watch } from 'vue';
 import { ChevronDown, MessageCircle, FileAudio, FileText, Maximize2, PanelLeft, X } from '@lucide/vue';
 import TranscriptTab from './TranscriptTab.vue';
+import TranscriptionDeviceStatus from './TranscriptionDeviceStatus.vue';
 import SummaryTab from './SummaryTab.vue';
 import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
 import PlayerShelf from '@/components/player/PlayerShelf.vue';

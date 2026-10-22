@@ -4,6 +4,9 @@ use thiserror::Error;
 #[derive(Error, Debug, Serialize)]
 #[serde(tag = "type", content = "details")]
 pub enum VeloError {
+    #[error("No supported GPU is available")]
+    GpuUnavailable,
+
     #[error("Player error: {0}")]
     Player(String),
 

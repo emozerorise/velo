@@ -2,6 +2,14 @@
 /// object, so a missing or misspelled key is a compile error rather than a
 /// blank label at runtime.
 export const en = {
+  'settings.transcriptionDevice': 'File transcription processor',
+  'settings.transcriptionDevice.auto': 'Automatic',
+  'settings.transcriptionDeviceHelp': 'Automatic and GPU try an available GPU, then switch to CPU if it cannot be used. CPU runs without GPU acceleration. Applies to the next file transcription.',
+  'settings.transcriptionDeviceSaveError': 'Could not save the processor choice. Your previous setting is unchanged.',
+  'transcript.device.noGpu': 'No supported GPU found. Using CPU for this transcription; it may take longer.',
+  'transcript.device.gpuFailed': 'GPU transcription could not complete. Switched to CPU and restarted this transcription; it may take longer.',
+  'transcript.device.used': 'Transcription processor: {device}',
+
   'library.title': "Library",
   'library.newProject': "New project",
   'library.search': "Search recordings…",
