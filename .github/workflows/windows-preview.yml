@@ -15,6 +15,8 @@ jobs:
     env:
       # MSBuild's file tracker exceeds MAX_PATH inside Vulkan's nested shader build.
       CMAKE_GENERATOR: Ninja
+      # The explicit release target adds enough nesting to exceed MSVC PDB limits.
+      CARGO_TARGET_DIR: D:/vt
       GGML_NATIVE: 'OFF'
       GGML_AVX: 'OFF'
       GGML_AVX2: 'OFF'
@@ -58,7 +60,8 @@ jobs:
           (Join-Path $sdk 'Bin') | Out-File -FilePath $env:GITHUB_PATH -Append
       - uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          # rust-cache joins the target to the workspace, even for absolute paths.
+          workspaces: src-tauri -> ../../../../vt
           cache-on-failure: true
           key: vulkan-ninja
       - name: Prepare pinned libmpv
@@ -91,9 +94,9 @@ jobs:
         run: |
           cargo build --manifest-path src-tauri/Cargo.toml --release --target x86_64-pc-windows-msvc --example transcription_bench
           if ($LASTEXITCODE -ne 0) { throw 'Transcription benchmark build failed' }
-          $dest = 'src-tauri/target/transcription-benchmark'
+          $dest = 'D:/vt/transcription-benchmark'
           New-Item -ItemType Directory -Force $dest | Out-Null
-          Copy-Item src-tauri/target/x86_64-pc-windows-msvc/release/examples/transcription_bench.exe $dest
+          Copy-Item D:/vt/x86_64-pc-windows-msvc/release/examples/transcription_bench.exe $dest
           Copy-Item src-tauri/windows-deps/libmpv-2.dll,src-tauri/windows-deps/vulkan-1.dll,src-tauri/windows-deps/NOTICE.txt,src-tauri/windows-deps/provenance.json $dest
           Copy-Item LICENSE "$dest/VELO-LICENSE.txt"
           New-Item -ItemType Directory -Force "$dest/licenses" | Out-Null
@@ -102,7 +105,7 @@ jobs:
       - name: Install and launch with clean PATH
         shell: pwsh
         run: |
-          $installers = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe)
+          $installers = @(Get-ChildItem D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer' }
           $installer = node scripts/prepare-windows-asset.mjs $installers[0].FullName
           if ($LASTEXITCODE -ne 0) { throw 'Preparing release asset failed' }
@@ -112,12 +115,12 @@ jobs:
           name: windows-preview-x64
           if-no-files-found: error
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256
+            D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256
             src-tauri/windows-deps/provenance.json
             src-tauri/windows-deps/dependencies.txt
       - uses: actions/upload-artifact@v4
         with:
           name: windows-transcription-benchmark-x64
           if-no-files-found: error
-          path: src-tauri/target/transcription-benchmark/
+          path: D:/vt/transcription-benchmark/

@@ -13,6 +13,8 @@ Install Vulkan SDK 1.4.363.0 alongside the existing Windows build prerequisites.
 Set `VULKAN_SDK` to the SDK root and add its `Bin` directory to the build PATH.
 Use `CMAKE_GENERATOR=Ninja` from an MSVC developer environment; MSBuild file
 tracking exceeds Windows path limits in the nested Vulkan shader generator.
+Set `CARGO_TARGET_DIR` to a short absolute path (for example `C:/vt`) as well:
+the explicit release target otherwise exceeds MSVC PDB path limits even with Ninja.
 The Windows Preview workflow pins the official SDK installer version and SHA-256,
 runs format/clippy/tests, builds the NSIS bundle, and checks the installed app
 with a clean PATH. A regression test rejects CPU-only Windows builds.

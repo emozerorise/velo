@@ -2,9 +2,11 @@
 
 ## Windows Preview builds
 
-Use an x64 MSVC developer shell with Rust, Node.js, CMake, LLVM/libclang and
+Use an x64 MSVC developer shell with Rust, Node.js, CMake, Ninja, LLVM/libclang,
 7-Zip and Vulkan SDK 1.4.363.0 installed. Set `VULKAN_SDK` to the SDK root
-(with `Lib/vulkan-1.lib` and `Bin/glslc.exe`), then run `./scripts/setup-windows.ps1` before Cargo commands.
+(with `Lib/vulkan-1.lib` and `Bin/glslc.exe`), set `CMAKE_GENERATOR=Ninja` and
+`CARGO_TARGET_DIR` to a short absolute path such as `C:/vt`.
+Then run `./scripts/setup-windows.ps1` before Cargo commands.
 This verifies the pinned libmpv checksum and creates the MSVC import library.
 Run `npm ci`, then `npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json`.
 The Windows Preview workflow runs the checks and installs/launches the package
