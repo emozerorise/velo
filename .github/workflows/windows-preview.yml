@@ -94,7 +94,7 @@ jobs:
         run: |
           cargo build --manifest-path src-tauri/Cargo.toml --release --target x86_64-pc-windows-msvc --example transcription_bench
           if ($LASTEXITCODE -ne 0) { throw 'Transcription benchmark build failed' }
-          $dest = 'D:/vt/transcription-benchmark'
+          $dest = 'src-tauri/target/transcription-benchmark'
           New-Item -ItemType Directory -Force $dest | Out-Null
           Copy-Item D:/vt/x86_64-pc-windows-msvc/release/examples/transcription_bench.exe $dest
           Copy-Item src-tauri/windows-deps/libmpv-2.dll,src-tauri/windows-deps/vulkan-1.dll,src-tauri/windows-deps/NOTICE.txt,src-tauri/windows-deps/provenance.json $dest
@@ -102,6 +102,11 @@ jobs:
           New-Item -ItemType Directory -Force "$dest/licenses" | Out-Null
           Copy-Item src-tauri/windows-deps/VulkanRT-License.txt,docs/licenses/mpv-LICENSE.GPL.txt,docs/licenses/mpv-Copyright.txt "$dest/licenses"
           @{ source_commit = '${{ github.event.pull_request.head.sha || github.sha }}'; build_commit = (git rev-parse HEAD); backend = 'Vulkan'; model = 'ggml-large-v3-turbo-q5_0.bin' } | ConvertTo-Json | Set-Content "$dest/build-info.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-transcription-benchmark-x64
+          if-no-files-found: error
+          path: src-tauri/target/transcription-benchmark/
       - name: Install and launch with clean PATH
         shell: pwsh
         run: |
@@ -110,17 +115,16 @@ jobs:
           $installer = node scripts/prepare-windows-asset.mjs $installers[0].FullName
           if ($LASTEXITCODE -ne 0) { throw 'Preparing release asset failed' }
           ./scripts/test-windows-installer.ps1 -Installer $installer
+      - name: Stage Preview artifact under one upload root
+        shell: pwsh
+        run: |
+          # upload-artifact treats a drive-relative common ancestor as the workspace.
+          $dest = 'src-tauri/target/windows-preview-artifact'
+          New-Item -ItemType Directory -Force $dest | Out-Null
+          Copy-Item D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe,D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256 $dest
+          Copy-Item src-tauri/windows-deps/provenance.json,src-tauri/windows-deps/dependencies.txt $dest
       - uses: actions/upload-artifact@v4
         with:
           name: windows-preview-x64
           if-no-files-found: error
-          path: |
-            D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-            D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256
-            src-tauri/windows-deps/provenance.json
-            src-tauri/windows-deps/dependencies.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-transcription-benchmark-x64
-          if-no-files-found: error
-          path: D:/vt/transcription-benchmark/
+          path: src-tauri/target/windows-preview-artifact/
