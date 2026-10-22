@@ -98,7 +98,13 @@ mod tests {
 
         let mut expected: Vec<String> = media
             .iter()
-            .map(|name| dir.join(name).to_string_lossy().into_owned())
+            .map(|name| {
+                // read_dir uses native separators, including on Windows.
+                name.split('/')
+                    .fold(dir.clone(), |path, part| path.join(part))
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .collect();
         expected.sort();
         assert_eq!(result.expect("scan fixture directory").files, expected);

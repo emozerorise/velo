@@ -38,6 +38,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install mpv pkg-config cmake

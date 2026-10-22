@@ -84,10 +84,10 @@ reaching for one.
 - **Releases are not signed.** There is no Apple Developer account; the
   release notes tell users how to get past the first-launch warning. Do not
   propose signing as a fix.
-- **Windows compiles in CI but ships nothing.** libmpv there needs a dev
-  archive whose name carries a date and hash, an import library generated from
-  `mpv.def`, and `libmpv-2.dll` bundled alongside. The header comment in
-  `.github/workflows/release.yml` has the details.
+- **Windows Preview is a separate prerelease channel.** Run
+  `scripts/setup-windows.ps1` for pinned libmpv/Vulkan runtimes and the MSVC
+  import library. Windows Preview CI links/tests and installs the NSIS build.
+  Preview must never publish latest.json or become the Latest stable release.
 - **The summariser talks to Ollama over its native `/api/chat`,** not the
   OpenAI-compatible route, because that is the only way to switch qwen3's
   reasoning off — measured at 22 generated tokens against 409 for the same

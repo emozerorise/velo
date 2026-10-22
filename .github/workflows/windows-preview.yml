@@ -37,6 +37,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
       - name: Prepare pinned libmpv
         shell: pwsh
         run: ./scripts/setup-windows.ps1
