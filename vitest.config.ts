@@ -1,7 +1,7 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
-import viteConfig from './vite.config';
-import { normalizePath } from 'vite';
-import path from 'node:path';
+import { defineConfig, mergeConfig } from "vitest/config";
+import viteConfig from "./vite.config";
+import { normalizePath } from "vite";
+import path from "node:path";
 
 export default mergeConfig(
   viteConfig,
@@ -12,15 +12,20 @@ export default mergeConfig(
       // Absolute paths also match checkouts inside hidden worktree folders.
       testTransformMode: {
         web: [
-          '**/fontSettings.test.ts',
-          '**/transcriptionDevice.test.ts',
-          '**/libraryBrowser.test.ts',
-          '**/workspaceTools.test.ts',
-          '**/inlineChat.test.ts',
-          '**/dictationControl.test.ts',
-          '**/summaryFormatControls.test.ts',
-          '**/summaryNavigation.test.ts',
-        ].map(pattern => normalizePath(path.resolve(__dirname, 'tests/unit', path.basename(pattern)))),
+          "**/modelPicker.test.ts",
+          "**/fontSettings.test.ts",
+          "**/transcriptionDevice.test.ts",
+          "**/libraryBrowser.test.ts",
+          "**/workspaceTools.test.ts",
+          "**/inlineChat.test.ts",
+          "**/dictationControl.test.ts",
+          "**/summaryFormatControls.test.ts",
+          "**/summaryNavigation.test.ts",
+        ].map((pattern) =>
+          normalizePath(
+            path.resolve(__dirname, "tests/unit", path.basename(pattern)),
+          ),
+        ),
       },
     },
   }),

@@ -5,15 +5,20 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [Unreleased]
 
 ### ปรับปรุง
 
-- เปิดใช้ GPU ผ่าน Vulkan สำหรับการถอดเสียงบน Windows รวมถึง RTX 50 series
-  โดยคงโมเดลและค่าการถอดเสียงเดิม พร้อมเครื่องมือจับเวลาเทียบ CPU/GPU ในเครื่อง
+- เปิดใช้ GPU ผ่าน Vulkan สำหรับการถอดเสียงบน Windows พร้อมเครื่องมือจับเวลา CPU/GPU
+- เพิ่มโหมดอัตโนมัติ / GPU / CPU และสลับไป CPU พร้อมแจ้งผู้ใช้เมื่อ GPU ใช้ไม่ได้
+- แยกงานถอดเสียงในโปรเซสย่อย เพื่อให้ไดรเวอร์ GPU ที่ล้มไม่ทำให้แอปปิด และหยุด worker เมื่อยกเลิกหรือปิดแอป
+
+## [0.9.0-beta.2] - 2026-10-22
 
 ### แก้ไข
 
+- เปลี่ยนช่องโมเดล AI เป็นรายการให้เลือกชัดเจน พร้อมตัวเลือกระบุชื่อเอง
+  คงโมเดลที่บันทึกไว้และล้างรายการเก่าเมื่อเปลี่ยนเซิร์ฟเวอร์หรือทดสอบใหม่
 - เปลี่ยนชื่อแพ็กเกจ Windows ให้ตรงกับชื่อเผยแพร่ก่อนสร้าง checksum
   เพื่อให้ตรวจ SHA-256 ของไฟล์ที่ดาวน์โหลดได้โดยไม่ต้องแก้ชื่อเอง
   พร้อมทดสอบป้องกันชื่อไม่ตรงและการเขียนทับตัวติดตั้งเมื่อชื่อชนกัน
@@ -482,6 +487,7 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.9.0-beta.2]: https://github.com/emozerorise/velo/releases/tag/v0.9.0-beta.2
 [0.9.0-beta.1]: https://github.com/emozerorise/velo/releases/tag/v0.9.0-beta.1
 [0.8.0]: https://github.com/emozerorise/velo/releases/tag/v0.8.0
 [0.7.0]: https://github.com/emozerorise/velo/releases/tag/v0.7.0
@@ -493,8 +499,3 @@
 [0.2.0]: https://github.com/emozerorise/velo/releases/tag/v0.2.0
 [0.1.1]: https://github.com/emozerorise/velo/releases/tag/v0.1.1
 [0.1.0]: https://github.com/emozerorise/velo/releases/tag/v0.1.0
-
-
-## Unreleased
-
-- เพิ่มโหมดถอดเสียงอัตโนมัติ / GPU / CPU และสลับไป CPU พร้อมแจ้งผู้ใช้เมื่อ GPU ใช้ไม่ได้
