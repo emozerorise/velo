@@ -55,6 +55,7 @@ it('starts with the looped font and applies changes only after persistence', asy
   let finish!: () => void;
   vi.mocked(invoke).mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
   const saving = store.saveFont('prompt');
+  await Promise.resolve();
   expect(store.settings.general.font_family).toBe('noto_sans_thai_looped');
   expect(setProperty).not.toHaveBeenCalled();
   finish();

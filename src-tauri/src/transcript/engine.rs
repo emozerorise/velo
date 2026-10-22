@@ -5,11 +5,13 @@
 
 use crate::errors::{Result, VeloError};
 use crate::transcript::types::TranscriptSegment;
-use std::ffi::c_void;
+use std::cell::Cell;
+use std::ffi::{c_void, CStr};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Once;
+use whisper_rs::whisper_rs_sys as sys;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 const SAMPLE_RATE: usize = 16_000;
@@ -28,6 +30,59 @@ const CHUNK_SECONDS: usize = 300;
 pub type ProgressFn = Arc<dyn Fn(f64) + Send + Sync>;
 
 static LOGGING_HOOK: Once = Once::new();
+thread_local! {
+    // whisper has no public getter for the backend a context actually uses.
+    // Its synchronous initialization diagnostic distinguishes a GPU context
+    // from the library's own successful but otherwise invisible CPU fallback.
+    static GPU_INITIALIZED: Cell<bool> = const { Cell::new(false) };
+}
+
+fn observe_backend(message: &str) {
+    if message.contains("whisper_backend_init_gpu: failed to initialize ") {
+        let _ = GPU_INITIALIZED.try_with(|flag| flag.set(false));
+    } else if message.contains("whisper_backend_init_gpu: using ") && message.contains(" backend") {
+        let _ = GPU_INITIALIZED.try_with(|flag| flag.set(true));
+    }
+}
+
+// The callback is installed once for the process, never with a job-owned
+// pointer. Even a logging subscriber panic must not unwind across the C ABI.
+unsafe extern "C" fn whisper_log(
+    level: sys::ggml_log_level,
+    text: *const std::ffi::c_char,
+    _: *mut c_void,
+) {
+    if text.is_null() {
+        return;
+    }
+    let _ = std::panic::catch_unwind(|| {
+        // SAFETY: whisper supplies a NUL-terminated string for this callback.
+        let message = unsafe { CStr::from_ptr(text) }.to_string_lossy();
+        observe_backend(&message);
+        match whisper_rs::GGMLLogLevel::from(level) {
+            whisper_rs::GGMLLogLevel::Error => {
+                tracing::error!(target: "velo::whisper", "{}", message.trim())
+            }
+            whisper_rs::GGMLLogLevel::Warn => {
+                tracing::warn!(target: "velo::whisper", "{}", message.trim())
+            }
+            whisper_rs::GGMLLogLevel::Info => {
+                tracing::info!(target: "velo::whisper", "{}", message.trim())
+            }
+            _ => tracing::debug!(target: "velo::whisper", "{}", message.trim()),
+        }
+    });
+}
+
+fn init_logging() {
+    LOGGING_HOOK.call_once(|| {
+        whisper_rs::install_logging_hooks();
+        // SAFETY: static callback, no borrowed user data, no unwinding.
+        unsafe {
+            whisper_rs::set_log_callback(Some(whisper_log), std::ptr::null_mut());
+        }
+    });
+}
 
 /// whisper polls this between compute steps; returning true aborts the run.
 ///
@@ -64,14 +119,136 @@ pub fn transcribe(
     )
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TranscriptionDevice {
     #[default]
     Auto,
+    Gpu,
     Cpu,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FallbackReason {
+    NoGpu,
+    GpuFailed,
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct ExecutionStatus {
+    pub device: TranscriptionDevice,
+    pub fallback: Option<FallbackReason>,
+}
+
+pub type DeviceFn = Arc<dyn Fn(ExecutionStatus) + Send + Sync>;
+
+/// GPU preference is best-effort in both Auto and GPU mode. CPU mode must
+/// bypass even device discovery so a broken GPU driver cannot affect it.
+#[allow(clippy::too_many_arguments)]
+pub fn transcribe_with_fallback(
+    model: &Path,
+    samples: &[f32],
+    language: &str,
+    prompt: &str,
+    cancel: &Arc<AtomicBool>,
+    on_progress: ProgressFn,
+    device: TranscriptionDevice,
+    on_device: DeviceFn,
+) -> Result<(String, Vec<TranscriptSegment>)> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err(VeloError::Player("Transcription cancelled".into()));
+    }
+    if samples.is_empty() {
+        return Err(VeloError::Player("There is no audio to transcribe".into()));
+    }
+    run_with_fallback(
+        device,
+        cancel,
+        || true,
+        |selected| {
+            super::worker::transcribe(
+                model,
+                samples,
+                language,
+                prompt,
+                cancel,
+                on_progress.clone(),
+                selected,
+            )
+        },
+        |status| {
+            on_progress(0.0);
+            on_device(status);
+        },
+    )
+}
+
+pub fn gpu_available() -> bool {
+    init_logging();
+    // The registry catches Vulkan loader/ICD initialization failures. The
+    // higher-level Vulkan list_devices also creates buffers and can throw
+    // across the FFI boundary on unsupported drivers, so do not use it here.
+    // SAFETY: registry handles are process-owned; indexes are bounded by count.
+    unsafe {
+        sys::ggml_backend_load_all();
+        (0..sys::ggml_backend_dev_count()).any(|index| {
+            let device = sys::ggml_backend_dev_get(index);
+            matches!(
+                sys::ggml_backend_dev_type(device),
+                sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_GPU
+                    | sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_IGPU
+            )
+        })
+    }
+}
+
+pub(super) fn run_with_fallback<T>(
+    device: TranscriptionDevice,
+    cancel: &AtomicBool,
+    available: impl FnOnce() -> bool,
+    mut attempt: impl FnMut(TranscriptionDevice) -> Result<T>,
+    notify: impl Fn(ExecutionStatus),
+) -> Result<T> {
+    if device == TranscriptionDevice::Cpu {
+        notify(ExecutionStatus {
+            device: TranscriptionDevice::Cpu,
+            fallback: None,
+        });
+        return attempt(TranscriptionDevice::Cpu);
+    }
+    if !available() {
+        notify(ExecutionStatus {
+            device: TranscriptionDevice::Cpu,
+            fallback: Some(FallbackReason::NoGpu),
+        });
+        return attempt(TranscriptionDevice::Cpu);
+    }
+    notify(ExecutionStatus {
+        device: TranscriptionDevice::Gpu,
+        fallback: None,
+    });
+    match attempt(TranscriptionDevice::Gpu) {
+        Ok(result) => Ok(result),
+        Err(error) if cancel.load(Ordering::Relaxed) => Err(error),
+        Err(error) => {
+            tracing::warn!(%error, "GPU transcription failed; retrying once on CPU");
+            notify(ExecutionStatus {
+                device: TranscriptionDevice::Cpu,
+                fallback: Some(if matches!(error, VeloError::GpuUnavailable) {
+                    FallbackReason::NoGpu
+                } else {
+                    FallbackReason::GpuFailed
+                }),
+            });
+            attempt(TranscriptionDevice::Cpu)
+        }
+    }
+}
+
 /// Uses the same decoding settings on either backend for local diagnostics.
+/// This lower-level entry deliberately does not retry, so benchmarks cannot
+/// silently label CPU execution as a successful GPU measurement.
 pub fn transcribe_with_device(
     model: &Path,
     samples: &[f32],
@@ -134,7 +311,8 @@ fn transcribe_chunked_with_device(
 
     // Without this, ggml and whisper write their own diagnostics straight to
     // stderr, outside the app's tracing setup.
-    LOGGING_HOOK.call_once(whisper_rs::install_logging_hooks);
+    init_logging();
+    GPU_INITIALIZED.with(|flag| flag.set(false));
 
     let mut context_params = WhisperContextParameters::default();
     if matches!(device, TranscriptionDevice::Cpu) {
@@ -151,6 +329,11 @@ fn transcribe_chunked_with_device(
     let mut state = ctx
         .create_state()
         .map_err(|e| VeloError::Player(format!("Could not start whisper: {}", e)))?;
+    if device == TranscriptionDevice::Gpu && !GPU_INITIALIZED.with(Cell::get) {
+        return Err(VeloError::Player(
+            "Whisper could not initialize its GPU backend".into(),
+        ));
+    }
 
     let threads = std::thread::available_parallelism()
         .map(|n| n.get().saturating_sub(1).max(1))
@@ -264,6 +447,147 @@ mod gpu_build_tests {
         assert!(
             WhisperContextParameters::default().use_gpu,
             "Windows transcription was built without a GPU backend"
+        );
+    }
+}
+
+#[cfg(test)]
+mod fallback_tests {
+    #[test]
+    fn failed_native_gpu_initialization_clears_the_optimistic_log_marker() {
+        super::GPU_INITIALIZED.with(|flag| flag.set(false));
+        super::observe_backend("whisper_backend_init_gpu: using Vulkan0 backend");
+        assert!(super::GPU_INITIALIZED.with(std::cell::Cell::get));
+        super::observe_backend("whisper_backend_init_gpu: failed to initialize Vulkan0 backend");
+        assert!(!super::GPU_INITIALIZED.with(std::cell::Cell::get));
+    }
+
+    use super::*;
+    use std::cell::RefCell;
+
+    #[test]
+    fn cpu_mode_never_probes_or_attempts_gpu() {
+        let attempts = RefCell::new(Vec::new());
+        let events = RefCell::new(Vec::new());
+        let result = run_with_fallback(
+            TranscriptionDevice::Cpu,
+            &AtomicBool::new(false),
+            || panic!("CPU mode must not load GPU drivers"),
+            |device| {
+                attempts.borrow_mut().push(device);
+                Ok("cpu result")
+            },
+            |status| events.borrow_mut().push(status),
+        );
+        assert_eq!(result.unwrap(), "cpu result");
+        assert_eq!(*attempts.borrow(), vec![TranscriptionDevice::Cpu]);
+        assert_eq!(events.borrow()[0].fallback, None);
+    }
+
+    #[test]
+    fn missing_gpu_uses_cpu_once_and_explains_the_fallback_in_both_modes() {
+        for mode in [TranscriptionDevice::Auto, TranscriptionDevice::Gpu] {
+            let attempts = RefCell::new(Vec::new());
+            let events = RefCell::new(Vec::new());
+            let result = run_with_fallback(
+                mode,
+                &AtomicBool::new(false),
+                || false,
+                |device| {
+                    attempts.borrow_mut().push(device);
+                    Ok(42)
+                },
+                |status| events.borrow_mut().push(status),
+            );
+            assert_eq!(result.unwrap(), 42);
+            assert_eq!(*attempts.borrow(), vec![TranscriptionDevice::Cpu]);
+            assert_eq!(events.borrow()[0].fallback, Some(FallbackReason::NoGpu));
+        }
+    }
+
+    #[test]
+    fn gpu_failure_restarts_on_cpu_once_and_only_returns_the_cpu_result() {
+        for mode in [TranscriptionDevice::Auto, TranscriptionDevice::Gpu] {
+            let attempts = RefCell::new(Vec::new());
+            let events = RefCell::new(Vec::new());
+            let result = run_with_fallback(
+                mode,
+                &AtomicBool::new(false),
+                || true,
+                |device| {
+                    attempts.borrow_mut().push(device);
+                    match device {
+                        TranscriptionDevice::Gpu => {
+                            Err(VeloError::Player("GPU allocation failed".into()))
+                        }
+                        _ => Ok("complete CPU transcript"),
+                    }
+                },
+                |status| events.borrow_mut().push(status),
+            );
+            assert_eq!(result.unwrap(), "complete CPU transcript");
+            assert_eq!(
+                *attempts.borrow(),
+                vec![TranscriptionDevice::Gpu, TranscriptionDevice::Cpu]
+            );
+            assert_eq!(events.borrow()[1].device, TranscriptionDevice::Cpu);
+            assert_eq!(events.borrow()[1].fallback, Some(FallbackReason::GpuFailed));
+        }
+    }
+
+    #[test]
+    fn successful_gpu_is_not_followed_by_cpu() {
+        let attempts = RefCell::new(Vec::new());
+        let result = run_with_fallback(
+            TranscriptionDevice::Auto,
+            &AtomicBool::new(false),
+            || true,
+            |device| {
+                attempts.borrow_mut().push(device);
+                Ok(7)
+            },
+            |_| {},
+        );
+        assert_eq!(result.unwrap(), 7);
+        assert_eq!(*attempts.borrow(), vec![TranscriptionDevice::Gpu]);
+    }
+
+    #[test]
+    fn cancellation_during_gpu_failure_never_starts_cpu() {
+        let cancel = AtomicBool::new(false);
+        let attempts = RefCell::new(Vec::new());
+        let result: Result<()> = run_with_fallback(
+            TranscriptionDevice::Auto,
+            &cancel,
+            || true,
+            |device| {
+                attempts.borrow_mut().push(device);
+                cancel.store(true, Ordering::Relaxed);
+                Err(VeloError::Player("cancelled".into()))
+            },
+            |_| {},
+        );
+        assert!(result.is_err());
+        assert_eq!(*attempts.borrow(), vec![TranscriptionDevice::Gpu]);
+    }
+
+    #[test]
+    fn a_cpu_failure_is_terminal_and_not_retried() {
+        let attempts = RefCell::new(Vec::new());
+        let result: Result<()> = run_with_fallback(
+            TranscriptionDevice::Gpu,
+            &AtomicBool::new(false),
+            || true,
+            |device| {
+                attempts.borrow_mut().push(device);
+                Err(VeloError::Player("failed".into()))
+            },
+            |_| {},
+        );
+        assert!(result.is_err());
+        assert_eq!(
+            *attempts.borrow(),
+            vec![TranscriptionDevice::Gpu, TranscriptionDevice::Cpu]
         );
     }
 }

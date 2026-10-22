@@ -6,6 +6,7 @@ pub mod engine;
 pub mod model;
 pub mod store;
 pub mod types;
+pub mod worker;
 
 pub use store::TranscriptStore;
 pub use types::{EngineStatus, ModelProgress, Transcript, TranscriptProgress, TranscriptSegment};
@@ -140,12 +141,14 @@ impl TranscriptState {
     /// Kick off extraction + transcription on a worker thread. Progress and
     /// the finished transcript arrive as `velo://transcript-*` events, so the
     /// UI never blocks on a job that can run for an hour.
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         &self,
         app: AppHandle,
         media_path: String,
         language: String,
         prompt: String,
+        device: engine::TranscriptionDevice,
         lease: JobLease,
     ) -> Result<()> {
         let store = self.store.clone();
@@ -187,6 +190,7 @@ impl TranscriptState {
                     &media_path,
                     &language,
                     &prompt,
+                    device,
                     &wav,
                     &cancel,
                 );
@@ -221,6 +225,13 @@ impl TranscriptState {
     }
 }
 
+#[derive(Clone, serde::Serialize)]
+struct TranscriptDeviceEvent {
+    path: String,
+    #[serde(flatten)]
+    status: engine::ExecutionStatus,
+}
+
 struct TranscriptCleanup {
     app: AppHandle,
     cancel: Arc<AtomicBool>,
@@ -252,6 +263,7 @@ fn run_job(
     media_path: &str,
     language: &str,
     prompt: &str,
+    device: engine::TranscriptionDevice,
     wav: &std::path::Path,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Transcript> {
@@ -279,13 +291,27 @@ fn run_job(
         let emit = emit.clone();
         Arc::new(move |p| emit("transcribing", p))
     };
-    let (detected, segments) = engine::transcribe(
+    let (detected, segments) = engine::transcribe_with_fallback(
         model,
         &samples,
         language,
         prompt,
         cancel,
         transcribe_progress,
+        device,
+        {
+            let app = app.clone();
+            let path = media_path.to_string();
+            Arc::new(move |status| {
+                let _ = app.emit(
+                    "velo://transcript-device",
+                    TranscriptDeviceEvent {
+                        path: path.clone(),
+                        status,
+                    },
+                );
+            })
+        },
     )?;
 
     let transcript = Transcript {

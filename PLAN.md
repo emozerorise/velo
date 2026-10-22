@@ -1789,3 +1789,22 @@ MSVC import library is derived from the DLL exports. CI installs into a Thai,
 space-containing temporary path and launches without a development PATH.
 Hosted launch checks do not certify GPU playback or microphone behavior;
 physical Windows acceptance is required before stable promotion.
+
+
+### File transcription processor choice and failure isolation (2026-10-23)
+
+Windows Vulkan support is not specific to RTX 5070. File transcription now
+persists Auto/GPU/CPU; Auto and GPU are GPU preferences with one CPU retry, not
+strict failure-on-no-GPU modes. CPU bypasses app-level GPU discovery. Backend
+selection and worker lifecycle remain inside transcript; commands only pass the
+choice and existing settings persist it. Dictation is unchanged.
+
+A Rust Result boundary alone cannot recover foreign C++ exceptions or driver
+process crashes. The same executable handles a private worker argument before
+Tauri initialization; the parent sends PCM/settings through anonymous pipes,
+drains typed progress/results, requires successful exit before cache commit,
+and kills/reaps on cancellation. GPU discovery and all native work stay in that
+child. This preserves native failure isolation without shipping another binary
+or changing model/decoding settings. Native subprocess tests cover crash,
+teardown failure, missing GPU and cancellation. UI events explain CPU fallback
+and remain visible when transcription completes or feeds summarisation.

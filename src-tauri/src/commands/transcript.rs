@@ -50,12 +50,14 @@ pub async fn transcript_generate(
     path: String,
     language: Option<String>,
     prompt: Option<String>,
+    device: Option<crate::transcript::engine::TranscriptionDevice>,
 ) -> Result<()> {
     state.start(
         app,
         path,
         language.unwrap_or_else(|| "auto".into()),
         prompt.unwrap_or_default(),
+        device.unwrap_or_default(),
         jobs.try_acquire(JobResource::Whisper, "transcript")?,
     )
 }

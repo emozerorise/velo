@@ -34,7 +34,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 raw-window-handle = "0.6"
 # whisper.cpp compiled into the binary, so a release needs no external tools.
-whisper-rs = { version = "0.16", features = ["tracing_backend"] }
+whisper-rs = { version = "0.16", features = ["tracing_backend", "raw-api"] }
 # Model download on first use. reqwest is already in the tree via Tauri.
 reqwest = { version = "0.13", features = ["stream", "json"] }
 futures-util = { version = "0.3", default-features = false }

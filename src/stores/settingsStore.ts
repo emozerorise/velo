@@ -5,7 +5,7 @@ import {
   type HistoryItem,
   type HistoryData,
 } from '@/services/settingsService';
-import type { AppSettings, SummaryFormat } from '@/types/settings';
+import type { AppSettings, SummaryFormat, TranscriptionDevice } from '@/types/settings';
 import { setLocale } from '@/composables/useI18n';
 import { defaultFont, fontCss, type FontFamily } from '@/utils/fonts';
 
@@ -43,6 +43,7 @@ export const useSettingsStore = defineStore('settings', () => {
       subtitle_delay_step: 0.1,
     },
     transcript: {
+      device: 'auto',
       language: 'auto',
       prompt: '',
     },
@@ -63,14 +64,37 @@ export const useSettingsStore = defineStore('settings', () => {
     resume_positions: {},
   });
 
+  let settingsWrite: Promise<unknown> = Promise.resolve();
+  function serializeWrite<T>(operation: () => Promise<T>): Promise<T> {
+    const next = settingsWrite.then(operation);
+    settingsWrite = next.catch(() => undefined);
+    return next;
+  }
   const summaryOptionsSaving = ref(false);
   const fontSaving = ref(false);
+  const transcriptDeviceSaving = ref(false);
+  async function saveTranscriptDevice(device: TranscriptionDevice): Promise<boolean> {
+    if (transcriptDeviceSaving.value) return false;
+    transcriptDeviceSaving.value = true;
+    return serializeWrite(async () => {
+    try {
+      await settingsService.save({ ...settings.value, transcript: { ...settings.value.transcript, device } });
+      settings.value = { ...settings.value, transcript: { ...settings.value.transcript, device } };
+      return true;
+    } catch {
+      return false;
+    } finally {
+      transcriptDeviceSaving.value = false;
+    }
+    });
+  }
   function applyFont(font: FontFamily) {
     document.documentElement.style.setProperty('--velo-font', fontCss(font));
   }
   async function saveFont(font: FontFamily): Promise<boolean> {
     if (fontSaving.value) return false;
     fontSaving.value = true;
+    return serializeWrite(async () => {
     const next = { ...settings.value, general: { ...settings.value.general, font_family: font } };
     try {
       await settingsService.save(next);
@@ -82,6 +106,7 @@ export const useSettingsStore = defineStore('settings', () => {
     } finally {
       fontSaving.value = false;
     }
+    });
   }
   async function saveSummaryOptions(options: {
     format?: SummaryFormat;
@@ -90,6 +115,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }): Promise<boolean> {
     if (summaryOptionsSaving.value) return false;
     summaryOptionsSaving.value = true;
+    return serializeWrite(async () => {
     const next = {
       ...settings.value,
       general: { ...settings.value.general },
@@ -117,6 +143,7 @@ export const useSettingsStore = defineStore('settings', () => {
     } finally {
       summaryOptionsSaving.value = false;
     }
+    });
   }
 
   async function loadSettings() {
@@ -135,16 +162,22 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   async function saveSettings(newSettings: AppSettings): Promise<boolean> {
-    settings.value = newSettings;
-    applyTheme(newSettings.general.theme);
-    applyLanguage(newSettings.general.language);
-    try {
-      await settingsService.save(newSettings);
-      return true;
-    } catch (e) {
-      console.error('Failed to save settings:', e);
-      return false;
-    }
+    const draft: AppSettings = JSON.parse(JSON.stringify(newSettings));
+    // The dedicated processor control owns this field. A modal draft or a
+    // job's automatic save must not restore the mode from an older snapshot.
+    return serializeWrite(async () => {
+      const next = { ...draft, transcript: { ...draft.transcript, device: settings.value.transcript.device } };
+      settings.value = next;
+      applyTheme(next.general.theme);
+      applyLanguage(next.general.language);
+      try {
+        await settingsService.save(next);
+        return true;
+      } catch (e) {
+        console.error('Failed to save settings:', e);
+        return false;
+      }
+    });
   }
 
   function openSettings(tab: SettingsTab = 'general') {
@@ -208,6 +241,8 @@ export const useSettingsStore = defineStore('settings', () => {
     saveSettings,
     saveSummaryOptions,
     saveFont,
+    saveTranscriptDevice,
+    transcriptDeviceSaving,
     fontSaving,
     summaryOptionsSaving,
     openSettings,

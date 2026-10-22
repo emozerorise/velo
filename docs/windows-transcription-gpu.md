@@ -103,3 +103,39 @@ request was made. Raw recordings and transcript JSON reports remain local.
 and [frontend/macOS checks](https://github.com/emozerorise/velo/actions/runs/39807522035) passed for the tested
 source revision. The benchmark artifact records both the PR head and actual
 merge revision, and local reports record media/model/executable SHA-256 hashes.
+
+
+## Processor selection and CPU fallback
+
+Settings → Transcription offers Automatic (default), GPU and CPU for new file
+transcriptions. Both Automatic and GPU prefer a supported GPU and retry once on
+CPU if discovery, initialization, inference or the worker process fails. CPU
+selects CPU directly. The choice is persisted; older settings default to Auto.
+A running job keeps its original choice. Existing cached transcripts are not
+rewritten. Microphone dictation retains its existing independent adapter.
+
+Native computation runs in a child of the same packaged executable, entered
+before Tauri initialization with a private worker argument. PCM, vocabulary and
+transcript frames use anonymous pipes and do not become temporary transcript
+files. The parent accepts a complete result only after successful child exit;
+it kills/reaps workers on cancellation and never retries a cancelled job. Native
+C++ exceptions, driver crashes and teardown failures are thereby contained.
+CPU failure ends the job without replacing the preceding transcript cache.
+
+GPU discovery uses the native registry's guarded initialization, not Vulkan's
+high-level buffer enumeration. Whisper's synchronous initialization diagnostics
+confirm that the selected context did not silently fall back to CPU; a failed
+backend initialization clears the optimistic 'using backend' marker. This is
+coupled to the pinned whisper-rs/sys version and covered by a regression test.
+
+The reading workspace shows the selected processor and a persistent explanation
+for CPU fallback; a six-second toast also announces missing/failed GPU. The same
+notice is visible during transcribe-and-summarise. Settings writes are serialized
+so an overlapping modal/job save cannot restore an older processor choice.
+
+`transcription_bench MEDIA MODEL auto OUTPUT.json` runs the app's process-isolated
+Auto path; `gpu-fallback` tests the GPU preference with CPU recovery, `cpu` runs
+the app's CPU worker, and `gpu` remains a strict direct GPU diagnostic. Optional
+`MAX_SECONDS` limits extracted samples for CPU/fallback regression runs and is
+recorded in JSON; such runs are not full-file speed comparisons. Historic timing
+above predates process isolation and is not re-labelled as the new revision.

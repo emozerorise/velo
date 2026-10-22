@@ -28,7 +28,10 @@ export interface SubtitleSettings {
   subtitle_delay_step: number;
 }
 
+export type TranscriptionDevice = 'auto' | 'gpu' | 'cpu';
+
 export interface TranscriptSettings {
+  device: TranscriptionDevice;
   language: string;
   /** Domain vocabulary fed to whisper as its initial prompt. */
   prompt: string;
