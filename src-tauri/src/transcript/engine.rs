@@ -143,8 +143,9 @@ pub struct ExecutionStatus {
 
 pub type DeviceFn = Arc<dyn Fn(ExecutionStatus) + Send + Sync>;
 
-/// GPU preference is best-effort in both Auto and GPU mode. CPU mode must
-/// bypass even device discovery so a broken GPU driver cannot affect it.
+/// GPU preference is best-effort in both Auto and GPU mode. CPU mode skips
+/// app-level GPU preflight and disables acceleration; native registry loading
+/// remains isolated in the worker too.
 #[allow(clippy::too_many_arguments)]
 pub fn transcribe_with_fallback(
     model: &Path,
@@ -472,7 +473,7 @@ mod fallback_tests {
         let result = run_with_fallback(
             TranscriptionDevice::Cpu,
             &AtomicBool::new(false),
-            || panic!("CPU mode must not load GPU drivers"),
+            || panic!("CPU mode must not run the app GPU preflight"),
             |device| {
                 attempts.borrow_mut().push(device);
                 Ok("cpu result")

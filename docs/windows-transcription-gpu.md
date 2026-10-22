@@ -139,3 +139,48 @@ the app's CPU worker, and `gpu` remains a strict direct GPU diagnostic. Optional
 `MAX_SECONDS` limits extracted samples for CPU/fallback regression runs and is
 recorded in JSON; such runs are not full-file speed comparisons. Historic timing
 above predates process isolation and is not re-labelled as the new revision.
+
+
+## Process-isolated processor-mode acceptance
+
+The processor controls and worker path were tested on the same RTX 5070 PC and
+private source/model described above, using source
+`847eedc96ea3de3e5be4d7d247a1da30ebcf1433`, built at PR merge revision
+`ffce8f34fff57a284babc64904f03053d8965692`. Model, prompt, beam, chunk and CPU
+build flags were unchanged. GPU/OS caches were not cleared. The existing desktop
+app remained open and idle; no concurrent transcription or playback was started.
+
+| Preference / condition | Samples (s) | Actual execution | Pipeline total (s) | Segments |
+| :--- | ---: | :--- | ---: | ---: |
+| Automatic | 225.280 | GPU | 12.14 | 49 |
+| GPU | 225.280 | GPU | 12.08 | 49 |
+| CPU | 6.000 | CPU | 289.73 | 2 |
+| Automatic, GPU hidden | 6.000 | CPU, `no_gpu` | 290.64 | 2 |
+
+Both full GPU outputs have identical text/timestamps to each other and to the
+preceding GPU revision. The CPU and no-GPU outputs also match each other. These
+are functional checks, not accuracy measurements. The six-second CPU runs are
+not full-file speed comparisons; Whisper processes a padded window and this
+Preview retains generic CPU build flags.
+
+The no-GPU run used invalid `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` only for a
+non-elevated test process and its children. Its worker recorded `use gpu = 0`
+and reported `no_gpu`. An earlier elevated attempt ignored these loader overrides,
+used GPU, and is excluded from no-GPU acceptance. Driver failure recovery was
+also tested with controlled worker exits in subprocess tests; a real NVIDIA
+driver crash was not injected.
+
+Validation at this source: 310 frontend tests plus typecheck/lint passed;
+[Windows native checks and NSIS installed-app smoke test](https://github.com/emozerorise/velo/actions/runs/39821729169)
+and [frontend/macOS native checks](https://github.com/emozerorise/velo/actions/runs/39821729152)
+passed. Windows library tests reported 113 passed / 1 ignored; macOS reported
+112 passed / 1 ignored, with integration suites also passing.
+
+The new NSIS SHA-256 was verified locally. Before the approved local update,
+the visible in-memory chat, existing program, profile JSON and transcript cache
+were backed up. Windows Code Integrity then blocked installer startup (event
+3077, enterprise signing policy), leaving the installed app unchanged. The old
+app was reopened. New settings persistence and fallback notices have automated
+coverage, but the new installed settings UI has not been manually accepted on
+this PC. No signing policy was changed. Raw recordings, chat and transcript
+reports remain local; these acceptance runs did not invoke a summary provider.
