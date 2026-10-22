@@ -80,6 +80,20 @@
 - [ ] Publish via the prerelease-only path after asset verification. Verify GitHub reports isPrerelease=true, stable latest remains v0.8.0 (or the independently current stable release), and no latest.json is attached or changed.
 - [ ] Hand off installer URL, build run URL and SHA-256. State that physical Windows GPU/audio/microphone acceptance remains pending unless a real Windows test environment becomes available.
 
+## Execution evidence (2026-10-22)
+
+- Feature work merged in PR #30 after all checks passed at `13ccc02`.
+- Local Rust fmt/clippy/tests, 294 frontend tests, typecheck/lint, 18 release-script
+  checks and the macOS Preview app build passed. The built identifier is
+  `com.velo.preview`. Live AI/transcription tests remain opt-in; no paid API calls.
+- Windows run `39758934254` passed the full suite and NSIS build, installed to a
+  Thai/space-containing temporary directory, and created a window with clean PATH.
+- CI exposed and corrected a missing Vulkan loader and Unix-only path fixtures.
+  Vulkan runtime 1.4.363.0 is pinned by SHA-256 and bundled application-locally.
+- Hosted runner launch is not standard-user or physical GPU/microphone acceptance.
+  Those checks below remain pending. Version PR and tagged publication follow
+  the verified feature merge; publication is not claimed by this record.
+
 ## Manual Windows acceptance before stable promotion (not a prerelease claim)
 
 - [ ] Windows 11 x64 clean install, no developer tooling or mpv; separately test Windows 10 before advertising support.
