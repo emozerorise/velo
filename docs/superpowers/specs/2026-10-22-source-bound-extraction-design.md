@@ -1,9 +1,10 @@
 # Source-bound phrases in summary extraction
 
-Status: proposed written amendment for user review, 22 October 2026. The user
-approved approach 1 and writing this spec, not its implementation. No new
-provider calls, product-code changes, push or release are authorized by this
-document. Written-spec approval precedes an implementation plan and its review.
+Status: written amendment approved by the user, 22 October 2026. The user
+requested a Native implementation plan with the same fidelity, citation and
+three-format/three-round acceptance requirements. Plan approval is still
+required before implementation. No provider call, product-code change, push
+or release is part of this documentation turn.
 
 ## Outcome and scope
 
@@ -14,7 +15,7 @@ then rejecting the packet when those two copies differ.
 
 This is a scoped amendment to
 [`2026-10-21-simple-grounded-summaries-design.md`](2026-10-21-simple-grounded-summaries-design.md).
-If approved, it replaces only that spec's model-facing extraction point shape
+It replaces only that spec's model-facing extraction point shape
 and its conversion into the existing internal point. The internal
 `DraftPoint { text, evidence, required }`, whole-point layout, placement review,
 composition, atomic save and all semantic acceptance requirements remain.
@@ -309,8 +310,9 @@ This document describes a design, not a completed fix or passing live result.
 The previous implementation plan remains blocked at task5; this amendment
 does not reopen or reimplement its completed unrelated tasks.
 
-Review this written amendment first. Once approved, write a focused Native
-implementation plan for the extraction wire adapter and its regression/
-acceptance work, reusing the existing pipeline. Implementation waits for
-review of that written plan; do not infer approval from this spec-writing
-request. No provider call is needed to review this document.
+The user approved this written amendment and requested a focused Native plan
+for the extraction wire adapter and its regression/acceptance work, reusing
+the existing pipeline. The proposed plan is
+[`2026-10-22-source-bound-extraction.md`](../plans/2026-10-22-source-bound-extraction.md).
+Implementation waits for review of that written plan; do not infer approval
+from the planning request. No provider call is needed to review either document.
