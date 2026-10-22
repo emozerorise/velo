@@ -4,12 +4,8 @@ name: Release
 # Runs on tag push; a manual run can retry an unfinished draft, not replace
 # signed artifacts that clients may already be downloading.
 #
-# macOS only for now. Windows needs libmpv, which has no package there: the
-# dev files come from the mpv-winbuild releases, MSVC needs an import library
-# generated from mpv.def with lib.exe, and libmpv-2.dll has to be bundled as a
-# resource or the installed app cannot start. None of that is exercised yet,
-# so shipping a Windows installer that fails to launch would be worse than
-# shipping none.
+# Stable releases retain the macOS updater channel. Prereleases build isolated
+# Preview apps and a Windows installer, never updater archives or latest.json.
 on:
   push:
     tags:
@@ -35,15 +31,33 @@ jobs:
   prepare:
     name: Prepare release
     runs-on: ubuntu-latest
+    outputs:
+      preview: ${{ steps.policy.outputs.preview }}
+      app: ${{ steps.app.outputs.name }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate release channel
+        id: policy
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: node scripts/release-policy.mjs "$TAG" >> "$GITHUB_OUTPUT"
+      - id: app
+        env:
+          PREVIEW: ${{ steps.policy.outputs.preview }}
+        run: |
+          if [ "$PREVIEW" = true ]; then echo 'name=Velo Preview' >> "$GITHUB_OUTPUT"; else echo 'name=Velo' >> "$GITHUB_OUTPUT"; fi
+
       - name: Create the release if it does not exist
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          PREVIEW: ${{ steps.policy.outputs.preview }}
         run: |
           set -euo pipefail
           if draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
@@ -72,9 +86,15 @@ jobs:
           print(match.group(1).strip())
           PY
 
-          cat .github/release-footer.md >> notes.md
+          args=()
+          if [ "$PREVIEW" = true ]; then
+            cat .github/prerelease-footer.md >> notes.md
+            args+=(--prerelease --latest=false)
+          else
+            cat .github/release-footer.md >> notes.md
+          fi
           gh release create "$TAG" --verify-tag --draft \
-            --title "Velo ${TAG#v}" --notes-file notes.md
+            --title "Velo ${TAG#v}" --notes-file notes.md "${args[@]}"
 
   build:
     name: ${{ matrix.label }}
@@ -96,6 +116,8 @@ jobs:
             target: x86_64-apple-darwin
             arch: x64
     runs-on: ${{ matrix.os }}
+    env:
+      APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/${{ needs.prepare.outputs.app }}.app
     steps:
       - uses: actions/checkout@v4
         with:
@@ -122,24 +144,27 @@ jobs:
       # Only the .app: `tauri bundle --bundles dmg` cleans and regenerates the
       # .app first, which would throw away the dylib fixes below.
       - name: Build app bundle
-        run: npm run tauri build -- --bundles app --target ${{ matrix.target }}
+        env:
+          PREVIEW: ${{ needs.prepare.outputs.preview }}
+        run: |
+          args=()
+          if [ "$PREVIEW" = true ]; then args+=(--config src-tauri/tauri.preview.conf.json); fi
+          npm run tauri build -- --bundles app --target ${{ matrix.target }} "${args[@]}"
 
       # Velo links libmpv dynamically, so a plain build points at the build
       # machine's Homebrew prefix and cannot start anywhere else. Copy the
       # whole dependency graph into the bundle and rewrite the install names.
       - name: Bundle libmpv and its dependencies
-        env:
-          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
         run: |
           set -euo pipefail
           dylibbundler --overwrite-dir --bundle-deps --no-codesign \
-            --fix-file "$APP/Contents/MacOS/Velo" \
+            --fix-file "$APP/Contents/MacOS/$(ls "$APP/Contents/MacOS" | head -1)" \
             --dest-dir "$APP/Contents/Frameworks" \
             --install-path "@executable_path/../Frameworks/"
 
           # dylibbundler re-adds an rpath that Tauri already set, and dyld
           # refuses to load a binary carrying a duplicate LC_RPATH.
-          for f in "$APP/Contents/MacOS/Velo" "$APP/Contents/Frameworks"/*.dylib; do
+          for f in "$APP/Contents/MacOS/"* "$APP/Contents/Frameworks"/*.dylib; do
             while dup=$(otool -l "$f" | grep -A2 LC_RPATH | grep 'path ' \
                         | sed 's/^ *path //;s/ (offset.*//' | sort | uniq -d | head -1); \
                   [ -n "$dup" ]; do
@@ -150,12 +175,10 @@ jobs:
           codesign --force --deep --sign - "$APP"
 
       - name: Verify the bundle is self-contained
-        env:
-          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
         run: |
           set -euo pipefail
           leaks=0
-          for f in "$APP/Contents/MacOS/Velo" "$APP/Contents/Frameworks"/*.dylib; do
+          for f in "$APP/Contents/MacOS/"* "$APP/Contents/Frameworks"/*.dylib; do
             if otool -L "$f" | tail -n +2 \
                | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)'; then
               echo "::error::$f still references a build-machine library"
@@ -168,8 +191,6 @@ jobs:
       # Built by hand rather than by the Tauri bundler, which would rebuild
       # the .app and undo the step above.
       - name: Package disk image
-        env:
-          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
         run: |
           set -euo pipefail
           # Same source Tauri stamps into the app, so the file name cannot
@@ -185,8 +206,8 @@ jobs:
       # The updater must get exactly the final repaired/ad-hoc-signed app,
       # not Tauri's earlier bundle that still references Homebrew libraries.
       - name: Package and sign updater archive
+        if: needs.prepare.outputs.preview == 'false'
         env:
-          APP: src-tauri/target/${{ matrix.target }}/release/bundle/macos/Velo.app
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         run: |
@@ -203,6 +224,7 @@ jobs:
           echo "UPDATER_ARCHIVE=$archive" >> "$GITHUB_ENV"
 
       - name: Verify final archive signature against the app key
+        if: needs.prepare.outputs.preview == 'false'
         run: VELO_UPDATE_ARCHIVE="$PWD/$UPDATER_ARCHIVE" cargo test --release --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --test update_signature
 
       # Updater signatures authenticate archives; they do not replace Apple
@@ -211,11 +233,51 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: gh release upload "$TAG" "$DMG" "$UPDATER_ARCHIVE" "$UPDATER_ARCHIVE.sig" --clobber
+          PREVIEW: ${{ needs.prepare.outputs.preview }}
+        run: |
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          if [ "$PREVIEW" = true ]; then
+            gh release upload "$TAG" "$DMG" "$DMG.sha256" --clobber
+          else
+            gh release upload "$TAG" "$DMG" "$UPDATER_ARCHIVE" "$UPDATER_ARCHIVE.sig" --clobber
+          fi
+
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.preview == 'true'
+    uses: ./.github/workflows/windows-preview.yml
+    with:
+      ref: ${{ github.event.inputs.tag || github.ref }}
+
+  publish-preview:
+    needs: [prepare, build, windows]
+    if: needs.prepare.outputs.preview == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-preview-x64
+          path: windows
+      - name: Publish prerelease without stable-channel artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          test "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true
+          mapfile -t assets < <(find windows -type f)
+          gh release upload "$TAG" "${assets[@]}" --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name' > assets.txt
+          ! grep -E 'latest\.json|\.sig$|\.app\.tar\.gz$' assets.txt
+          test "$(grep -c '\.dmg$' assets.txt)" = 2
+          test "$(grep -c '\.exe$' assets.txt)" = 1
+          gh release edit "$TAG" --draft=false --prerelease --latest=false
 
   publish:
     name: Publish complete release
-    needs: build
+    needs: [prepare, build]
+    if: needs.prepare.outputs.preview == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,4 +1,5 @@
 pub mod history_store;
+pub mod library;
 pub mod settings_store;
 
 pub use history_store::HistoryStore;

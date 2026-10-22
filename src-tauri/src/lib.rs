@@ -1,7 +1,10 @@
 //! Core library implementation for Velo video player.
 
+pub mod chat;
 pub mod commands;
+pub mod dictation;
 pub mod errors;
+pub mod jobs;
 pub mod platform;
 pub mod player;
 pub mod storage;
@@ -48,6 +51,23 @@ pub fn run() {
                 cached_history: Mutex::new(history_data),
             };
             app.manage(storage_state);
+            app.manage(commands::LibraryState(std::sync::Mutex::new(
+                storage::library::LibraryStore::open(handle.path().app_data_dir()?),
+            )));
+            app.manage(commands::VideoViewportState::default());
+            app.manage(jobs::JobGate::default());
+            app.manage(chat::ChatState::default());
+            let dictation = dictation::DictationState::default();
+            app.manage(dictation.clone());
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(move |event| match event {
+                    tauri::WindowEvent::CloseRequested { .. } | tauri::WindowEvent::Destroyed => {
+                        dictation.cancel_all()
+                    }
+                    tauri::WindowEvent::Focused(false) => dictation.cancel_on_blur(),
+                    _ => {}
+                });
+            }
 
             // Offline transcription (audio extraction + whisper.cpp)
             app.manage(TranscriptState::new(handle)?);
@@ -105,11 +125,35 @@ pub fn run() {
                         },
                     );
                 player.initialize(handle.clone(), wid)?;
+                #[cfg(target_os = "windows")]
+                if let Some(window) = app.get_webview_window("main") {
+                    let target = window.clone();
+                    window.on_window_event(move |event| {
+                        if matches!(
+                            event,
+                            tauri::WindowEvent::Resized(_)
+                                | tauri::WindowEvent::ScaleFactorChanged { .. }
+                        ) {
+                            if let (Ok(hwnd), Ok(scale)) = (target.hwnd(), target.scale_factor()) {
+                                if let Err(error) = unsafe {
+                                    platform::windows::WindowsPlatform::sync_video_surface(
+                                        hwnd.0, scale,
+                                    )
+                                } {
+                                    tracing::warn!("Video surface resize failed: {}", error);
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::library_load,
+            commands::library_mutate,
+            commands::library_media_exists,
             commands::player_load_file,
             commands::player_play,
             commands::player_pause,
@@ -121,12 +165,14 @@ pub fn run() {
             commands::player_set_mute,
             commands::player_set_speed,
             commands::player_set_aspect_ratio,
+            commands::player_set_video_viewport,
             commands::player_select_audio_track,
             commands::player_select_subtitle_track,
             commands::player_add_subtitle_file,
             commands::player_set_subtitle_delay,
             commands::player_set_audio_delay,
             commands::playlist_scan_directory,
+            commands::playlist_resolve_paths,
             commands::settings_get_all,
             commands::settings_save,
             commands::history_get,
@@ -147,6 +193,12 @@ pub fn run() {
             commands::summary_generate,
             commands::summary_cancel,
             commands::summary_delete,
+            commands::chat_status,
+            commands::chat_send,
+            commands::chat_cancel,
+            commands::dictation_start,
+            commands::dictation_stop,
+            commands::dictation_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running velo application");

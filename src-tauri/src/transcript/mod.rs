@@ -11,6 +11,7 @@ pub use store::TranscriptStore;
 pub use types::{EngineStatus, ModelProgress, Transcript, TranscriptProgress, TranscriptSegment};
 
 use crate::errors::{Result, VeloError};
+use crate::jobs::JobLease;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -130,7 +131,7 @@ impl TranscriptState {
                 Ok(())
             }
             Err(e) => {
-                warn!("model download failed: {}", e);
+                warn!("model download failed");
                 Err(e)
             }
         }
@@ -145,13 +146,15 @@ impl TranscriptState {
         media_path: String,
         language: String,
         prompt: String,
+        lease: JobLease,
     ) -> Result<()> {
+        let store = self.store.clone();
+        let work_dir = store.work_dir()?;
         let mut active = self.active.lock();
-        if let Some(job) = active.as_ref() {
-            return Err(VeloError::InvalidParameter(format!(
-                "A transcription is already running for {}",
-                job.path
-            )));
+        if active.is_some() {
+            return Err(VeloError::InvalidParameter(
+                "A transcription is already running".into(),
+            ));
         }
 
         let model = model::resolve(&self.app_data_dir).ok_or_else(|| {
@@ -165,12 +168,17 @@ impl TranscriptState {
         });
         drop(active);
 
-        let store = self.store.clone();
-        let work_dir = store.work_dir()?;
+        let failure_cancel = cancel.clone();
+        let failure_app = app.clone();
 
         std::thread::Builder::new()
             .name("velo-transcribe".into())
             .spawn(move || {
+                let _lease = lease;
+                let _cleanup = TranscriptCleanup {
+                    app: app.clone(),
+                    cancel: cancel.clone(),
+                };
                 let wav = work_dir.join("job.wav");
                 let result = run_job(
                     &app,
@@ -186,15 +194,11 @@ impl TranscriptState {
 
                 match result {
                     Ok(transcript) => {
-                        info!(
-                            "transcript ready: {} segments for {}",
-                            transcript.segments.len(),
-                            transcript.path
-                        );
+                        info!("transcript ready");
                         let _ = app.emit("velo://transcript-ready", transcript);
                     }
                     Err(e) => {
-                        warn!("transcription failed: {}", e);
+                        warn!("transcription failed");
                         let _ = app.emit(
                             "velo://transcript-error",
                             TranscriptError {
@@ -204,14 +208,34 @@ impl TranscriptState {
                         );
                     }
                 }
-
-                if let Some(state) = app_state(&app) {
-                    *state.active.lock() = None;
-                }
             })
-            .map_err(|e| VeloError::Player(format!("Could not start transcription: {}", e)))?;
+            .map_err(|_| {
+                drop(TranscriptCleanup {
+                    app: failure_app,
+                    cancel: failure_cancel,
+                });
+                VeloError::Player("Could not start transcription".into())
+            })?;
 
         Ok(())
+    }
+}
+
+struct TranscriptCleanup {
+    app: AppHandle,
+    cancel: Arc<AtomicBool>,
+}
+impl Drop for TranscriptCleanup {
+    fn drop(&mut self) {
+        if let Some(state) = app_state(&self.app) {
+            let mut active = state.active.lock();
+            if active
+                .as_ref()
+                .is_some_and(|job| Arc::ptr_eq(&job.cancel, &self.cancel))
+            {
+                *active = None;
+            }
+        }
     }
 }
 

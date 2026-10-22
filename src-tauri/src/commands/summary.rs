@@ -6,6 +6,7 @@
 
 use crate::commands::settings::StorageState;
 use crate::errors::{Result, VeloError};
+use crate::jobs::{JobGate, JobResource};
 use crate::summary::{JobInput, Summary, SummaryState, SummaryStatus};
 use crate::transcript::TranscriptState;
 use tauri::{AppHandle, State};
@@ -60,6 +61,7 @@ pub async fn summary_generate(
     summary: State<'_, SummaryState>,
     transcripts: State<'_, TranscriptState>,
     storage: State<'_, StorageState>,
+    jobs: State<'_, JobGate>,
     path: String,
 ) -> Result<()> {
     let settings = storage.settings.load();
@@ -79,6 +81,7 @@ pub async fn summary_generate(
             vocabulary: settings.transcript.prompt,
             api_key,
         },
+        jobs.try_acquire(JobResource::ChatModel, "summary")?,
     )
 }
 

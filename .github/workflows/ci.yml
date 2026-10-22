@@ -32,24 +32,24 @@ jobs:
       matrix:
         include:
           - os: macos-14
-          - os: windows-latest
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: brew install mpv pkg-config cmake
       - name: Cargo Format Check
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - name: Cargo Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-      # Linking needs libmpv, which is installed above on macOS only. The
-      # Windows runner has no libmpv package, so it is limited to the
-      # check-only steps until Windows is genuinely supported and the crate
-      # has Rust tests worth linking for.
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      # Windows linking/tests and installer smoke checks live in Windows Preview.
       - name: Cargo Test
         if: runner.os == 'macOS'
         run: cargo test --manifest-path src-tauri/Cargo.toml

@@ -1,8 +1,25 @@
 @import './theme.css';
+@import './font-choices.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ship the Thai face locally: meeting text must stay readable offline. */
+@font-face {
+  font-family: 'Noto Sans Thai';
+  src: url('/fonts/NotoSansThai-Variable.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@layer components {
+  .reading-text {
+    font-size: 16px;
+    line-height: 1.8;
+  }
+}
 
 /* Global window chrome & dragging utilities.
    The window is transparent-capable so the native mpv surface can show

@@ -8,6 +8,10 @@ export type UpdateDownloadEvent = DownloadEvent;
 /** The native plugins own HTTP, signature verification and app replacement. */
 export const updateService = {
   currentVersion: getVersion,
-  check: (): Promise<UpdateOffer | null> => check({ timeout: 10_000 }),
+  check: async (): Promise<UpdateOffer | null> => {
+    // Test builds never participate in the production update channel.
+    if ((await getVersion()).includes('-')) return null;
+    return check({ timeout: 10_000 });
+  },
   relaunch,
 };

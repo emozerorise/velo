@@ -23,6 +23,7 @@ export default {
       },
       fontFamily: {
         sans: [
+          'var(--velo-font, "Noto Sans Thai Looped")',
           '-apple-system',
           'BlinkMacSystemFont',
           '"Segoe UI"',

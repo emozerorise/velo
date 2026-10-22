@@ -22,6 +22,10 @@ fn idle_active_reports_whether_a_file_is_loaded() {
 
     let core = MpvCore::new().expect("mpv handle");
     core.initialize(None).expect("mpv init");
+    // These tests cover state and resume, not rendering. libmpv's macOS video
+    // output waits for a render context, which a headless test never creates.
+    core.set_property_string("vo", "null")
+        .expect("headless video output");
     let _ = core.set_property_double("volume", 0.0);
 
     assert_eq!(
@@ -69,6 +73,8 @@ fn loads_a_file_at_a_resume_position() {
 
     let core = MpvCore::new().expect("mpv handle");
     core.initialize(None).expect("mpv init");
+    core.set_property_string("vo", "null")
+        .expect("headless video output");
     let _ = core.set_property_double("volume", 0.0);
 
     let start = 30.0_f64;

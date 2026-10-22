@@ -10,6 +10,7 @@
 // 0.1.0, since Tauri stamps the version from tauri.conf.json.
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { versionPattern } from './release-policy.mjs';
 
 const UNRELEASED = '## [ยังไม่เผยแพร่]';
 
@@ -63,10 +64,12 @@ function check() {
 }
 
 function bump(next) {
-  if (!/^\d+\.\d+\.\d+$/.test(next)) {
+  if (!versionPattern.test(next)) {
     console.error(`Not a version: ${next} (expected e.g. 0.1.2)`);
     process.exit(1);
   }
+
+  check();
 
   // Work out every edit before touching disk: a failure part way through
   // would otherwise leave some files bumped and others not.
@@ -103,7 +106,7 @@ function bump(next) {
     'CHANGELOG.md',
     changelog
       .replace(UNRELEASED, `## [${next}] - ${today}`)
-      .replace(/^\[(\d+\.\d+\.\d+)\]: /m, `[${next}]: ${url}\n[$1]: `)
+      .replace(/^\[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\]: /m, `[${next}]: ${url}\n[$1]: `)
   );
   console.log(`  CHANGELOG.md -> [${next}] - ${today}`);
 

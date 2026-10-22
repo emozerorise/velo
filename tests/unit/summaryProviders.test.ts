@@ -17,9 +17,11 @@ describe('summary provider presets', () => {
   it('selects DeepSeek without carrying a local model to its API', () => {
     const current = useSettingsStore().settings.summary;
     current.language = 'th';
+    current.format = 'custom';
     current.instructions = 'Keep action items first';
     const selected = selectSummaryProvider(current, 'deepseek');
     expect(selected).toEqual({
+      format: 'custom',
       provider: 'deepseek',
       base_url: 'https://api.deepseek.com',
       model: 'deepseek-flash',
@@ -86,7 +88,10 @@ describe('summary provider presets', () => {
         model: 'deepseek-flash',
       };
       const context: { teleports?: Record<string, string> } = {};
-      await renderToString(createSSRApp(SettingsModal).use(getActivePinia()!), context);
+      await renderToString(
+        createSSRApp(SettingsModal).use(getActivePinia()!),
+        context,
+      );
       const html = context.teleports?.body ?? '';
       expect(html).toContain('value="deepseek" selected>DeepSeek</option>');
       expect(html).toContain(
@@ -130,7 +135,9 @@ describe('summary provider presets', () => {
     store.error = 'The model "unknown-model" is not available on this server';
     const missingModel = await renderToString(app());
     expect(missingModel).not.toContain('ollama pull');
-    expect(missingModel).toContain('The provider does not offer unknown-model.');
+    expect(missingModel).toContain(
+      'The provider does not offer unknown-model.',
+    );
     store.error = 'Could not reach the model server';
     const unreachable = await renderToString(app());
     expect(unreachable).not.toContain('ollama serve');

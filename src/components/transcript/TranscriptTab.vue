@@ -6,7 +6,9 @@
   >
     <Loader2 class="w-6 h-6 text-accent animate-spin" />
     <div class="w-full">
-      <div class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5">
+      <div
+        class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5"
+      >
         <span>{{ t('transcript.downloading') }}</span>
         <span class="font-mono">{{ downloadLabel }}</span>
       </div>
@@ -32,11 +34,15 @@
   >
     <Download class="w-8 h-8 text-fg/25" />
     <div>
-      <p class="text-xs font-medium text-fg/80">{{ t('transcript.modelMissing') }}</p>
+      <p class="text-xs font-medium text-fg/80">
+        {{ t('transcript.modelMissing') }}
+      </p>
       <p class="mt-1.5 text-[11.5px] leading-relaxed text-fg/45">
         {{ t('transcript.modelExplain', { size: modelSize }) }}
       </p>
-      <p class="mt-1 text-[11px] text-fg/30">{{ t('transcript.modelPrivacy') }}</p>
+      <p class="mt-1 text-[11px] text-fg/30">
+        {{ t('transcript.modelPrivacy') }}
+      </p>
     </div>
 
     <button
@@ -58,15 +64,29 @@
   >
     <FileAudio class="w-8 h-8 opacity-40" />
     <p class="text-xs">{{ t('transcript.openFirst') }}</p>
+    <button
+      data-testid="empty-transcript-open-file"
+      class="mt-3 px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-white text-sm"
+      @click="openFileDialog"
+    >
+      {{ t('workspace.openFile') }}
+    </button>
   </div>
 
   <!-- Running -->
-  <div v-else-if="store.isRunning" class="flex-1 flex flex-col items-center justify-center p-8 gap-4">
+  <div
+    v-else-if="store.isRunning"
+    class="flex-1 flex flex-col items-center justify-center p-8 gap-4"
+  >
     <Loader2 class="w-6 h-6 text-accent animate-spin" />
     <div class="w-full">
-      <div class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5">
+      <div
+        class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5"
+      >
         <span>{{ stageLabel }}</span>
-        <span v-if="store.progress >= 0" class="font-mono">{{ percentLabel }}</span>
+        <span v-if="store.progress >= 0" class="font-mono">{{
+          percentLabel
+        }}</span>
       </div>
       <div class="h-1 rounded-full bg-fg/10 overflow-hidden">
         <div
@@ -76,7 +96,9 @@
         />
       </div>
     </div>
-    <p class="text-[11px] text-fg/35 text-center">{{ t('transcript.runningNote') }}</p>
+    <p class="text-[11px] text-fg/35 text-center">
+      {{ t('transcript.runningNote') }}
+    </p>
     <button
       class="px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
       @click="store.cancel()"
@@ -94,7 +116,10 @@
     <p class="text-xs text-fg/45 max-w-[15rem]">{{ t('transcript.empty') }}</p>
 
     <div class="w-full text-left">
-      <label for="transcript-vocabulary" class="block text-[11px] text-fg/50 mb-1.5">
+      <label
+        for="transcript-vocabulary"
+        class="block text-[11px] text-fg/50 mb-1.5"
+      >
         {{ t('transcript.vocabulary') }}
         <span class="text-fg/25">{{ t('transcript.optional') }}</span>
       </label>
@@ -110,13 +135,19 @@
       </p>
     </div>
 
-    <label class="w-full flex items-center justify-between gap-2 text-[11px] text-fg/50">
+    <label
+      class="w-full flex items-center justify-between gap-2 text-[11px] text-fg/50"
+    >
       <span>{{ t('transcript.spokenLanguage') }}</span>
       <select
         v-model="store.language"
         class="flex-1 max-w-[9rem] px-2 py-1.5 rounded-lg bg-fg/[0.07] text-fg/85 text-xs outline-none"
       >
-        <option v-for="lang in TRANSCRIPT_LANGUAGES" :key="lang.code" :value="lang.code">
+        <option
+          v-for="lang in TRANSCRIPT_LANGUAGES"
+          :key="lang.code"
+          :value="lang.code"
+        >
           {{ t(lang.key) }}
         </option>
       </select>
@@ -129,67 +160,126 @@
       {{ t('transcript.generate') }}
     </button>
 
-    <p v-if="store.error" class="text-[11px] text-danger/90 break-words">{{ store.error }}</p>
+    <p v-if="store.error" class="text-[11px] text-danger/90 break-words">
+      {{ store.error }}
+    </p>
   </div>
 
   <!-- Transcript -->
   <template v-else>
-    <div class="flex items-center gap-2 px-3 py-2 border-b border-fg/5 bg-inset/20">
-      <div class="relative flex-1">
-        <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg/30" />
-        <input
-          v-model="query"
-          type="text"
-          :placeholder="t('transcript.search')"
-          class="w-full pl-7 pr-2 py-1.5 rounded-lg bg-fg/[0.07] text-fg/85 text-xs outline-none placeholder:text-fg/25"
-        />
+    <div
+      :class="
+        reading
+          ? 'px-6 sm:px-8 py-2'
+          : 'px-3 py-2 border-b border-fg/5 bg-inset/20'
+      "
+    >
+      <div
+        class="flex items-center gap-2"
+        :class="reading ? 'max-w-[58rem] mx-auto justify-end' : ''"
+      >
+        <div v-show="!reading || searchOpen || query" class="relative flex-1">
+          <Search
+            class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg/30"
+          />
+          <input
+            v-model="query"
+            data-testid="transcript-search"
+            type="text"
+            :aria-label="t('transcript.search')"
+            :placeholder="t('transcript.search')"
+            class="w-full pl-7 pr-2 py-1.5 rounded-lg bg-fg/[0.07] text-fg/85 text-xs outline-none placeholder:text-fg/25"
+          />
+        </div>
+
+        <button
+          v-if="reading"
+          class="p-2 rounded-lg text-fg/45 hover:text-fg hover:bg-fg/5"
+          :aria-label="t('transcript.search')"
+          :aria-expanded="searchOpen || !!query"
+          @click="searchOpen = !searchOpen"
+        >
+          <Search class="w-4 h-4" />
+        </button>
+
+        <button
+          class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
+          :title="t('transcript.copy')"
+          :aria-label="copied ? t('summary.copied') : t('transcript.copy')"
+          @click="copyAll"
+        >
+          <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
+          <Copy v-else class="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
+          :title="t('transcript.again')"
+          :aria-label="t('transcript.again')"
+          @click="store.discard()"
+        >
+          <RefreshCw class="w-3.5 h-3.5" />
+        </button>
       </div>
-
-      <button
-        class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
-        :title="t('transcript.copy')"
-        @click="copyAll"
-      >
-        <Check v-if="copied" class="w-3.5 h-3.5 text-success" />
-        <Copy v-else class="w-3.5 h-3.5" />
-      </button>
-
-      <button
-        class="p-1.5 rounded text-fg/40 hover:text-fg transition-colors"
-        :title="t('transcript.again')"
-        @click="store.discard()"
-      >
-        <RefreshCw class="w-3.5 h-3.5" />
-      </button>
     </div>
 
-    <div ref="listEl" class="flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-0.5">
-      <button
-        v-for="item in visibleSegments"
-        :key="item.index"
-        :ref="(el) => registerRow(item.index, el)"
-        :class="[
-          'w-full text-left px-2.5 py-1.5 rounded-lg transition-colors flex gap-2.5 items-baseline',
-          item.index === store.activeIndex
-            ? 'bg-blue-600/20 text-fg'
-            : 'text-fg/65 hover:bg-fg/[0.06]',
-        ]"
-        @click="store.jumpTo(item.segment.start)"
-      >
-        <span
-          class="font-mono text-[10px] shrink-0 pt-0.5"
-          :class="item.index === store.activeIndex ? 'text-accent' : 'text-fg/30'"
-        >
-          {{ formatTime(item.segment.start) }}
-        </span>
-        <span class="text-[12.5px] leading-relaxed">{{ item.segment.text }}</span>
-      </button>
-
+    <div
+      ref="listEl"
+      data-testid="transcript-scroll"
+      class="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+      :class="reading ? 'px-6 sm:px-8 pb-6' : 'px-2 py-2'"
+    >
       <div
-        v-if="visibleSegments.length === 0"
-        class="h-full flex items-center justify-center text-xs text-fg/30"
+        :class="
+          reading ? 'max-w-[58rem] mx-auto space-y-2' : 'flex flex-col gap-0.5'
+        "
       >
-        {{ t('transcript.noMatches') }}
+        <button
+          v-for="item in visibleSegments"
+          :key="item.index"
+          :ref="(el) => registerRow(item.index, el)"
+          :class="[
+            'w-full text-left rounded-lg transition-colors',
+            reading
+              ? 'block px-6 sm:px-12 py-3 border-l-[3px]'
+              : 'flex gap-2.5 items-baseline px-2.5 py-1.5',
+            item.index === store.activeIndex
+              ? reading
+                ? 'bg-accent/[0.07] border-accent text-fg/95'
+                : 'bg-blue-600/20 text-fg'
+              : 'border-transparent text-fg/75 hover:bg-fg/[0.04]',
+          ]"
+          :aria-current="item.index === store.activeIndex ? 'true' : undefined"
+          @click="store.jumpTo(item.segment.start)"
+        >
+          <span
+            class="font-mono shrink-0"
+            :class="[
+              reading ? 'block text-sm mb-2' : 'text-[10px] pt-0.5',
+              item.index === store.activeIndex || reading
+                ? 'text-accent'
+                : 'text-fg/40',
+            ]"
+          >
+            {{ formatTime(item.segment.start) }}
+          </span>
+          <span
+            class="reading-text"
+            :class="
+              reading
+                ? 'block max-w-[80ch]'
+                : 'min-w-0 flex-1'
+            "
+            >{{ item.segment.text }}</span
+          >
+        </button>
+
+        <div
+          v-if="visibleSegments.length === 0"
+          class="h-full flex items-center justify-center text-xs text-fg/30"
+        >
+          {{ t('transcript.noMatches') }}
+        </div>
       </div>
     </div>
   </template>
@@ -197,29 +287,60 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import { FileText, FileAudio, Search, Copy, Check, RefreshCw, Loader2, Download } from '@lucide/vue';
-import { useTranscriptStore, TRANSCRIPT_LANGUAGES } from '@/stores/transcriptStore';
+import {
+  FileText,
+  FileAudio,
+  Search,
+  Copy,
+  Check,
+  RefreshCw,
+  Loader2,
+  Download,
+} from '@lucide/vue';
+import {
+  useTranscriptStore,
+  TRANSCRIPT_LANGUAGES,
+} from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useI18n } from '@/composables/useI18n';
+import { useReadingScroll } from '@/composables/useReadingScroll';
+import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { formatBytes, formatTime } from '@/utils/formatters';
 
+const props = withDefaults(
+  defineProps<{ reading?: boolean; visible?: boolean }>(),
+  {
+    reading: false,
+    visible: true,
+  },
+);
 const store = useTranscriptStore();
 const { t } = useI18n();
 const player = usePlayerStore();
+const { openFileDialog } = useKeyboardShortcuts();
 
 const query = ref('');
+const searchOpen = ref(false);
 const copied = ref(false);
 const listEl = ref<HTMLElement | null>(null);
+useReadingScroll(listEl, () => props.reading);
 const rows = new Map<number, HTMLElement>();
 
 const hasMedia = computed(() => player.mediaInfo !== null);
 // `engine` is null only until the first status call returns; showing the
 // download prompt before then would flash it at someone who has the model.
-const needsModel = computed(() => store.engine !== null && !store.engine.ready);
+const needsModel = computed(
+  () =>
+    hasMedia.value &&
+    !store.hasTranscript &&
+    store.engine !== null &&
+    !store.engine.ready,
+);
 const modelSize = computed(() => formatBytes(store.engine?.model_bytes ?? 0));
 
 const downloadLabel = computed(
-  () => `${formatBytes(store.downloaded)} / ${formatBytes(store.downloadTotal)}`
+  () =>
+    `${formatBytes(store.downloaded)} / ${formatBytes(store.downloadTotal)}`,
 );
 const downloadPercent = computed(() => {
   if (store.downloadTotal <= 0) return '0%';
@@ -227,9 +348,13 @@ const downloadPercent = computed(() => {
 });
 
 const stageLabel = computed(() =>
-  store.stage === 'extracting' ? t('transcript.extracting') : t('transcript.transcribing')
+  store.stage === 'extracting'
+    ? t('transcript.extracting')
+    : t('transcript.transcribing'),
 );
-const percentLabel = computed(() => `${Math.round(Math.max(0, store.progress) * 100)}%`);
+const percentLabel = computed(
+  () => `${Math.round(Math.max(0, store.progress) * 100)}%`,
+);
 
 const visibleSegments = computed(() => {
   const segments = store.transcript?.segments ?? [];
@@ -251,15 +376,18 @@ function registerRow(index: number, el: unknown) {
 watch(
   () => store.activeIndex,
   async (index) => {
-    if (index < 0 || query.value !== '' || !store.isPanelOpen) return;
+    if (index < 0 || query.value !== '' || !store.isPanelOpen || !props.visible)
+      return;
     await nextTick();
     rows.get(index)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
+  },
 );
 
 async function copyAll() {
   const segments = store.transcript?.segments ?? [];
-  const text = segments.map((s) => `[${formatTime(s.start)}] ${s.text}`).join('\n');
+  const text = segments
+    .map((s) => `[${formatTime(s.start)}] ${s.text}`)
+    .join('\n');
 
   try {
     await navigator.clipboard.writeText(text);

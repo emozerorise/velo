@@ -1,7 +1,7 @@
 <template>
   <div
     class="relative w-full h-full overflow-hidden select-none bg-transparent"
-    :class="{ 'cursor-none': !areControlsVisible && playerStore.state === 'playing' }"
+    :class="{ 'cursor-none': !transcriptStore.isReadingMode && !areControlsVisible && playerStore.state === 'playing' }"
   >
     <!-- Toast HUD -->
     <ToastStack />
@@ -9,21 +9,25 @@
     <!-- TopBar (auto-hiding) -->
     <Transition name="fade-bar">
       <TopBar
-        v-if="areControlsVisible || playerStore.state !== 'playing'"
+        v-if="!transcriptStore.isReadingMode && (areControlsVisible || playerStore.state !== 'playing')"
         class="fixed top-0 inset-x-0 z-30"
+        :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       />
     </Transition>
 
     <!-- Center Video Interaction / Gesture Layer (Clicks on empty area) -->
     <div
+      v-if="!transcriptStore.isReadingMode"
+      ref="videoElement"
       class="absolute inset-0 z-10"
+      :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       @click="onVideoClick"
       @dblclick="toggleFullscreen"
     />
 
     <!-- Empty state -->
     <div
-      v-if="!hasMedia && playlistStore.items.length === 0"
+      v-if="!transcriptStore.isReadingMode && !hasMedia && playlistStore.items.length === 0"
       class="absolute inset-0 z-20 flex flex-col items-center justify-center pointer-events-none p-6"
     >
       <div class="pointer-events-auto w-full max-w-[320px] flex flex-col items-center text-center">
@@ -76,18 +80,19 @@
     <!-- Bottom Controls Overlay (auto-hiding) -->
     <Transition name="fade-bar">
       <div
-        v-if="areControlsVisible || playerStore.state !== 'playing'"
+        v-if="!transcriptStore.isReadingMode && (areControlsVisible || playerStore.state !== 'playing')"
         class="fixed bottom-0 inset-x-0 z-30"
+        :class="{ 'video-with-transcript': transcriptStore.isPanelOpen }"
       >
-        <ControlOverlay />
+        <ControlOverlay :compact="transcriptStore.isPanelOpen" />
       </div>
     </Transition>
 
     <!-- Side Drawer: Playlist -->
-    <PlaylistDrawer />
+    <PlaylistDrawer v-if="!transcriptStore.isReadingMode" />
 
     <!-- Side Drawer: Transcript -->
-    <TranscriptPanel />
+    <TranscriptPanel :video-element="videoElement" />
 
     <!-- Modals -->
     <SettingsModal />
@@ -105,7 +110,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useLibraryStore } from '@/stores/libraryStore';
 import { Play, FolderOpen, FolderArchive } from '@lucide/vue';
 import TopBar from '@/components/player/TopBar.vue';
 import ControlOverlay from '@/components/player/ControlOverlay.vue';
@@ -121,6 +127,9 @@ import { usePlaylistStore } from '@/stores/playlistStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSummaryStore } from '@/stores/summaryStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useChatStore } from '@/stores/chatStore';
+import { useDictationStore } from '@/stores/dictationStore';
 import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts';
 import { useAutoHideControls } from '@/composables/useAutoHideControls';
 import { usePlaybackHistory } from '@/composables/usePlaybackHistory';
@@ -131,9 +140,14 @@ const playlistStore = usePlaylistStore();
 const settingsStore = useSettingsStore();
 const transcriptStore = useTranscriptStore();
 const summaryStore = useSummaryStore();
+const chatStore = useChatStore();
+const dictationStore = useDictationStore();
 const updates = useUpdateStore();
+const videoElement = ref<HTMLElement | null>(null);
 
-const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts();
+const { openFileDialog, openDirectoryDialog, toggleFullscreen } = useKeyboardShortcuts({
+  register: true,
+});
 const { areControlsVisible } = useAutoHideControls();
 const { t } = useI18n();
 usePlaybackHistory();
@@ -173,7 +187,9 @@ watch(
 // contents -- cached ones load instantly, the rest show the generate prompt.
 watch(
   () => playerStore.mediaInfo?.path,
-  () => {
+  (path) => {
+    useWorkspaceStore().resetForMedia();
+    void chatStore.prepare(path ?? '');
     void transcriptStore.loadForCurrentMedia();
     void summaryStore.loadForCurrentMedia();
   }
@@ -183,8 +199,15 @@ onMounted(async () => {
   await playerStore.initListeners();
   await transcriptStore.initListeners();
   await summaryStore.initListeners();
+  await chatStore.initListeners();
+  await dictationStore.initListeners();
   await settingsStore.loadSettings();
+  await useLibraryStore().initialize();
   void updates.start();
+});
+
+watch(() => playerStore.mediaInfo, media => {
+  if (media) void useLibraryStore().updateDuration(media.path, media.duration);
 });
 
 onUnmounted(() => {
@@ -193,6 +216,9 @@ onUnmounted(() => {
   playerStore.cleanupListeners();
   transcriptStore.cleanupListeners();
   summaryStore.cleanupListeners();
+  void chatStore.cancel();
+  chatStore.cleanupListeners();
+  dictationStore.cleanupListeners();
 });
 </script>
 
@@ -206,4 +232,6 @@ onUnmounted(() => {
 .fade-bar-leave-to {
   opacity: 0;
 }
+
+.video-with-transcript { right: min(26rem, 50vw); width: auto; }
 </style>

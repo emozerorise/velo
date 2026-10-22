@@ -12,7 +12,7 @@ import type {
   SummaryProgress,
   SummaryStatus,
 } from '@/types/summary';
-import type { Transcript } from '@/types/transcript';
+import type { Transcript, TranscriptError } from '@/types/transcript';
 
 /** The language of the summary, which is not the app's UI language. */
 export const SUMMARY_LANGUAGES = [
@@ -22,7 +22,12 @@ export const SUMMARY_LANGUAGES = [
 ] as const;
 
 /** Ordered, so the panel can say "step 3 of 4" without hardcoding it twice. */
-const CHAIN_STEPS: ChainStage[] = ['checking', 'extracting', 'transcribing', 'mapping'];
+const CHAIN_STEPS: ChainStage[] = [
+  'checking',
+  'extracting',
+  'transcribing',
+  'mapping',
+];
 
 function errorMessage(value: unknown): string {
   if (
@@ -50,30 +55,38 @@ export const useSummaryStore = defineStore('summary', () => {
   /** Set the moment the user cancels, so the resulting error stays silent. */
   const cancelling = ref(false);
 
-  /** Final-pass text as it streams, shown before the summary is saved. */
+  /** Legacy streaming events; reviewed jobs publish only the complete result. */
   const streamed = ref('');
   const mapped = ref(0);
   const mapTotal = ref(0);
   const error = ref<string | null>(null);
+  const credentialRevision = ref(0);
 
   let unlistenFunctions: (() => void)[] = [];
+  let loadGeneration = 0;
 
   const isRunning = computed(() => stage.value !== null);
   const hasSummary = computed(() => (summary.value?.markdown.length ?? 0) > 0);
-  const apiKeyRejected = computed(() => error.value?.includes('API key was rejected') ?? false);
+  const apiKeyRejected = computed(
+    () => error.value?.includes('API key was rejected') ?? false,
+  );
 
   /** A summary made from a transcript that has since been redone. */
   const isStale = computed(() => {
     const current = transcripts.transcript?.segments.length;
     return (
-      summary.value !== null && current !== undefined && summary.value.source_segments !== current
+      summary.value !== null &&
+      current !== undefined &&
+      summary.value.source_segments !== current
     );
   });
 
   /** 1-based position in the chained run; 0 when only summarising. */
   const step = computed(() => {
     if (!chained.value || stage.value === null) return 0;
-    const at = CHAIN_STEPS.indexOf(stage.value === 'reducing' ? 'mapping' : stage.value);
+    const at = CHAIN_STEPS.indexOf(
+      ['reducing', 'reviewing', 'extracting_evidence', 'checking_evidence', 'composing_summary', 'writing_summary', 'checking_references'].includes(stage.value) ? 'mapping' : stage.value,
+    );
     return at < 0 ? 0 : at + 1;
   });
 
@@ -103,12 +116,15 @@ export const useSummaryStore = defineStore('summary', () => {
   async function initListeners() {
     cleanupListeners();
 
-    const u1 = await listen<SummaryProgress>('velo://summary-progress', (event) => {
-      if (event.payload.path !== currentPath()) return;
-      stage.value = event.payload.stage;
-      mapped.value = event.payload.done;
-      mapTotal.value = event.payload.total;
-    });
+    const u1 = await listen<SummaryProgress>(
+      'velo://summary-progress',
+      (event) => {
+        if (event.payload.path !== currentPath()) return;
+        stage.value = event.payload.stage;
+        mapped.value = event.payload.done;
+        mapTotal.value = event.payload.total;
+      },
+    );
 
     const u2 = await listen<SummaryDelta>('velo://summary-delta', (event) => {
       if (event.payload.path !== currentPath()) return;
@@ -116,16 +132,17 @@ export const useSummaryStore = defineStore('summary', () => {
     });
 
     const u3 = await listen<Summary>('velo://summary-ready', (event) => {
-      if (event.payload.path === currentPath()) {
-        summary.value = event.payload;
-        streamed.value = '';
-      }
+      if (event.payload.path !== currentPath()) return;
+      loadGeneration++;
+      summary.value = event.payload;
+      streamed.value = '';
       resetJob();
     });
 
     const u4 = await listen<SummaryFailure>('velo://summary-error', (event) => {
+      if (event.payload.path !== currentPath()) return;
       // A cancelled job reports as an error; the user already knows.
-      if (event.payload.path === currentPath() && !cancelling.value) {
+      if (!cancelling.value) {
         error.value = event.payload.message;
       } else {
         // Nothing partial is worth keeping from a run the user stopped.
@@ -144,9 +161,9 @@ export const useSummaryStore = defineStore('summary', () => {
       void summarise();
     });
 
-    const u6 = await listen('velo://transcript-error', () => {
+    const u6 = await listen<TranscriptError>('velo://transcript-error', (event) => {
       // Transcription failed or was cancelled: never summarise a partial.
-      if (chained.value) resetJob();
+      if (chained.value && event.payload.path === currentPath()) resetJob();
     });
 
     unlistenFunctions = [u1, u2, u3, u4, u5, u6];
@@ -177,6 +194,7 @@ export const useSummaryStore = defineStore('summary', () => {
   async function setApiKey(key: string): Promise<boolean> {
     try {
       await summaryService.setApiKey(key);
+      credentialRevision.value++;
       await refreshStatus();
       error.value = null;
       return true;
@@ -189,6 +207,7 @@ export const useSummaryStore = defineStore('summary', () => {
   async function clearApiKey(): Promise<boolean> {
     try {
       await summaryService.clearApiKey();
+      credentialRevision.value++;
       await refreshStatus();
       error.value = null;
       return true;
@@ -210,6 +229,7 @@ export const useSummaryStore = defineStore('summary', () => {
   }
 
   async function loadForCurrentMedia() {
+    const generation = ++loadGeneration;
     summary.value = null;
     streamed.value = '';
     error.value = null;
@@ -218,7 +238,9 @@ export const useSummaryStore = defineStore('summary', () => {
     if (!path) return;
 
     try {
-      summary.value = await summaryService.get(path);
+      const cached = await summaryService.get(path);
+      if (generation === loadGeneration && path === currentPath())
+        summary.value = cached;
     } catch (e) {
       console.error('Failed to load summary:', e);
     }
@@ -281,7 +303,16 @@ export const useSummaryStore = defineStore('summary', () => {
       if (running === 'extracting' || running === 'transcribing') {
         await transcripts.cancel();
         resetJob();
-      } else if (running === 'mapping' || running === 'reducing') {
+      } else if (
+        running === 'mapping' ||
+        running === 'reducing' ||
+        running === 'reviewing' ||
+        running === 'extracting_evidence' ||
+        running === 'checking_evidence' ||
+        running === 'composing_summary' ||
+        running === 'writing_summary' ||
+        running === 'checking_references'
+      ) {
         await summaryService.cancel();
       } else {
         resetJob();
@@ -297,24 +328,28 @@ export const useSummaryStore = defineStore('summary', () => {
   }
 
   /// Drops the stored summary. The transcript is untouched, so writing a new
-  /// summary costs one model call rather than another hour of transcription.
+  /// summary reruns draft/review rather than another hour of transcription.
   async function discard() {
     const path = currentPath();
     if (!path) return;
+    const generation = ++loadGeneration;
 
     try {
       await summaryService.remove(path);
     } catch (e) {
       console.error('Failed to clear summary:', e);
     }
-    summary.value = null;
-    streamed.value = '';
+    if (generation === loadGeneration && path === currentPath()) {
+      summary.value = null;
+      streamed.value = '';
+    }
   }
 
   return {
     summary,
     status,
     models,
+    credentialRevision,
     stage,
     chained,
     streamed,

@@ -31,7 +31,7 @@ export const usePlaylistStore = defineStore('playlist', () => {
     return currentIndex.value > 0;
   });
 
-  function addFiles(paths: string[]) {
+  function ensureFiles(paths: string[]) {
     const { history } = useSettingsStore();
 
     for (const path of paths) {
@@ -49,6 +49,10 @@ export const usePlaylistStore = defineStore('playlist', () => {
       }
     }
 
+  }
+
+  function addFiles(paths: string[]) {
+    ensureFiles(paths);
     if (currentIndex.value === -1 && items.value.length > 0) {
       playIndex(0);
     }
@@ -143,6 +147,7 @@ export const usePlaylistStore = defineStore('playlist', () => {
     hasNext,
     hasPrevious,
     addFiles,
+    ensureFiles,
     addDirectory,
     removeItem,
     clear,

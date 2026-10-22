@@ -9,6 +9,11 @@ edition = "2021"
 name = "velo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Synthetic native UI acceptance only; never enabled by normal/release builds.
+dictation-qa = []
+summary-evidence-qa = []
+
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
 pkg-config = "0.3"
@@ -22,7 +27,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.38", features = ["sync", "rt", "macros"] }
+tokio = { version = "1.38", features = ["sync", "rt", "macros", "time"] }
 parking_lot = "0.12"
 thiserror = "1.0"
 tracing = "0.1"
@@ -33,18 +38,29 @@ whisper-rs = "0.16"
 # Model download on first use. reqwest is already in the tree via Tauri.
 reqwest = { version = "0.13", features = ["stream", "json"] }
 futures-util = { version = "0.3", default-features = false }
+rubato = { version = "=0.16.2", default-features = false }
 # API keys stay in Keychain Services / Windows Credential Manager rather
 # than joining the ordinary settings users attach to bug reports.
 keyring = "4.2"
+# Whitespace is not a word boundary in Thai; count quoted excerpts locally.
+icu_segmenter = { version = "2.3", default-features = false, features = ["compiled_data"] }
 
 
 # Metal gives the GPU path on Apple silicon; other platforms fall back to CPU.
 [target.'cfg(target_os = "macos")'.dependencies]
 whisper-rs = { version = "0.16", features = ["metal"] }
+objc2-av-foundation = { version = "=0.3.2", default-features = false, features = ["std", "AVCaptureDevice", "AVMediaFormat", "block2"] }
+block2 = "=0.6.2"
+objc2 = { version = "=0.6.4", default-features = false, features = ["std"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+cpal = { version = "=0.16.0", default-features = false }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi",
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Power"
 ] }

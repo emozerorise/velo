@@ -1,9 +1,78 @@
 //! Tauri IPC commands for player operations.
 
-use crate::errors::Result;
+use crate::errors::{Result, VeloError};
+use crate::player::viewport::{ClientMetrics, VideoViewportInput, ViewportState};
 use crate::player::PlayerManager;
+use parking_lot::Mutex;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
+
+#[derive(Default)]
+pub struct VideoViewportState(pub Arc<Mutex<HashMap<String, ViewportState>>>);
+
+#[tauri::command]
+pub async fn player_set_video_viewport(
+    window: tauri::WebviewWindow,
+    state: State<'_, VideoViewportState>,
+    input: VideoViewportInput,
+) -> Result<u64> {
+    let states = state.0.clone();
+    let ui_window = window.clone();
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    window
+        .run_on_main_thread(move || {
+            let result = (|| {
+                let scale = ui_window
+                    .scale_factor()
+                    .map_err(|e| VeloError::Platform(e.to_string()))?;
+                let size = ui_window
+                    .inner_size()
+                    .map_err(|e| VeloError::Platform(e.to_string()))?
+                    .to_logical::<f64>(scale);
+                let mut states = states.lock();
+                let state = states.entry(ui_window.label().to_string()).or_default();
+                let client = ClientMetrics {
+                    width: size.width,
+                    height: size.height,
+                    scale_factor: scale,
+                };
+                if let Some(viewport) = state.apply(input, client)? {
+                    #[cfg(target_os = "macos")]
+                    unsafe {
+                        let handle = ui_window
+                            .ns_window()
+                            .map_err(|e| VeloError::Platform(e.to_string()))?;
+                        crate::platform::macos::MacosPlatform::apply_video_viewport(
+                            handle, &viewport,
+                        )?;
+                    }
+                    #[cfg(target_os = "windows")]
+                    unsafe {
+                        let handle = ui_window
+                            .hwnd()
+                            .map_err(|e| VeloError::Platform(e.to_string()))?;
+                        crate::platform::windows::WindowsPlatform::apply_video_viewport(
+                            handle.0, &viewport, client,
+                        )?;
+                    }
+                    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                    {
+                        let _ = viewport;
+                        return Err(VeloError::Platform(
+                            "Native video viewport is unsupported on this platform".into(),
+                        ));
+                    }
+                }
+                Ok(state.revision())
+            })();
+            let _ = sender.send(result);
+        })
+        .map_err(|e| VeloError::Platform(e.to_string()))?;
+    receiver
+        .await
+        .map_err(|_| VeloError::Platform("Video viewport window closed".into()))?
+}
 
 #[tauri::command]
 pub async fn player_load_file(

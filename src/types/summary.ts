@@ -1,9 +1,14 @@
+import type { SummaryFormat } from './settings';
+
 export interface Summary {
+  /** Older caches predate format selection and use the meeting layout. */
+  format?: SummaryFormat;
   path: string;
   model: string;
   language: string;
-  /** Markdown exactly as the model wrote it; timestamps are linkified at render time. */
+  /** Composed Markdown; legacy model-written results remain readable. */
   markdown: string;
+  omitted_uncertain_claims?: number | null;
   created_at: number;
   /** Segment count of the transcript it was made from, so staleness is detectable. */
   source_segments: number;
@@ -20,10 +25,13 @@ export interface SummaryStatus {
   has_key: boolean;
 }
 
-export type SummaryStage = 'mapping' | 'reducing';
+export type SummaryStage = 'mapping' | 'reducing' | 'reviewing'
+  | 'extracting_evidence' | 'checking_evidence' | 'composing_summary'
+  | 'writing_summary' | 'checking_references';
 
 /** Every step the one-click run passes through, in order. */
-export type ChainStage = 'checking' | 'extracting' | 'transcribing' | SummaryStage;
+export type ChainStage =
+  'checking' | 'extracting' | 'transcribing' | SummaryStage;
 
 export interface SummaryProgress {
   path: string;

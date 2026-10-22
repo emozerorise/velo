@@ -5,6 +5,7 @@ import { transcriptService } from '@/services/transcriptService';
 import { usePlayerStore } from './playerStore';
 import { usePlaylistStore } from './playlistStore';
 import { useSettingsStore } from './settingsStore';
+import { useWorkspaceStore } from './workspaceStore';
 import type {
   ModelProgress,
   Transcript,
@@ -27,7 +28,13 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const player = usePlayerStore();
   const settings = useSettingsStore();
 
-  const isPanelOpen = ref(false);
+  const workspace = useWorkspaceStore();
+  const videoPanelOpen = ref(true);
+  const isPanelOpen = computed({
+    get: () => workspace.mode === 'reading' || videoPanelOpen.value,
+    set: (value: boolean) => { videoPanelOpen.value = value; },
+  });
+  const isReadingMode = computed(() => workspace.mode === 'reading');
   const transcript = ref<Transcript | null>(null);
   const engine = ref<TranscriptEngineStatus | null>(null);
   // Language and vocabulary live in the persisted settings: the terms an
@@ -60,6 +67,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
   const modelError = ref<string | null>(null);
 
   let unlistenFunctions: (() => void)[] = [];
+  let loadGeneration = 0;
 
   /// The segment covering the playhead. Segments are ordered and
   /// non-overlapping, so a binary search keeps this cheap at 10Hz.
@@ -100,6 +108,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
 
     const u2 = await listen<Transcript>('velo://transcript-ready', (event) => {
       if (event.payload.path === currentPath()) {
+        loadGeneration++;
         transcript.value = event.payload;
       }
       resetJob();
@@ -193,6 +202,7 @@ export const useTranscriptStore = defineStore('transcript', () => {
   /// Called when the player swaps files: drop the old transcript and pick up
   /// a cached one for the new path if there is one.
   async function loadForCurrentMedia() {
+    const generation = ++loadGeneration;
     transcript.value = null;
     error.value = null;
 
@@ -200,7 +210,8 @@ export const useTranscriptStore = defineStore('transcript', () => {
     if (!path) return;
 
     try {
-      transcript.value = await transcriptService.get(path);
+      const cached = await transcriptService.get(path);
+      if (generation === loadGeneration && path === currentPath()) transcript.value = cached;
     } catch (e) {
       console.error('Failed to load transcript:', e);
     }
@@ -238,20 +249,37 @@ export const useTranscriptStore = defineStore('transcript', () => {
   async function discard() {
     const path = currentPath();
     if (!path) return;
+    const generation = ++loadGeneration;
     try {
       await transcriptService.remove(path);
     } catch (e) {
       console.error('Failed to clear transcript:', e);
     }
-    transcript.value = null;
+    if (generation === loadGeneration && path === currentPath()) transcript.value = null;
   }
 
   function jumpTo(seconds: number) {
     player.seekAbsolute(seconds);
   }
 
-  // Both drawers occupy the right edge, so only one can be up at a time.
+  // View changes never reload media or restart an expensive transcript job.
+  function showVideo() {
+    workspace.showVideo();
+    isPanelOpen.value = true;
+    usePlaylistStore().isDrawerOpen = false;
+  }
+
+  function showReading() {
+    workspace.showReading();
+    isPanelOpen.value = true;
+    usePlaylistStore().isDrawerOpen = false;
+  }
+
   function togglePanel() {
+    if (isReadingMode.value) {
+      showVideo();
+      return;
+    }
     isPanelOpen.value = !isPanelOpen.value;
     if (isPanelOpen.value) {
       usePlaylistStore().isDrawerOpen = false;
@@ -260,6 +288,9 @@ export const useTranscriptStore = defineStore('transcript', () => {
 
   return {
     isPanelOpen,
+    isReadingMode,
+    showVideo,
+    showReading,
     transcript,
     engine,
     language,

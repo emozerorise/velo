@@ -16,6 +16,26 @@ const SUPPORTED_EXTENSIONS: &[&str] = &[
 ];
 
 #[tauri::command]
+pub fn playlist_resolve_paths(paths: Vec<String>) -> Result<ScanResult> {
+    let mut files = Vec::new();
+    for path in paths {
+        let p = Path::new(&path);
+        if p.is_dir() {
+            scan_dir_recursive(p, &mut files);
+        } else if p.is_file()
+            && p.extension()
+                .and_then(|v| v.to_str())
+                .is_some_and(|ext| SUPPORTED_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
+        {
+            files.push(path);
+        }
+    }
+    files.sort();
+    files.dedup();
+    Ok(ScanResult { files })
+}
+
+#[tauri::command]
 pub async fn playlist_scan_directory(dir_path: String) -> Result<ScanResult> {
     let mut files = Vec::new();
     let path = Path::new(&dir_path);
@@ -78,7 +98,13 @@ mod tests {
 
         let mut expected: Vec<String> = media
             .iter()
-            .map(|name| dir.join(name).to_string_lossy().into_owned())
+            .map(|name| {
+                // read_dir uses native separators, including on Windows.
+                name.split('/')
+                    .fold(dir.clone(), |path, part| path.join(part))
+                    .to_string_lossy()
+                    .into_owned()
+            })
             .collect();
         expected.sort();
         assert_eq!(result.expect("scan fixture directory").files, expected);

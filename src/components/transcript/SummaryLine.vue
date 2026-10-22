@@ -5,7 +5,7 @@
       <template v-else>{{ part.text }}</template>
     </template>
   </div>
-  <div v-if="citations.length" class="flex flex-wrap gap-1.5 mt-2 select-none">
+  <div v-if="showTimestamps && citations.length" class="flex flex-wrap gap-1.5 mt-2 select-none">
     <button
       v-for="(part, index) in citations"
       :key="index"
@@ -26,7 +26,9 @@ import { computed } from 'vue';
 import { Play } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 
-const props = defineProps<{ parts: InlinePart[] }>();
+const props = withDefaults(defineProps<{ parts: InlinePart[]; showTimestamps?: boolean }>(), {
+  showTimestamps: true,
+});
 const prose = computed(() => props.parts.filter((part) => part.type !== 'stamp'));
 const citations = computed(() => props.parts.filter((part) => part.type === 'stamp'));
 const emit = defineEmits<{ (e: 'seek', seconds: number): void }>();

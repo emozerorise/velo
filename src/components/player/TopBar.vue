@@ -28,7 +28,7 @@
         :title="t('topbar.transcript')"
         size="md"
         :active="transcriptStore.isPanelOpen"
-        @click="transcriptStore.togglePanel()"
+        @click="transcriptStore.showReading()"
       >
         <Captions class="w-[18px] h-[18px]" />
       </IconButton>
@@ -37,7 +37,7 @@
         :title="t('topbar.playlist')"
         size="md"
         :active="playlistStore.isDrawerOpen"
-        @click="playlistStore.toggleDrawer()"
+        @click="playlistStore.toggleDrawer(); transcriptStore.isPanelOpen = false"
       >
         <ListVideo class="w-[18px] h-[18px]" />
       </IconButton>
@@ -54,6 +54,8 @@
 </template>
 
 <script setup lang="ts">
+import { useLibraryStore } from '@/stores/libraryStore';
+const library = useLibraryStore();
 import { computed } from 'vue';
 import { Info, ListVideo, Settings, Captions } from '@lucide/vue';
 import IconButton from '@/components/common/IconButton.vue';
@@ -71,10 +73,10 @@ const { t } = useI18n();
 
 const currentTitle = computed(() => {
   if (playerStore.mediaInfo?.file_name) {
-    return playerStore.mediaInfo.file_name;
+    return library.displayName(playerStore.mediaInfo.path);
   }
   if (playlistStore.currentItem?.fileName) {
-    return playlistStore.currentItem.fileName;
+    return library.displayName(playlistStore.currentItem.path);
   }
   return 'Velo';
 });

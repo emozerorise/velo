@@ -1,6 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
+import type { VideoViewportInput } from '@/types/workspace';
+
+// A module belongs to one webview window, not one mounted shelf.
+let viewportRevision = 0;
+export function nextVideoViewportRevision(): number { return ++viewportRevision; }
 
 export const playerService = {
+  async setVideoViewport(input: VideoViewportInput): Promise<void> {
+    await invoke<number>('player_set_video_viewport', { input });
+  },
   async loadFile(path: string, startTime?: number): Promise<void> {
     return invoke('player_load_file', { path, startTime });
   },

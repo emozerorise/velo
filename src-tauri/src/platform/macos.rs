@@ -1,4 +1,6 @@
 use crate::errors::{Result, VeloError};
+use crate::player::viewport::{appkit_rect, ClientMetrics, Rect, ResolvedViewport, SurfaceLayout};
+use parking_lot::Mutex;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
 use std::sync::atomic::{AtomicPtr, Ordering};
@@ -24,9 +26,6 @@ struct NSRect {
     size: NSSize,
 }
 
-/// NSView autoresizing: track the superview in both axes.
-const NS_VIEW_WIDTH_SIZABLE: u64 = 2;
-const NS_VIEW_HEIGHT_SIZABLE: u64 = 16;
 /// NSWindowOrderingMode::NSWindowBelow
 const NS_WINDOW_BELOW: i64 = -1;
 
@@ -68,6 +67,7 @@ extern "C" {
 
 /// The GL view mpv renders into, a subview of the window's content view.
 static VIDEO_VIEW: AtomicPtr<c_void> = AtomicPtr::new(ptr::null_mut());
+static VIDEO_LAYOUT: Mutex<SurfaceLayout> = Mutex::new(SurfaceLayout::new());
 
 unsafe fn get_class(name: &[u8]) -> *mut c_void {
     objc_getClass(name.as_ptr() as *const c_char)
@@ -134,6 +134,27 @@ unsafe fn convert_rect_to_backing(view: *mut c_void, rect: NSRect) -> NSRect {
         f(&mut out, view, sel, rect);
         out
     }
+}
+
+unsafe fn set_video_frame(view: *mut c_void, rect: Rect) {
+    let frame = NSRect {
+        origin: NSPoint {
+            x: rect.x,
+            y: rect.y,
+        },
+        size: NSSize {
+            width: rect.width,
+            height: rect.height,
+        },
+    };
+    let set_frame: unsafe extern "C" fn(*mut c_void, *mut c_void, NSRect) =
+        std::mem::transmute(objc_msgSend as *const ());
+    set_frame(view, get_sel(b"setFrame:\0"), frame);
+    let context = msg_obj(view, get_sel(b"openGLContext\0"));
+    if !context.is_null() {
+        msg_void(context, get_sel(b"update\0"));
+    }
+    msg_set_bool(view, get_sel(b"setNeedsDisplay:\0"), true);
 }
 
 /// `drawRect:` -- hands the view's GL surface to mpv.
@@ -295,11 +316,7 @@ impl MacosPlatform {
 
         let msg_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
             std::mem::transmute(objc_msgSend as *const ());
-        msg_u64(
-            view,
-            get_sel(b"setAutoresizingMask:\0"),
-            NS_VIEW_WIDTH_SIZABLE | NS_VIEW_HEIGHT_SIZABLE,
-        );
+        msg_u64(view, get_sel(b"setAutoresizingMask:\0"), 0);
         // Render at native pixel density rather than upscaled points.
         msg_set_bool(
             view,
@@ -340,9 +357,7 @@ impl MacosPlatform {
         Ok(())
     }
 
-    /// Keeps the video surface filling the window. The autoresizing mask
-    /// normally handles this; re-applying the frame covers what it misses
-    /// (fullscreen transitions, display scale changes).
+    /// Reapply the stored viewport after fullscreen or display scale changes.
     ///
     /// # Safety
     ///
@@ -360,10 +375,40 @@ impl MacosPlatform {
         }
 
         let bounds = rect_of(content_view, b"bounds\0");
-        let set_frame: unsafe extern "C" fn(*mut c_void, *mut c_void, NSRect) =
-            std::mem::transmute(objc_msgSend as *const ());
-        set_frame(view, get_sel(b"setFrame:\0"), bounds);
-        msg_set_bool(view, get_sel(b"setNeedsDisplay:\0"), true);
+        let rect = VIDEO_LAYOUT.lock().resize(ClientMetrics {
+            width: bounds.size.width,
+            height: bounds.size.height,
+            scale_factor: 1.0,
+        });
+        set_video_frame(view, appkit_rect(rect, bounds.size.height));
+    }
+
+    /// # Safety
+    /// `ns_window_ptr` must be live and this must run on the window UI thread.
+    pub unsafe fn apply_video_viewport(
+        ns_window_ptr: *mut c_void,
+        viewport: &ResolvedViewport,
+    ) -> Result<()> {
+        let view = VIDEO_VIEW.load(Ordering::Acquire);
+        if ns_window_ptr.is_null() || view.is_null() {
+            return Err(VeloError::Platform("Video surface is unavailable".into()));
+        }
+        let content = msg_obj(ns_window_ptr, get_sel(b"contentView\0"));
+        if content.is_null() {
+            return Err(VeloError::Platform(
+                "Video content view is unavailable".into(),
+            ));
+        }
+        let bounds = rect_of(content, b"bounds\0");
+        let client = ClientMetrics {
+            width: bounds.size.width,
+            height: bounds.size.height,
+            scale_factor: 1.0,
+        };
+        if let Some(rect) = VIDEO_LAYOUT.lock().apply(*viewport, client) {
+            set_video_frame(view, appkit_rect(rect, client.height));
+        }
+        Ok(())
     }
 
     /// Asks the view to redraw. Safe to call from any thread -- mpv's render

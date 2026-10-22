@@ -21,6 +21,7 @@ import { useSummaryStore } from '@/stores/summaryStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useChatStore } from '@/stores/chatStore';
 import type { MediaInfo } from '@/types/player';
 import type { Transcript } from '@/types/transcript';
 
@@ -55,6 +56,84 @@ function transcript(segments = 3): Transcript {
 }
 
 describe('the transcribe-and-summarise chain', () => {
+  it.each(['extracting_evidence','checking_evidence','composing_summary'])('handles %s through registered progress events and preserves cached content on failure', async(stage)=>{
+    const store=useSummaryStore();
+    store.summary={path:PATH,model:'old',language:'th',markdown:'Previous summary',created_at:0,source_segments:3};
+    await store.transcribeAndSummarise();
+    emit('velo://transcript-ready',transcript());await settle();
+    emit('velo://summary-progress',{path:PATH,stage,done:0,total:1});
+    expect(store.stage).toBe(stage);expect(store.step).toBe(4);expect(store.isRunning).toBe(true);
+    await store.cancel();expect(called('summary_cancel')).toBe(true);
+    emit('velo://summary-error',{path:PATH,message:'Summary cancelled'});
+    expect(store.summary.markdown).toBe('Previous summary');expect(store.isRunning).toBe(false);
+    await store.summarise();
+    emit('velo://summary-error',{path:PATH,message:'Evidence validation failed'});
+    expect(store.summary.markdown).toBe('Previous summary');expect(store.error).toBe('Evidence validation failed');
+  });
+  it.each(['velo://summary-ready','velo://summary-error','velo://summary-progress','velo://summary-delta','velo://transcript-error'])('ignores another file terminal/progress events during a newer run (%s)', async (name) => {
+    const store = useSummaryStore();
+    store.summary = {path:PATH,model:'old',language:'th',markdown:'Previous summary',created_at:0,source_segments:3};
+    if (name === 'velo://transcript-error') await store.transcribeAndSummarise();
+    else await store.summarise();
+    emit('velo://summary-progress',{path:PATH,stage:'checking_evidence',done:0,total:1});
+    const before = store.stage;
+    emit(name,{path:'/another.wav',model:'late',language:'th',markdown:'Late result',created_at:1,source_segments:3,message:'Late failure',stage:'composing_summary',done:0,total:1,text:'Late text'});
+    expect(store.stage).toBe(before);
+    expect(store.isRunning).toBe(true);
+    expect(store.summary.markdown).toBe('Previous summary');
+    expect(store.error).toBeNull();
+    expect(store.streamed).toBe('');
+  });
+  it('can cancel source review and preserves the last complete summary on validation failure', async () => {
+    const store = useSummaryStore();
+    store.summary = { path: PATH, format: 'meeting', model: 'old', language: 'th', markdown: 'Previous summary', created_at: 0, source_segments: 3 };
+    await store.summarise();
+    emit('velo://summary-progress', { path: PATH, stage: 'reviewing', done: 0, total: 1 });
+    expect(store.isRunning).toBe(true);
+    await store.cancel();
+    expect(called('summary_cancel')).toBe(true);
+    emit('velo://summary-error', { path: PATH, message: 'Summary cancelled' });
+    expect(store.error).toBeNull();
+    expect(store.summary.markdown).toBe('Previous summary');
+    await store.summarise();
+    emit('velo://summary-error', { path: PATH, message: 'Summary validation failed' });
+    expect(store.isRunning).toBe(false);
+    expect(store.error).toBe('Summary validation failed');
+    expect(store.summary.markdown).toBe('Previous summary');
+    expect(called('summary_delete')).toBe(false);
+  });
+  it('first-use transcript completion and deletion refresh chat availability without inference or draft loss', async () => {
+    let available = false;
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'chat_status') return { path: PATH, has_transcript: available, provider: 'ollama', model: 'synthetic', base_url: 'http://127.0.0.1:49995', configured: true, remote: false, has_key: false };
+      if (command === 'transcript_engine_status') return { ready: false, downloading: false };
+      return null;
+    });
+    const chat = useChatStore(); await chat.initListeners(); await chat.prepare(PATH); chat.setDraft('First question');
+    const transcripts = useTranscriptStore(); await transcripts.initListeners();
+    expect(chat.canSend).toBe(false);
+    available = true; emit('velo://transcript-ready', transcript()); await settle();
+    expect(chat.canSend).toBe(true); expect(chat.draft).toBe('First question');
+    available = false; await transcripts.discard(); await settle();
+    expect(chat.canSend).toBe(false); expect(chat.draft).toBe('First question');
+    expect(called('chat_send')).toBe(false); expect(called('summary_probe')).toBe(false);
+    expect(called('transcript_download_model')).toBe(false); chat.cleanupListeners(); transcripts.cleanupListeners();
+  });
+  it.each(['transcript', 'summary'])('late %s cache results never replace the selected file or a newer reload', async (kind) => {
+    const transcripts = useTranscriptStore(), summaries = useSummaryStore(), player = usePlayerStore();
+    const store = kind === 'transcript' ? transcripts : summaries;
+    const current = () => kind === 'transcript' ? transcripts.transcript?.path : summaries.summary?.path;
+    const pending: ((value: unknown) => void)[] = [];
+    invoke.mockImplementation((command: string) => command === `${kind}_get` ? new Promise(resolve => pending.push(resolve)) : Promise.resolve(null));
+    const a = store.loadForCurrentMedia(); player.mediaInfo = { ...player.mediaInfo!, path: '/b.wav' };
+    const b = store.loadForCurrentMedia(); pending[1]({ path: '/b.wav', markdown: 'B', segments: [] }); await b;
+    pending[0]({ path: PATH, markdown: 'A', segments: [] }); await a;
+    expect(current()).toBe('/b.wav');
+    const old = store.loadForCurrentMedia(), latest = store.loadForCurrentMedia();
+    pending[3]({ path: '/b-new.wav', markdown: 'new', segments: [] }); await latest;
+    pending[2]({ path: '/b-old.wav', markdown: 'old', segments: [] }); await old;
+    expect(current()).toBe('/b-new.wav');
+  });
   beforeEach(async () => {
     // The chain runs through the settings store, which touches the document
     // when it persists. These tests run headless, so give it just enough.

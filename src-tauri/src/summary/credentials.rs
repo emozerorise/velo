@@ -51,12 +51,14 @@ impl CredentialBackend for OsKeyring {
 #[derive(Clone)]
 pub struct ApiKeyStore {
     backend: Arc<dyn CredentialBackend>,
+    service: String,
 }
 
 impl Default for ApiKeyStore {
     fn default() -> Self {
         Self {
             backend: Arc::new(OsKeyring),
+            service: SERVICE.into(),
         }
     }
 }
@@ -64,13 +66,29 @@ impl Default for ApiKeyStore {
 impl ApiKeyStore {
     #[cfg(test)]
     fn with_backend(backend: Arc<dyn CredentialBackend>) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            service: SERVICE.into(),
+        }
+    }
+
+    pub fn for_app(identifier: &str) -> Self {
+        // Keep released installations' existing keys, but isolate differently
+        // identified builds (including QA) from that credential namespace.
+        Self {
+            service: if identifier == "com.velo.player" {
+                SERVICE.into()
+            } else {
+                format!("{identifier}.summary")
+            },
+            ..Self::default()
+        }
     }
 
     pub fn get(&self, base_url: &str) -> Result<Option<String>> {
         let account = account_for(base_url)?;
         self.backend
-            .get(SERVICE, &account)
+            .get(&self.service, &account)
             .map_err(|e| VeloError::Summary(format!("Could not read the saved API key: {}", e)))
     }
 
@@ -87,14 +105,14 @@ impl ApiKeyStore {
 
         let account = account_for(base_url)?;
         self.backend
-            .set(SERVICE, &account, key)
+            .set(&self.service, &account, key)
             .map_err(|e| VeloError::Summary(format!("Could not save the API key: {}", e)))
     }
 
     pub fn clear(&self, base_url: &str) -> Result<()> {
         let account = account_for(base_url)?;
         self.backend
-            .clear(SERVICE, &account)
+            .clear(&self.service, &account)
             .map_err(|e| VeloError::Summary(format!("Could not clear the API key: {}", e)))
     }
 }
@@ -148,6 +166,24 @@ mod tests {
 
     fn store() -> ApiKeyStore {
         ApiKeyStore::with_backend(Arc::new(FakeBackend::default()))
+    }
+
+    #[test]
+    fn isolated_app_cannot_read_or_clear_production_credentials() {
+        let backend = Arc::new(FakeBackend::default());
+        let production = ApiKeyStore::with_backend(backend.clone());
+        production
+            .set("http://localhost:54321", "synthetic-only")
+            .unwrap();
+        let mut isolated = ApiKeyStore::for_app("com.velo.summary-controls-qa");
+        isolated.backend = backend;
+        assert!(!isolated.has("http://localhost:54321").unwrap());
+        isolated.clear("http://localhost:54321").unwrap();
+        assert!(production.has("http://localhost:54321").unwrap());
+        assert_eq!(
+            ApiKeyStore::for_app("com.velo.player").service,
+            super::SERVICE
+        );
     }
 
     #[test]

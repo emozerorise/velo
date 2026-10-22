@@ -2,6 +2,7 @@
   <BaseModal
     :is-open="settingsStore.isMediaInfoOpen ? false : settingsStore.isSettingsOpen"
     :title="t('settings.title')"
+    :wide="activeTab === 'typography'"
     @close="closeSettings"
   >
     <div class="flex flex-col gap-6 text-sm">
@@ -384,6 +385,7 @@
 
       </div>
       <UpdateSection v-if="activeTab === 'updates'" />
+      <FontSettings v-if="activeTab === 'typography' && settingsStore.isSettingsOpen" />
     </div>
   </BaseModal>
 </template>
@@ -392,6 +394,7 @@
 import { ref, reactive, computed, watch } from 'vue';
 import BaseModal from '@/components/common/BaseModal.vue';
 import UpdateSection from '@/components/updates/UpdateSection.vue';
+import FontSettings from './FontSettings.vue';
 import { useSettingsStore, type SettingsTab } from '@/stores/settingsStore';
 import type { AppSettings } from '@/types/settings';
 import { useI18n, SUPPORTED_LOCALES } from '@/composables/useI18n';
@@ -525,6 +528,7 @@ const tabs = computed<{ id: SettingsTab; name: string }[]>(() => [
   { id: 'transcript', name: t('settings.tab.transcript') },
   { id: 'ai', name: t('settings.tab.ai') },
   { id: 'updates', name: t('settings.tab.updates') },
+  { id: 'typography', name: t('settings.tab.typography') },
 ]);
 
 const localSettings = reactive<AppSettings>(JSON.parse(JSON.stringify(settingsStore.settings)));

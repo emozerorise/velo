@@ -1,0 +1,82 @@
+name: Windows Preview
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    env:
+      GGML_NATIVE: 'OFF'
+      GGML_AVX: 'OFF'
+      GGML_AVX2: 'OFF'
+      GGML_FMA: 'OFF'
+      GGML_F16C: 'OFF'
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: clippy, rustfmt
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+      - name: Prepare pinned libmpv
+        shell: pwsh
+        run: ./scripts/setup-windows.ps1
+      - name: Verify checksum rejection
+        shell: pwsh
+        run: |
+          $bad = Join-Path $env:RUNNER_TEMP 'bad-mpv.7z'
+          Set-Content $bad 'not an archive'
+          try {
+            ./scripts/setup-windows.ps1 -Archive $bad -VerifyOnly
+            throw 'Corrupt archive was accepted'
+          } catch {
+            if ($_.Exception.Message -notmatch 'checksum mismatch') { throw }
+          }
+      - run: npm ci
+      - run: npm run version:check
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npx vitest run
+      - run: node --test (Get-ChildItem tests/release/*.check.mjs).FullName
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
+      - name: Build isolated NSIS installer
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json
+      - name: Install and launch with clean PATH
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe)
+          if ($installers.Count -ne 1) { throw 'Expected exactly one installer' }
+          ./scripts/test-windows-installer.ps1 -Installer $installers[0].FullName
+          $hash = (Get-FileHash $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($installers[0].Name)" | Set-Content "$($installers[0].FullName).sha256" -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-preview-x64
+          if-no-files-found: error
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256
+            src-tauri/windows-deps/provenance.json
+            src-tauri/windows-deps/dependencies.txt

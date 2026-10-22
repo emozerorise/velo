@@ -1,0 +1,20 @@
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "resources": {
+      "windows-deps/libmpv-2.dll": "libmpv-2.dll",
+      "windows-deps/vulkan-1.dll": "vulkan-1.dll",
+      "windows-deps/VulkanRT-License.txt": "licenses/VulkanRT-License.txt",
+      "windows-deps/NOTICE.txt": "NOTICE.txt",
+      "windows-deps/VELO-LICENSE.txt": "VELO-LICENSE.txt",
+      "windows-deps/provenance.json": "libmpv-provenance.json",
+      "windows-deps/dependencies.txt": "libmpv-dependencies.txt",
+      "../docs/licenses/mpv-LICENSE.GPL.txt": "licenses/mpv-LICENSE.GPL.txt",
+      "../docs/licenses/mpv-Copyright.txt": "licenses/mpv-Copyright.txt"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "nsis": { "installMode": "currentUser", "languages": ["English"] }
+    }
+  }
+}
