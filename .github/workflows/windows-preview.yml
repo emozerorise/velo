@@ -68,9 +68,9 @@ jobs:
         run: |
           $installers = @(Get-ChildItem src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe)
           if ($installers.Count -ne 1) { throw 'Expected exactly one installer' }
-          ./scripts/test-windows-installer.ps1 -Installer $installers[0].FullName
-          $hash = (Get-FileHash $installers[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $($installers[0].Name)" | Set-Content "$($installers[0].FullName).sha256" -Encoding ascii
+          $installer = node scripts/prepare-windows-asset.mjs $installers[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Preparing release asset failed' }
+          ./scripts/test-windows-installer.ps1 -Installer $installer
       - uses: actions/upload-artifact@v4
         with:
           name: windows-preview-x64
