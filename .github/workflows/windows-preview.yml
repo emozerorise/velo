@@ -13,6 +13,8 @@ jobs:
   build:
     runs-on: windows-2022
     env:
+      # MSBuild's file tracker exceeds MAX_PATH inside Vulkan's nested shader build.
+      CMAKE_GENERATOR: Ninja
       GGML_NATIVE: 'OFF'
       GGML_AVX: 'OFF'
       GGML_AVX2: 'OFF'
@@ -58,6 +60,7 @@ jobs:
         with:
           workspaces: src-tauri
           cache-on-failure: true
+          key: vulkan-ninja
       - name: Prepare pinned libmpv
         shell: pwsh
         run: ./scripts/setup-windows.ps1
