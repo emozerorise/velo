@@ -1,6 +1,6 @@
 # Contributing to Velo
 
-## Windows Preview builds
+## Windows builds
 
 Use an x64 MSVC developer shell with Rust, Node.js, CMake, Ninja, LLVM/libclang,
 7-Zip and Vulkan SDK 1.4.363.0 installed. Set `VULKAN_SDK` to the SDK root
@@ -9,7 +9,9 @@ Use an x64 MSVC developer shell with Rust, Node.js, CMake, Ninja, LLVM/libclang,
 Then run `./scripts/setup-windows.ps1` before Cargo commands.
 This verifies the pinned libmpv checksum and creates the MSVC import library.
 Run `npm ci`, then `npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json`.
-The Windows Preview workflow runs the checks and installs/launches the package
+Omit the Preview config for the production Velo installer. Windows uses manual
+downloads for updates in both channels; macOS retains its in-app updater.
+The Windows Preview workflow runs the checks and installs/launches both channels on PRs
 with a clean PATH. It is not GPU/microphone acceptance on physical hardware.
 Windows transcription compiles whisper.cpp with Vulkan GPU compute, including
 NVIDIA RTX 50-series support, and retains whisper's CPU fallback. It uses the

@@ -49,7 +49,7 @@ foreach ($line in $imports) {
 }
 $imports | Set-Content "$dest/dependencies.txt"
 Copy-Item "$PSScriptRoot/windows-mpv.json" "$dest/provenance.json"
-Copy-Item "$root/docs/windows-preview-notice.txt" "$dest/NOTICE.txt"
+Copy-Item "$root/docs/windows-runtime-notice.txt" "$dest/NOTICE.txt"
 Copy-Item "$root/LICENSE" "$dest/VELO-LICENSE.txt"
 $env:VELO_MPV_LIB_DIR = $dest
 $env:PATH = "$dest;$env:PATH"

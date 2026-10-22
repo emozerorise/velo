@@ -84,10 +84,11 @@ reaching for one.
 - **Releases are not signed.** There is no Apple Developer account; the
   release notes tell users how to get past the first-launch warning. Do not
   propose signing as a fix.
-- **Windows Preview is a separate prerelease channel.** Run
+- **Windows installers use manual updates; macOS retains in-app updates.** Run
   `scripts/setup-windows.ps1` for pinned libmpv/Vulkan runtimes and the MSVC
   import library. Windows Preview CI links/tests and installs the NSIS build.
-  Preview must never publish latest.json or become the Latest stable release.
+  Stable releases also smoke-test and ship the production NSIS installer.
+  Preview remains isolated and must never publish latest.json or become Latest.
 - **The summariser talks to Ollama over its native `/api/chat`,** not the
   OpenAI-compatible route, because that is the only way to switch qwen3's
   reasoning off — measured at 22 generated tokens against 409 for the same

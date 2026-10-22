@@ -99,10 +99,11 @@ git checkout main && git pull && git tag -d v<version> && git tag -a v<version> 
 - Builds are **not signed** — there is no Apple Developer account, and the
   release footer already explains the first-launch warning to users. Do not
   propose signing as a fix.
-- **macOS only.** Windows compiles in CI but ships nothing: libmpv needs a dev
-  archive whose name carries a date and hash, an import library generated from
-  `mpv.def`, and `libmpv-2.dll` bundled alongside. The header comment in
-  `release.yml` has the details.
+- **Windows is manually updated.** Stable releases also build and smoke-test
+  a production NSIS installer before publishing Latest. Windows bundles its
+  runtimes through `setup-windows.ps1`; its updater endpoints and artifacts are
+  disabled. `latest.json` and signed updater archives remain macOS-only.
+  Prereleases use the isolated Preview identity and never become Latest.
 - `workflow_dispatch` can retry an unfinished **draft** release. Published
   releases are immutable: use a new version rather than replacing an archive
   while clients might be downloading its previously advertised signature.

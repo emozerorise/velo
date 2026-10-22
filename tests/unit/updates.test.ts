@@ -36,6 +36,7 @@ function offer() {
 
 describe('in-app updates', () => {
   beforeEach(() => {
+    vi.stubEnv('TAURI_ENV_PLATFORM', 'macos');
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-20T10:00:00Z'));
     globalThis.document = {
@@ -49,6 +50,27 @@ describe('in-app updates', () => {
   afterEach(() => {
     useUpdateStore().stop();
     vi.useRealTimers();
+    vi.unstubAllEnvs();
+  });
+
+  it('never schedules or invokes in-app updates on Windows, including manual requests', async () => {
+    vi.stubEnv('TAURI_ENV_PLATFORM', 'windows');
+    const store = useUpdateStore();
+    await store.start();
+    await vi.advanceTimersByTimeAsync(2 * 86400000);
+    await store.checkForUpdates(true);
+    expect(check).not.toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(store.currentVersion).toBe('0.6.0');
+  });
+
+  it.each(['en', 'th'])('shows a manual Windows download instead of unsupported update controls (%s)', async language => {
+    vi.stubEnv('TAURI_ENV_PLATFORM', 'windows');
+    setLocale(language);
+    const html = await renderToString(createSSRApp(UpdateSection));
+    expect(html).toContain('https://github.com/emozerorise/velo/releases/latest');
+    expect(html).toContain(language === 'th' ? 'ดาวน์โหลดรุ่นล่าสุด' : 'Download latest version');
+    expect(html).not.toContain('type="checkbox"');
   });
 
   it('limits automatic checks to once per day across store instances', async () => {

@@ -1808,3 +1808,20 @@ child. This preserves native failure isolation without shipping another binary
 or changing model/decoding settings. Native subprocess tests cover crash,
 teardown failure, missing GPU and cancellation. UI events explain CPU fallback
 and remain visible when transcription completes or feeds summarisation.
+
+### Stable Windows installer (approved 2026-10-23)
+
+The user approved merging GPU transcription and publishing v0.9.0 as Latest
+with a production Windows installer. Stable Windows keeps `com.velo.player`;
+Preview keeps its isolated identity. Both Windows channels disable updater
+endpoints/artifacts and expose manual download instructions. The build platform
+comes from Tauri's `TAURI_ENV_PLATFORM`, exposed through Vite's matching prefix.
+macOS retains the existing signed updater archives and manifest platforms.
+
+The reusable Windows workflow selects the requested channel; PRs also build
+and clean-PATH smoke-test the production installer after Preview. Stable
+publication waits for Windows and both macOS builds, verifies the staged
+Windows checksum, uploads its installer, then publishes the macOS manifest
+and Latest. Existing Preview assets remain unchanged. Physical acceptance
+and the enterprise installation constraint are recorded in the GPU notes and
+stable changelog; this approval does not certify every device or bypass policy.

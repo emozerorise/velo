@@ -18,7 +18,7 @@ export default defineConfig({
     port: 1420,
   },
   // Env variables starting with the prefix are accessible in frontend
-  envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  envPrefix: ['VITE_', 'TAURI_ENV_'],
   build: {
     // Tauri uses Chromium on Windows and WebKit on macOS and Linux
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari13',

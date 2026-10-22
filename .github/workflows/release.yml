@@ -4,7 +4,7 @@ name: Release
 # Runs on tag push; a manual run can retry an unfinished draft, not replace
 # signed artifacts that clients may already be downloading.
 #
-# Stable releases retain the macOS updater channel. Prereleases build isolated
+# Stable releases include a manual Windows installer and the macOS updater channel. Prereleases build isolated
 # Preview apps and a Windows installer, never updater archives or latest.json.
 on:
   push:
@@ -244,10 +244,10 @@ jobs:
 
   windows:
     needs: prepare
-    if: needs.prepare.outputs.preview == 'true'
     uses: ./.github/workflows/windows-preview.yml
     with:
       ref: ${{ github.event.inputs.tag || github.ref }}
+      preview: ${{ needs.prepare.outputs.preview == 'true' }}
 
   publish-preview:
     needs: [prepare, build, windows]
@@ -276,7 +276,7 @@ jobs:
 
   publish:
     name: Publish complete release
-    needs: [prepare, build]
+    needs: [prepare, build, windows]
     if: needs.prepare.outputs.preview == 'false'
     runs-on: ubuntu-latest
     steps:
@@ -286,6 +286,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-stable-x64
+          path: windows
       - name: Publish manifest and release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -294,6 +298,13 @@ jobs:
           set -euo pipefail
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
           test "$TAG" = "v$version"
+          shopt -s nullglob
+          installers=(windows/*-setup.exe)
+          checksums=(windows/*.sha256)
+          test "${#installers[@]}" -eq 1
+          test "${#checksums[@]}" -eq 1
+          (cd windows && sha256sum -c *.sha256)
+          gh release upload "$TAG" windows/* --clobber
           stage=$(mktemp -d)
           gh release download "$TAG" --pattern '*.app.tar.gz' --pattern '*.app.tar.gz.sig' --dir "$stage"
           gh release view "$TAG" --json body --jq .body > "$stage/notes.txt"
