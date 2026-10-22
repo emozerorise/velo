@@ -15,6 +15,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 export const useUpdateStore = defineStore('updates', () => {
   const settings = useSettingsStore();
+  const manualOnly = updateService.manualOnly;
   const transcripts = useTranscriptStore();
   const summary = useSummaryStore();
   const player = usePlayerStore();
@@ -51,6 +52,7 @@ export const useUpdateStore = defineStore('updates', () => {
   }
 
   async function checkForUpdates(manual = false) {
+    if (manualOnly) return;
     if (operating.value || ['downloaded', 'ready'].includes(phase.value)) return;
     const preferences = settings.settings.updates;
     const elapsed = Date.now() - preferences.last_checked_at;
@@ -158,12 +160,13 @@ export const useUpdateStore = defineStore('updates', () => {
     stop();
     try { currentVersion.value = await updateService.currentVersion(); }
     catch (e) { error.value = message(e); }
+    if (manualOnly) return;
     startupTimer = setTimeout(() => { void checkForUpdates(); }, 3000);
     interval = setInterval(() => { void checkForUpdates(); }, 60 * 60 * 1000);
   }
 
   return {
-    phase, currentVersion, version, notes, error, downloaded, total, dismissed,
+    phase, currentVersion, version, notes, error, downloaded, total, dismissed, manualOnly,
     workBusy, blocking, operating, noticeVisible, progress,
     start, stop, checkForUpdates, downloadAndInstall, restart, skipVersion,
   };

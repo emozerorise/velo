@@ -68,11 +68,13 @@ Velo uses a **Layered Hybrid Architecture**: a native GPU rendering surface sits
 
 ### Download a build
 
-Disk images for macOS are attached to each
-[release](https://github.com/emozerorise/velo/releases). They carry their own
-copy of libmpv, so nothing else needs installing.
+macOS disk images and the Windows x64 setup installer are attached to each
+[release](https://github.com/emozerorise/velo/releases). Both bundle libmpv.
+Windows may download WebView2 on first installation. Windows updates are manual:
+download the latest setup file, close Velo, and run the installer. Saved settings
+and library remain in place. Velo Preview uses separate data and credentials.
 
-From **0.6.0**, Velo checks GitHub for updates at most once a day. An update
+On macOS, from **0.6.0**, Velo checks GitHub for updates at most once a day. An update
 notice lets you download and install it inside the app, then restart when
 convenient. **Settings → Updates** also offers a manual check, release notes,
 skip-version and automatic-check preferences. Installation and restart wait

@@ -1,5 +1,7 @@
 {
+  "plugins": { "updater": { "endpoints": [] } },
   "bundle": {
+    "createUpdaterArtifacts": false,
     "targets": ["nsis"],
     "resources": {
       "windows-deps/libmpv-2.dll": "libmpv-2.dll",

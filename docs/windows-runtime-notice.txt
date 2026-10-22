@@ -1,4 +1,4 @@
-Velo Preview — Windows x64 testing build
+Velo — Windows x64 runtime notices
 
 Velo source: https://github.com/emozerorise/velo
 Velo's own source is MIT licensed; see VELO-LICENSE.txt.
@@ -19,10 +19,11 @@ Its pinned archive and source are in libmpv-provenance.json; its complete
 license is installed at licenses/VulkanRT-License.txt. No system driver or
 system-wide Vulkan installation is modified by this installer.
 
-This is an unsigned prerelease, not a production support claim. Windows GPU,
-microphone, sleep behavior and all hardware combinations still require manual
-acceptance. WebView2 may need an Internet connection at first installation.
+Windows installers do not carry a publisher-recognized signing certificate.
+GPU, microphone, sleep behavior and all hardware combinations are not certified
+by hosted installer checks. WebView2 may need an Internet connection at first installation.
 Whisper models are downloaded separately on request. Fonts are bundled locally
-with their OFL notices. Preview uses its own data and credential namespace;
-production installations are not upgraded or migrated. No automatic updater
-channel is enabled for this build.
+with their OFL notices. Velo Preview uses its own data and credential namespace,
+separate from Velo. Data is not automatically migrated between the two apps.
+Windows updates are downloaded and installed manually from the GitHub release;
+no automatic updater channel is enabled for Windows builds.

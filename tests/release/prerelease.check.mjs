@@ -53,3 +53,12 @@ test('Preview configuration replaces endpoints and separates app identity', () =
   assert.equal(preview.bundle.createUpdaterArtifacts, false);
   assert.equal(base.plugins.updater.endpoints.length, 1);
 });
+test('stable Windows keeps production identity but disables native updater endpoints and artifacts', () => {
+  const base = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+  const windows = JSON.parse(readFileSync('src-tauri/tauri.windows.conf.json', 'utf8'));
+  assert.equal(windows.identifier ?? base.identifier, 'com.velo.player');
+  assert.equal(windows.productName ?? base.productName, 'Velo');
+  assert.deepEqual(windows.plugins?.updater?.endpoints, []);
+  assert.equal(windows.bundle.createUpdaterArtifacts, false);
+  assert.equal(base.plugins.updater.endpoints.length, 1);
+});

@@ -5,6 +5,9 @@ on:
       ref:
         required: true
         type: string
+      preview:
+        type: boolean
+        default: true
   pull_request:
     branches: [main]
 permissions:
@@ -13,6 +16,7 @@ jobs:
   build:
     runs-on: windows-2022
     env:
+      VELO_PREVIEW: ${{ github.event_name == 'pull_request' || inputs.preview }}
       # MSBuild's file tracker exceeds MAX_PATH inside Vulkan's nested shader build.
       CMAKE_GENERATOR: Ninja
       # The explicit release target adds enough nesting to exceed MSVC PDB limits.
@@ -87,8 +91,13 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml --no-fail-fast
-      - name: Build isolated NSIS installer
-        run: npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json
+      - name: Build NSIS installer for the requested channel
+        shell: pwsh
+        run: |
+          $buildArgs = @('--target', 'x86_64-pc-windows-msvc', '--bundles', 'nsis')
+          if ($env:VELO_PREVIEW -eq 'true') { $buildArgs += @('--config', 'src-tauri/tauri.preview.conf.json') }
+          npm run tauri build -- @buildArgs
+          if ($LASTEXITCODE -ne 0) { throw 'NSIS build failed' }
       - name: Build local transcription benchmark
         shell: pwsh
         run: |
@@ -115,16 +124,27 @@ jobs:
           $installer = node scripts/prepare-windows-asset.mjs $installers[0].FullName
           if ($LASTEXITCODE -ne 0) { throw 'Preparing release asset failed' }
           ./scripts/test-windows-installer.ps1 -Installer $installer
-      - name: Stage Preview artifact under one upload root
+      - name: Stage installer artifact under one upload root
         shell: pwsh
         run: |
           # upload-artifact treats a drive-relative common ancestor as the workspace.
-          $dest = 'src-tauri/target/windows-preview-artifact'
+          $dest = 'src-tauri/target/windows-installer-artifact'
           New-Item -ItemType Directory -Force $dest | Out-Null
           Copy-Item D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe,D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/*.sha256 $dest
           Copy-Item src-tauri/windows-deps/provenance.json,src-tauri/windows-deps/dependencies.txt $dest
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-preview-x64
+          name: ${{ env.VELO_PREVIEW == 'true' && 'windows-preview-x64' || 'windows-stable-x64' }}
           if-no-files-found: error
-          path: src-tauri/target/windows-preview-artifact/
+          path: src-tauri/target/windows-installer-artifact/
+      - name: Verify production installer alongside Preview on PRs
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis
+          if ($LASTEXITCODE -ne 0) { throw 'Production NSIS build failed' }
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $source = "D:/vt/x86_64-pc-windows-msvc/release/bundle/nsis/Velo_${version}_x64-setup.exe"
+          $installer = node scripts/prepare-windows-asset.mjs $source
+          if ($LASTEXITCODE -ne 0) { throw 'Preparing production installer failed' }
+          ./scripts/test-windows-installer.ps1 -Installer $installer
