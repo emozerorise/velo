@@ -12,6 +12,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 # Synthetic native UI acceptance only; never enabled by normal/release builds.
 dictation-qa = []
+summary-evidence-qa = []
 
 [build-dependencies]
 tauri-build = { version = "2.0.0", features = [] }
@@ -41,6 +42,8 @@ rubato = { version = "=0.16.2", default-features = false }
 # API keys stay in Keychain Services / Windows Credential Manager rather
 # than joining the ordinary settings users attach to bug reports.
 keyring = "4.2"
+# Whitespace is not a word boundary in Thai; count quoted excerpts locally.
+icu_segmenter = { version = "2.3", default-features = false, features = ["compiled_data"] }
 
 
 # Metal gives the GPU path on Apple silicon; other platforms fall back to CPU.

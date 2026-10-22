@@ -1,10 +1,16 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { settingsService, type HistoryItem, type HistoryData } from '@/services/settingsService';
-import type { AppSettings } from '@/types/settings';
+import {
+  settingsService,
+  type HistoryItem,
+  type HistoryData,
+} from '@/services/settingsService';
+import type { AppSettings, SummaryFormat } from '@/types/settings';
 import { setLocale } from '@/composables/useI18n';
+import { defaultFont, fontCss, type FontFamily } from '@/utils/fonts';
 
-export type SettingsTab = 'general' | 'video' | 'subtitles' | 'transcript' | 'ai' | 'updates';
+export type SettingsTab =
+  'general' | 'video' | 'subtitles' | 'transcript' | 'ai' | 'updates' | 'typography';
 
 export const useSettingsStore = defineStore('settings', () => {
   const isSettingsOpen = ref<boolean>(false);
@@ -13,6 +19,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<AppSettings>({
     version: 1,
     general: {
+      font_family: defaultFont,
       theme: 'dark',
       language: 'en',
       remember_playback_position: true,
@@ -40,6 +47,7 @@ export const useSettingsStore = defineStore('settings', () => {
       prompt: '',
     },
     summary: {
+      format: 'meeting',
       provider: 'ollama',
       base_url: 'http://localhost:11434',
       model: 'qwen3:30b-instruct',
@@ -56,7 +64,27 @@ export const useSettingsStore = defineStore('settings', () => {
   });
 
   const summaryOptionsSaving = ref(false);
+  const fontSaving = ref(false);
+  function applyFont(font: FontFamily) {
+    document.documentElement.style.setProperty('--velo-font', fontCss(font));
+  }
+  async function saveFont(font: FontFamily): Promise<boolean> {
+    if (fontSaving.value) return false;
+    fontSaving.value = true;
+    const next = { ...settings.value, general: { ...settings.value.general, font_family: font } };
+    try {
+      await settingsService.save(next);
+      settings.value = { ...settings.value, general: { ...settings.value.general, font_family: font } };
+      applyFont(font);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      fontSaving.value = false;
+    }
+  }
   async function saveSummaryOptions(options: {
+    format?: SummaryFormat;
     showTimestamps?: boolean;
     instructions?: string;
   }): Promise<boolean> {
@@ -69,7 +97,9 @@ export const useSettingsStore = defineStore('settings', () => {
     };
     if (options.showTimestamps !== undefined)
       next.general.show_summary_timestamps = options.showTimestamps;
-    if (options.instructions !== undefined) next.summary.instructions = options.instructions;
+    if (options.instructions !== undefined)
+      next.summary.instructions = options.instructions;
+    if (options.format !== undefined) next.summary.format = options.format;
     try {
       await settingsService.save(next);
       // Commit only these fields after disk succeeds; a failed save must not
@@ -78,6 +108,8 @@ export const useSettingsStore = defineStore('settings', () => {
         settings.value.general.show_summary_timestamps = options.showTimestamps;
       if (options.instructions !== undefined)
         settings.value.summary.instructions = options.instructions;
+      if (options.format !== undefined)
+        settings.value.summary.format = options.format;
       return true;
     } catch (error) {
       console.error('Failed to save summary options:', error);
@@ -91,6 +123,7 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       const s = await settingsService.getAll();
       settings.value = s;
+      applyFont(s.general.font_family);
       applyTheme(s.general.theme);
       applyLanguage(s.general.language);
 
@@ -128,7 +161,7 @@ export const useSettingsStore = defineStore('settings', () => {
         // Mirror what the backend just stored, so the drawer and the resume
         // lookup stay correct without re-fetching.
         history.value.recent_files = history.value.recent_files.filter(
-          (f) => f.path !== item.path
+          (f) => f.path !== item.path,
         );
         history.value.recent_files.unshift(item);
         history.value.resume_positions[item.path] = item.last_position;
@@ -152,7 +185,9 @@ export const useSettingsStore = defineStore('settings', () => {
       root.classList.remove('dark');
     } else {
       // System
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const prefersDark = window.matchMedia(
+        '(prefers-color-scheme: dark)',
+      ).matches;
       if (prefersDark) {
         root.classList.add('dark');
         root.classList.remove('light');
@@ -172,6 +207,8 @@ export const useSettingsStore = defineStore('settings', () => {
     loadSettings,
     saveSettings,
     saveSummaryOptions,
+    saveFont,
+    fontSaving,
     summaryOptionsSaving,
     openSettings,
     recordPlayback,

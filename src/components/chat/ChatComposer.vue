@@ -9,7 +9,7 @@
       :aria-label="t('chat.draftLabel')"
       :placeholder="t('chat.placeholder')"
       rows="3"
-      class="block w-full min-h-24 max-h-64 resize-y bg-transparent text-base leading-relaxed text-fg/90 placeholder:text-fg/60 focus:outline-none"
+      class="reading-text block w-full min-h-24 max-h-64 resize-y bg-transparent text-fg/90 placeholder:text-fg/60 focus:outline-none"
       @input="
         emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)
       "

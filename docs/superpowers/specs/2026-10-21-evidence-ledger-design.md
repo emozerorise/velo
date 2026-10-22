@@ -1,10 +1,10 @@
 # Evidence-ledger summaries with protected conditions
 
-Status: proposed written design for user review, 21 October 2026.
-The user authorized designing an evidence-first approach, not implementing
-this spec. Written-spec approval and a reviewed implementation plan still
-precede product changes. No push, release, live API call or app launch is part
-of this design task.
+Status: user-approved design and Native implementation plan, 21 October 2026.
+Additional DeepSeek calls for the offered recording were approved. Local code
+checks pass, but semantic acceptance remains incomplete (0/3 complete rounds).
+Keep the work unshipped; the approval does not waive the acceptance boundary
+or authorize push/release.
 
 ## Intent and success boundary
 

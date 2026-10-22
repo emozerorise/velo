@@ -528,10 +528,12 @@ fn summary_without_cloud_key_remains_readable() {
     let root = Fixture::new();
     let store = SummaryStore::open(root.0.join("summaries")).unwrap();
     let summary = Summary {
+        format: Default::default(),
         path: root.media(),
         model: "synthetic".into(),
         language: "en".into(),
         markdown: "Cached facts".into(),
+        omitted_uncertain_claims: None,
         created_at: 0,
         source_segments: 1,
     };
@@ -572,10 +574,12 @@ async fn chat_never_writes_summary_or_transcript_cache() {
         .unwrap();
     summaries
         .save(&Summary {
+            format: Default::default(),
             path: alias,
             model: "synthetic".into(),
             language: "en".into(),
             markdown: "Cached".into(),
+            omitted_uncertain_claims: None,
             created_at: 0,
             source_segments: 1,
         })
@@ -702,12 +706,14 @@ fn canonical_cache_miss_uses_latest_alias_without_migrating_files() {
             .unwrap();
         summaries
             .save(&Summary {
+                format: Default::default(),
                 path,
                 language: "en".into(),
                 model: "synthetic".into(),
                 created_at,
                 source_segments: 1,
                 markdown: text.into(),
+                omitted_uncertain_claims: None,
             })
             .unwrap();
     }

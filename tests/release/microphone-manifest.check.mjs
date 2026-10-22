@@ -27,7 +27,7 @@ test('both localized declarations are mapped into the app Contents/Resources', (
 });
 test('permission packaging preserves the OS floor, version and security policy', () => {
   assert.equal(config.bundle.macOS.minimumSystemVersion, '11.0');
-  assert.equal(config.version, '0.8.0');
+  assert.equal(config.version, JSON.parse(readFileSync('package.json', 'utf8')).version);
   assert.equal(config.identifier, 'com.velo.player');
   assert.equal(config.app.security.csp, "default-src 'self'; img-src 'self' data: asset: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;");
   assert.deepEqual(Object.keys(config.bundle.macOS.files ?? {}).sort(), ['Resources/en.lproj/InfoPlist.strings', 'Resources/th.lproj/InfoPlist.strings']);

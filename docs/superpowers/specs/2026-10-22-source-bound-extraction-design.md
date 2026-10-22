@@ -2,9 +2,9 @@
 
 Status: written amendment approved by the user, 22 October 2026. The user
 requested a Native implementation plan with the same fidelity, citation and
-three-format/three-round acceptance requirements. Plan approval is still
-required before implementation. No provider call, product-code change, push
-or release is part of this documentation turn.
+three-format/three-round acceptance requirements. The written Native plan
+was subsequently approved and execution authorized, including additional API
+calls for that acceptance. No push or release.
 
 ## Outcome and scope
 
@@ -312,7 +312,8 @@ does not reopen or reimplement its completed unrelated tasks.
 
 The user approved this written amendment and requested a focused Native plan
 for the extraction wire adapter and its regression/acceptance work, reusing
-the existing pipeline. The proposed plan is
+the existing pipeline. The approved plan is
 [`2026-10-22-source-bound-extraction.md`](../plans/2026-10-22-source-bound-extraction.md).
-Implementation waits for review of that written plan; do not infer approval
-from the planning request. No provider call is needed to review either document.
+The user has authorized Native execution of that written plan. Actual runtime
+checks and live acceptance remain separate from design approval; follow its
+ledger and do not treat the spec as evidence of a passing result.

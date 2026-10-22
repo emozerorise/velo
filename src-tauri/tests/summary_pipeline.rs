@@ -107,6 +107,103 @@ fn ollama_frame(content: &str, done: bool) -> String {
 }
 
 #[tokio::test]
+async fn summary_formats_reach_each_provider_in_single_map_and_reduce_passes() {
+    use velo_lib::storage::settings_store::{SummaryFormat, SummarySettings};
+    use velo_lib::summary::prompt;
+    for provider in ["ollama", "openai", "deepseek"] {
+        for format in [
+            SummaryFormat::Meeting,
+            SummaryFormat::KeyPoints,
+            SummaryFormat::Custom,
+        ] {
+            let settings = SummarySettings {
+                provider: provider.into(),
+                format,
+                language: "en".into(),
+                instructions: "Focus on the central argument".into(),
+                ..Default::default()
+            };
+            for (system, reminder, is_map) in [
+                (
+                    prompt::single_pass_system(&settings, "Velo"),
+                    prompt::transcript_reminder(&settings),
+                    false,
+                ),
+                (
+                    prompt::map_system(&settings, "Velo"),
+                    prompt::map_reminder(),
+                    true,
+                ),
+                (
+                    prompt::reduce_system(&settings, "Velo"),
+                    prompt::notes_reminder(&settings),
+                    false,
+                ),
+            ] {
+                let frames = if provider == "ollama" {
+                    vec![
+                        ollama_frame("Synthetic answer [00:01]", false),
+                        ollama_frame("", true),
+                    ]
+                } else {
+                    vec!["data: {\"choices\":[{\"delta\":{\"content\":\"Synthetic answer [00:01]\"},\"finish_reason\":\"stop\"}]}\n\n".into(), "data: [DONE]\n\n".into()]
+                };
+                let (base, requests) = spawn_server(200, frames, Duration::ZERO);
+                let answer = transport::stream_chat(
+                    transport::dialect_for(provider).as_ref(),
+                    &base,
+                    None,
+                    &ChatRequest {
+                        system,
+                        user: format!("[00:01] Synthetic evidence{reminder}"),
+                        ..request()
+                    },
+                    &Arc::new(AtomicBool::new(false)),
+                    |_| {},
+                    || {},
+                )
+                .await
+                .unwrap();
+                assert_eq!(answer, "Synthetic answer [00:01]");
+                let sent = requests.recv_timeout(Duration::from_secs(2)).unwrap();
+                let body: serde_json::Value =
+                    serde_json::from_str(sent.split_once("\r\n\r\n").unwrap().1).unwrap();
+                let system = body["messages"][0]["content"].as_str().unwrap();
+                let user = body["messages"][1]["content"].as_str().unwrap();
+                assert!(system.contains("Focus on the central argument"));
+                assert!(system.contains("Velo"));
+                assert!(user.contains("[12:34]"));
+                assert!(system.contains("A default setting is not an implementation order"));
+                assert!(system.contains("same recording or the user's vocabulary confirms"));
+                assert!(system.contains("Do not guess names or expand unclear fragments"));
+                assert!(system.contains("Starting an action is not completing it"));
+                assert!(system
+                    .contains("Do not present an unclear phonetic token as verified terminology"));
+                assert!(user.contains("Correct only confirmed spellings"));
+                assert!(user.contains("preserve uncertainty and conditions"));
+                if is_map {
+                    assert!(user.contains("working notes, not the final summary"));
+                    assert!(!user.contains("headings you were given"));
+                } else {
+                    match format {
+                        SummaryFormat::Meeting => assert!(system.contains("## Decisions")),
+                        SummaryFormat::KeyPoints => {
+                            assert!(system.contains("## Key points"));
+                            assert!(!system.contains("## Decisions"));
+                        }
+                        SummaryFormat::Custom => {
+                            assert!(!system.contains("## Overview"));
+                            assert!(!system.contains("exactly these five"));
+                            assert!(user.contains("do not add preset headings"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn streams_an_ollama_answer_and_never_asks_it_to_think() {
     let (base, requests) = spawn_server(
         200,
@@ -619,7 +716,7 @@ async fn live_ollama_writes_a_thai_summary() {
             user: format!(
                 "{}{}",
                 chunks[0].text,
-                velo_lib::summary::prompt::transcript_reminder()
+                velo_lib::summary::prompt::transcript_reminder(&settings)
             ),
             context_tokens: settings.context_tokens,
             max_tokens: 2_048,

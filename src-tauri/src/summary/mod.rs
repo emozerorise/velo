@@ -5,12 +5,18 @@
 //! transcription the work is IO-bound rather than CPU-bound, so it runs as a
 //! task on Tauri's runtime instead of a dedicated thread.
 
+#[cfg(test)]
+mod audit;
 pub mod chunk;
 pub mod credentials;
+mod evidence;
+pub mod evidence_pipeline;
+pub mod pipeline;
 pub mod prompt;
 pub mod store;
 pub mod transport;
 pub mod types;
+mod validation;
 
 pub use store::SummaryStore;
 pub use types::{Summary, SummaryDelta, SummaryFailure, SummaryProgress, SummaryStatus};
@@ -29,7 +35,6 @@ use crate::transcript::TranscriptSegment;
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use tracing::{info, warn};
 
@@ -48,6 +53,7 @@ pub struct ActiveJob {
 
 /// Everything a job needs, resolved before it starts so the task owns no
 /// borrowed state.
+#[derive(Clone)]
 pub struct JobInput {
     pub path: String,
     pub segments: Vec<TranscriptSegment>,
@@ -229,23 +235,6 @@ async fn run_job(
     input: &JobInput,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Summary> {
-    // "auto" is settled here, once, so every prompt in this job agrees about
-    // which language it is asking for.
-    let settings = &SummarySettings {
-        language: prompt::resolve_language(&input.settings.language, &input.transcript_language),
-        ..input.settings.clone()
-    };
-    let dialect = transport::dialect_for(&settings.provider);
-    // Keep the same instruction headroom when the final answer can be twice
-    // as long. This is only input sizing; it sends no context field to APIs.
-    let extra_output = if settings.provider == "deepseek" {
-        2_048
-    } else {
-        0
-    };
-    let budget = chunk::budget_bytes(settings.context_tokens.saturating_sub(extra_output));
-    let chunks = chunk::chunk(&input.segments, budget);
-
     let progress = |stage: &str, done: usize, total: usize| {
         let _ = app.emit(
             "velo://summary-progress",
@@ -258,103 +247,7 @@ async fn run_job(
         );
     };
 
-    // Streamed straight to the panel, so a long answer is readable as it
-    // lands rather than after it finishes.
-    let emit_text = |text: &str| {
-        let _ = app.emit(
-            "velo://summary-delta",
-            SummaryDelta {
-                path: input.path.clone(),
-                text: text.to_string(),
-            },
-        );
-    };
-
-    let markdown = if chunks.len() == 1 {
-        // A transcript that already fits needs no notes stage: asking twice
-        // would only cost time and lose detail.
-        progress("reducing", 0, 1);
-        transport::stream_chat(
-            dialect.as_ref(),
-            &settings.base_url,
-            input.api_key.as_deref(),
-            &completion_request(
-                settings,
-                prompt::single_pass_system(settings, &input.vocabulary),
-                format!("{}{}", chunks[0].text, prompt::transcript_reminder()),
-                false,
-            ),
-            cancel,
-            emit_text,
-            || {},
-        )
-        .await?
-    } else {
-        let mut notes = Vec::with_capacity(chunks.len());
-
-        for (index, piece) in chunks.iter().enumerate() {
-            progress("mapping", index, chunks.len());
-
-            let note = transport::stream_chat(
-                dialect.as_ref(),
-                &settings.base_url,
-                input.api_key.as_deref(),
-                &completion_request(
-                    settings,
-                    prompt::map_system(settings, &input.vocabulary),
-                    format!("{}{}", piece.text, prompt::transcript_reminder()),
-                    true,
-                ),
-                cancel,
-                // The notes are working material; only the final pass is
-                // worth putting on screen.
-                |_| {},
-                || {},
-            )
-            .await?;
-
-            notes.push(format!(
-                "--- [{} – {}] ---\n{}",
-                chunk::stamp(piece.start),
-                chunk::stamp(piece.end),
-                note.trim()
-            ));
-        }
-
-        progress("mapping", chunks.len(), chunks.len());
-        progress("reducing", 0, 1);
-
-        transport::stream_chat(
-            dialect.as_ref(),
-            &settings.base_url,
-            input.api_key.as_deref(),
-            &completion_request(
-                settings,
-                prompt::reduce_system(settings, &input.vocabulary),
-                format!("{}{}", notes.join("\n\n"), prompt::notes_reminder()),
-                false,
-            ),
-            cancel,
-            emit_text,
-            || {},
-        )
-        .await?
-    };
-
-    let summary = Summary {
-        path: input.path.clone(),
-        model: settings.model.clone(),
-        language: settings.language.clone(),
-        markdown: markdown.trim().to_string(),
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0),
-        source_segments: input.segments.len(),
-    };
-
-    store.save(&summary)?;
-    Ok(summary)
+    pipeline::run(store, input, cancel, progress).await
 }
 
 #[cfg(test)]

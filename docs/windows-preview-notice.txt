@@ -1,0 +1,23 @@
+Velo Preview — Windows x64 testing build
+
+Velo source: https://github.com/emozerorise/velo
+Velo's own source is MIT licensed; see VELO-LICENSE.txt.
+Bundled dependencies retain their respective licenses, not Velo's MIT license.
+
+libmpv is the unmodified x86_64 build from shinchiro/mpv-winbuild-cmake,
+release 20261021, mpv commit e471496c56. It includes FFmpeg and other libraries.
+Exact archive URL, SHA-256, upstream build run and source links are recorded
+in libmpv-provenance.json. Build configuration and dependency source recipes:
+https://github.com/shinchiro/mpv-winbuild-cmake/tree/20261021
+mpv source and license notices:
+https://github.com/mpv-player/mpv/tree/e471496c56
+FFmpeg source:
+https://git.ffmpeg.org/ffmpeg.git
+
+This is an unsigned prerelease, not a production support claim. Windows GPU,
+microphone, sleep behavior and all hardware combinations still require manual
+acceptance. WebView2 may need an Internet connection at first installation.
+Whisper models are downloaded separately on request. Fonts are bundled locally
+with their OFL notices. Preview uses its own data and credential namespace;
+production installations are not upgraded or migrated. No automatic updater
+channel is enabled for this build.

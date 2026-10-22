@@ -1,9 +1,12 @@
 # Simpler source grounded summaries
 
-Status: proposed design, 21 October 2026. The user approved simplifying the
-approach, additional DeepSeek calls for the offered recording, and the same
-three-format, three-round acceptance target. This written replacement still
-needs review before implementation planning. No push or release.
+Status: written design approved by the user, 21 October 2026. Native planning,
+additional DeepSeek calls for the offered recording, and the same three-format,
+three-round acceptance target were confirmed. The implementation plan is also
+approved; Native tasks 1–4 are complete. Task 5 live acceptance is blocked by
+repeated extraction-contract failures after its bounded repair, confirmed on
+22 October 2026. There are zero accepted rounds; no final text was produced.
+No push or release.
 
 ## User outcome and scope
 
@@ -194,7 +197,7 @@ Preview, push, open a PR, merge, tag or release.
 
 ## Approval and next step
 
-Review this written replacement before implementation planning. After approval,
-write the Native task-by-task plan with explicit red/green cases, migration of
-the existing harness, and the preserved nine-job acceptance boundary. No product
-code or additional API call occurs at this design-review gate.
+The written replacement and Native implementation plan at
+`../plans/2026-10-21-simple-grounded-summaries.md` are approved. Tasks 1–4 and
+automated gates are implemented locally; retain the unchanged nine-job
+acceptance boundary and fresh final review before claiming completion.

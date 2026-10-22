@@ -1,0 +1,6 @@
+{
+  "productName": "Velo Preview",
+  "identifier": "com.velo.preview",
+  "plugins": { "updater": { "endpoints": [] } },
+  "bundle": { "createUpdaterArtifacts": false }
+}

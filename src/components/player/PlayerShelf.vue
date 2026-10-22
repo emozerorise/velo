@@ -11,7 +11,7 @@
     <header class="shelf-header bg-surface h-9 px-4 flex items-center gap-2">
       <MonitorPlay class="w-4 h-4 text-accent shrink-0" aria-hidden="true" />
       <span class="truncate text-xs text-fg/55">{{
-        player.mediaInfo?.file_name ?? t('workspace.playerTitle')
+        player.mediaInfo?.path ? library.displayName(player.mediaInfo.path) : t('workspace.playerTitle')
       }}</span>
       <button
         v-if="hasVideo"
@@ -73,6 +73,8 @@
 </template>
 
 <script setup lang="ts">
+import { useLibraryStore } from '@/stores/libraryStore';
+const library = useLibraryStore();
 import { computed, ref } from 'vue';
 import { Maximize2, MonitorPlay, X } from '@lucide/vue';
 import ReadingTransport from './ReadingTransport.vue';

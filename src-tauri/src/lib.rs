@@ -51,6 +51,9 @@ pub fn run() {
                 cached_history: Mutex::new(history_data),
             };
             app.manage(storage_state);
+            app.manage(commands::LibraryState(std::sync::Mutex::new(
+                storage::library::LibraryStore::open(handle.path().app_data_dir()?),
+            )));
             app.manage(commands::VideoViewportState::default());
             app.manage(jobs::JobGate::default());
             app.manage(chat::ChatState::default());
@@ -148,6 +151,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::library_load,
+            commands::library_mutate,
+            commands::library_media_exists,
             commands::player_load_file,
             commands::player_play,
             commands::player_pause,
@@ -166,6 +172,7 @@ pub fn run() {
             commands::player_set_subtitle_delay,
             commands::player_set_audio_delay,
             commands::playlist_scan_directory,
+            commands::playlist_resolve_paths,
             commands::settings_get_all,
             commands::settings_save,
             commands::history_get,

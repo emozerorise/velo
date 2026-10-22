@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import TranscriptPanel from '@/components/transcript/TranscriptPanel.vue';
 import TranscriptTab from '@/components/transcript/TranscriptTab.vue';
 import ControlOverlay from '@/components/player/ControlOverlay.vue';
+import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { usePlayerStore } from '@/stores/playerStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
@@ -18,6 +19,11 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 describe('reading workspace compatibility', () => {
+  it('exposes file and folder help labels for the compact import controls', async () => {
+    const html = await renderToString(createSSRApp(ReadingSidebar, { open: true }).use(getActivePinia()!));
+    expect(html).toContain('title="Open file"');
+    expect(html).toContain('aria-label="Open folder"');
+  });
   beforeEach(() => {
     setActivePinia(createPinia());
     setLocale('en');
@@ -67,6 +73,8 @@ describe('reading workspace compatibility', () => {
     async (locale) => {
       setLocale(locale);
       const playlist = usePlaylistStore();
+      const { useLibraryStore } = await import('@/stores/libraryStore');
+      useLibraryStore().snapshot.recordings = [{id:'one',path:'/meeting.mp4',display_name:null,project_id:null,pinned:false,added_at:0,duration:null}];
       playlist.items = [{ id: 'one', path: '/meeting.mp4', fileName: 'meeting.mp4' }];
       playlist.currentIndex = 0;
       const html = await renderToString(createSSRApp(TranscriptPanel).use(getActivePinia()!));

@@ -12,7 +12,8 @@
           aria-modal="true"
           :aria-label="title"
           tabindex="-1"
-          class="relative w-full max-w-lg overflow-hidden bg-surface border border-fg/10 rounded-2xl shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)] text-fg animate-in fade-in zoom-in-95 duration-150"
+          :class="wide ? 'max-w-2xl' : 'max-w-lg'"
+          class="relative w-full overflow-hidden bg-surface border border-fg/10 rounded-2xl shadow-[0_24px_60px_-16px_rgba(0,0,0,0.95)] text-fg animate-in fade-in zoom-in-95 duration-150"
           @keydown.stop="modalKey"
         >
           <!-- Header -->
@@ -60,6 +61,7 @@ import { useI18n } from '@/composables/useI18n';
 const props = defineProps<{
   isOpen: boolean;
   title: string;
+  wide?: boolean;
 }>();
 useVideoMask(() => props.isOpen);
 const { t } = useI18n();

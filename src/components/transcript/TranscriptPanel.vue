@@ -26,10 +26,11 @@
         class="workspace-header h-[70px] shrink-0 flex items-center gap-3 px-6 border-b border-fg/10 bg-surface"
       >
         <button
+          ref="sidebarToggle"
           class="sidebar-toggle p-1.5 rounded-lg text-fg/65 hover:text-fg"
           :aria-label="t('playlist.title')"
           :aria-expanded="sidebarOpen"
-          @click="sidebarOpen = !sidebarOpen"
+          @click="toggleSidebar"
         >
           <PanelLeft class="w-5 h-5" />
         </button>
@@ -131,9 +132,17 @@
             @goto-transcript="workspace.view = 'transcript'"
           >
             <template #default="{ scrollElement }">
+              <div v-if="workspace.chatVisible && historyContext" class="summary-history">
+                <button type="button" data-testid="summary-chat-toggle" :aria-expanded="!chatFolded" aria-controls="workspace-chat" @click="chatFolded = !chatFolded">
+                  <MessageCircle class="w-5 h-5 shrink-0 text-accent" aria-hidden="true" />
+                  <span class="history-copy"><strong>{{ t('summary.previousChat') }}</strong><span>{{ t('summary.previousChatNote') }}</span></span>
+                  <span class="history-action">{{ t(chatFolded ? 'summary.openChat' : 'summary.foldChat') }}</span>
+                  <ChevronDown class="w-4 h-4 shrink-0" :class="{ 'rotate-180': !chatFolded }" aria-hidden="true" />
+                </button>
+              </div>
               <InlineChat
-                v-show="workspace.chatVisible && !!player.mediaInfo"
-                :visible="workspace.chatVisible && !!player.mediaInfo"
+                v-show="workspace.chatVisible && !chatFolded && !!player.mediaInfo"
+                :visible="workspace.chatVisible && !chatFolded && !!player.mediaInfo"
                 :scroll-element="scrollElement"
                 @close="closeChat"
                 @transcript="workspace.view = 'transcript'"
@@ -150,8 +159,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue';
-import { FileAudio, FileText, Maximize2, PanelLeft, X } from '@lucide/vue';
+import { useLibraryStore } from '@/stores/libraryStore';
+const library = useLibraryStore();
+import { computed, nextTick, ref, watch } from 'vue';
+import { ChevronDown, MessageCircle, FileAudio, FileText, Maximize2, PanelLeft, X } from '@lucide/vue';
 import TranscriptTab from './TranscriptTab.vue';
 import SummaryTab from './SummaryTab.vue';
 import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
@@ -173,12 +184,34 @@ const store = useTranscriptStore();
 const player = usePlayerStore();
 const workspace = useWorkspaceStore();
 const summaries = useSummaryStore();
+const chatFolded = ref(summaries.isRunning);
+const historyContext = ref(summaries.isRunning);
+watch(() => player.mediaInfo?.path, () => {
+  chatFolded.value = false;
+  historyContext.value = false;
+});
+watch(() => workspace.chatVisible, (visible) => {
+  if (visible) chatFolded.value = false;
+});
+// Keep the mounted chat and draft intact while a new summary takes focus.
+watch(() => summaries.isRunning, (running) => {
+  if (running) {
+    chatFolded.value = true;
+    historyContext.value = true;
+  }
+});
 const { t } = useI18n();
 const reading = computed(() => workspace.mode === 'reading');
 const currentTitle = computed(
-  () => player.mediaInfo?.file_name ?? t('workspace.noFile'),
+  () => player.mediaInfo?.path ? library.displayName(player.mediaInfo.path) : t('workspace.noFile'),
 );
 const sidebarOpen = ref(false);
+const sidebarToggle = ref<HTMLButtonElement>();
+function toggleSidebar() {
+  // Safari does not focus buttons on pointer clicks; preserve a return target.
+  sidebarToggle.value?.focus();
+  sidebarOpen.value = !sidebarOpen.value;
+}
 // The narrow playlist has a full-reader backdrop; unlike the permanent
 // desktop sidebar it conceals both microphone controls and native preview.
 useVideoMask(() => sidebarOpen.value && workspace.narrow);
@@ -212,6 +245,14 @@ defineProps<{ videoElement?: HTMLElement | null }>();
 </script>
 
 <style scoped>
+.summary-history { width: 100%; max-width: 760px; margin: 0 auto; padding: 16px 28px 28px; }
+.summary-history button { display: flex; width: 100%; align-items: center; gap: 14px; padding: 18px 20px; text-align: left; border: 1px solid rgb(var(--velo-fg) / .10); border-radius: 16px; background: rgb(var(--velo-fg) / .025); color: rgb(var(--velo-fg) / .65); }
+.summary-history button:hover { background: rgb(var(--velo-accent) / .05); }
+.summary-history button:focus-visible { outline: 2px solid rgb(var(--velo-accent)); outline-offset: 3px; }
+.history-copy { display: flex; flex: 1; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.7; }
+.history-copy strong { font-size: 14px; font-weight: 600; color: rgb(var(--velo-fg) / .9); }
+.history-action { font-size: 12px; white-space: nowrap; color: rgb(var(--velo-accent)); }
+@media (max-width: 700px) { .summary-history { padding: 12px 16px 20px; } .history-action { display: none; } }
 .sidebar-toggle,
 .sidebar-backdrop {
   display: none;

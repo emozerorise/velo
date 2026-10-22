@@ -1,4 +1,17 @@
 fn main() {
+    println!("cargo:rerun-if-env-changed=VELO_MPV_LIB_DIR");
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        if let Ok(directory) = std::env::var("VELO_MPV_LIB_DIR") {
+            assert!(
+                std::path::Path::new(&directory).join("mpv.lib").is_file(),
+                "VELO_MPV_LIB_DIR must contain mpv.lib; run scripts/setup-windows.ps1"
+            );
+            println!("cargo:rustc-link-search=native={directory}");
+            println!("cargo:rustc-link-lib=mpv");
+            tauri_build::build();
+            return;
+        }
+    }
     // Locate libmpv through pkg-config when it is available. Failing that,
     // fall back to asking the linker for `mpv` directly: that works wherever
     // the library sits on the default search path, and otherwise fails at

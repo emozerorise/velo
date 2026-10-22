@@ -1,4 +1,7 @@
+import type { FontFamily } from '@/utils/fonts';
+
 export interface GeneralSettings {
+  font_family: FontFamily;
   theme: 'dark' | 'light' | 'system';
   language: string;
   remember_playback_position: boolean;
@@ -31,7 +34,10 @@ export interface TranscriptSettings {
   prompt: string;
 }
 
+export type SummaryFormat = 'meeting' | 'key_points' | 'custom';
+
 export interface SummarySettings {
+  format: SummaryFormat;
   /** 'ollama' | 'openai' | 'deepseek' — explicit transport, never inferred from the URL. */
   provider: string;
   base_url: string;

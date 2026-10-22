@@ -20,7 +20,7 @@ const OVERLAP_SEGMENTS: usize = 2;
 const MIN_BUDGET_BYTES: usize = 4_000;
 
 pub struct Chunk {
-    /// `[mm:ss] text` lines, ready to hand to the model.
+    /// Source lines with clock labels for previews or stable IDs for model input.
     pub text: String,
     pub start: f64,
     pub end: f64,
@@ -47,6 +47,23 @@ pub fn budget_bytes(context_tokens: u32) -> usize {
 /// Split on segment boundaries only -- never mid-sentence -- filling each
 /// chunk up to `budget` bytes.
 pub fn chunk(segments: &[TranscriptSegment], budget: usize) -> Vec<Chunk> {
+    chunk_labelled(segments, budget, |index| stamp(segments[index].start))
+}
+
+pub fn source_id(index: usize) -> String {
+    format!("S{:06}", index + 1)
+}
+
+/// Model-facing references cannot be rounded like human-facing clock labels.
+pub fn chunk_with_ids(segments: &[TranscriptSegment], budget: usize) -> Vec<Chunk> {
+    chunk_labelled(segments, budget, source_id)
+}
+
+fn chunk_labelled(
+    segments: &[TranscriptSegment],
+    budget: usize,
+    label: impl Fn(usize) -> String,
+) -> Vec<Chunk> {
     let mut chunks = Vec::new();
     let mut i = 0;
 
@@ -56,7 +73,7 @@ pub fn chunk(segments: &[TranscriptSegment], budget: usize) -> Vec<Chunk> {
 
         while j < segments.len() {
             let segment = &segments[j];
-            let line = format!("[{}] {}\n", stamp(segment.start), segment.text.trim());
+            let line = format!("[{}] {}\n", label(j), segment.text.trim());
 
             // A single segment longer than the budget still gets its own
             // chunk: dropping it would silently lose transcript.
@@ -106,6 +123,20 @@ mod tests {
         assert_eq!(stamp(0.0), "00:00");
         assert_eq!(stamp(72.4), "01:12");
         assert_eq!(stamp(3_723.0), "1:02:03");
+    }
+
+    #[test]
+    fn source_ids_remain_stable_across_overlapping_chunks() {
+        let input = segments(20, "a fairly long line of speech");
+        let chunks = chunk_with_ids(&input, 200);
+        assert!(chunks.len() > 1);
+        for piece in chunks {
+            let index = (piece.start / 10.0) as usize;
+            assert!(piece.text.starts_with(&format!("[{}]", source_id(index))));
+            assert!(piece.text.len() <= 200);
+        }
+        assert_eq!(input[1].text, "a fairly long line of speech");
+        assert_eq!(input[1].start, 10.0);
     }
 
     #[test]

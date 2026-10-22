@@ -35,16 +35,78 @@ vi.mock("@/services/chatService", () => ({
 }));
 let chatEvents: Map<string, (event: TauriEvent<unknown>) => void>;
 describe("inline chat handlers", () => {
+  it("folds old chat during regeneration and keeps its draft until explicitly reopened", async () => {
+    useTranscriptStore().isPanelOpen = true;
+    useTranscriptStore().transcript = {path: "/clip.wav", model: "cached", language: "en", prompt: "", created_at: 0, segments: [{start: 0, end: 60, text: "Source"}]};
+    const workspace = useWorkspaceStore();
+    workspace.chatOpen = true;
+    const chat = useChatStore();
+    chat.setDraft("Keep this unsent question");
+    const view = mountView(TranscriptPanel, {}, getActivePinia()!);
+    const summaries = useSummaryStore();
+    summaries.stage = "extracting_evidence";
+    await nextTick();
+    await nextTick();
+    const chatSection = view.nodes().find(node => node.props.id === "workspace-chat")!;
+    expect(chatSection.getClientRects()).toHaveLength(0);
+    expect(view.find("summary-chat-toggle").props["aria-expanded"]).toBe(false);
+    expect(chat.draft).toBe("Keep this unsent question");
+    summaries.stage = null;
+    await nextTick();
+    expect(chatSection.getClientRects()).toHaveLength(0);
+    view.find("summary-chat-toggle").trigger("click");
+    await nextTick();
+    expect(chatSection.style.display).not.toBe("none");
+    expect(chat.draft).toBe("Keep this unsent question");
+    expect(chatService.send).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it("lets the chat rail reopen folded history during a summary run", async () => {
+    useTranscriptStore().isPanelOpen = true;
+    useTranscriptStore().transcript = {path: "/clip.wav", model: "cached", language: "en", prompt: "", created_at: 0, segments: [{start: 0, end: 60, text: "Source"}]};
+    const workspace = useWorkspaceStore();
+    workspace.chatOpen = true;
+    const view = mountView(TranscriptPanel, {}, getActivePinia()!);
+    useSummaryStore().stage = "checking_evidence";
+    await nextTick();
+    expect(view.find("summary-chat-toggle").props["aria-expanded"]).toBe(false);
+    workspace.chatOpen = false;
+    await nextTick();
+    workspace.chatOpen = true;
+    await nextTick();
+    expect(view.find("summary-chat-toggle").props["aria-expanded"]).toBe(true);
+    expect(useChatStore().canSend).toBe(false);
+    view.unmount();
+  });
+
   it("Stop exposes Retry and retries the original turn without losing newer draft edits", async () => {
-    const chat = useChatStore(); await chat.prepare('/clip.wav');
+    const chat = useChatStore();
+    await chat.prepare("/clip.wav");
     const view = mountView(InlineChat, { visible: true }, getActivePinia()!);
-    chat.setDraft('Original question'); await nextTick(); view.find('chat-send').trigger('click'); await nextTick(); await nextTick();
-    view.find('chat-stop').trigger('click'); await nextTick();
-    chat.setDraft('New unsent edits'); await nextTick();
-    view.find('chat-retry').trigger('click'); await nextTick(); await nextTick();
-    expect(chat.messages.filter(message => message.role === 'user')).toHaveLength(1);
-    expect(chatService.send).toHaveBeenLastCalledWith('/clip.wav', expect.any(String), 'Original question', []);
-    expect(chat.draft).toBe('New unsent edits'); view.unmount();
+    chat.setDraft("Original question");
+    await nextTick();
+    view.find("chat-send").trigger("click");
+    await nextTick();
+    await nextTick();
+    view.find("chat-stop").trigger("click");
+    await nextTick();
+    chat.setDraft("New unsent edits");
+    await nextTick();
+    view.find("chat-retry").trigger("click");
+    await nextTick();
+    await nextTick();
+    expect(
+      chat.messages.filter((message) => message.role === "user"),
+    ).toHaveLength(1);
+    expect(chatService.send).toHaveBeenLastCalledWith(
+      "/clip.wav",
+      expect.any(String),
+      "Original question",
+      [],
+    );
+    expect(chat.draft).toBe("New unsent edits");
+    view.unmount();
   });
   beforeEach(async () => {
     setActivePinia(createPinia());
@@ -276,6 +338,46 @@ describe("inline chat handlers", () => {
       seconds: 37,
     });
     expect(invoke).not.toHaveBeenCalledWith("player_seek", expect.anything());
+    view.unmount();
+  });
+  it("formatted headings and bold list citations keep seeking and the shared timestamp toggle", async () => {
+    const view = mountView(
+      ChatMessage,
+      {
+        message: {
+          id: "formatted-citations",
+          role: "assistant",
+          status: "complete",
+          text: "## **ตรวจต้นฉบับ [00:37]**\n\n- **งาน [00:37]** และ [10:00]",
+          sources: [{ start: 37.42, end: 63 }],
+        },
+      },
+      getActivePinia()!,
+    );
+    const citations = view
+      .nodes()
+      .filter((node) => node.props["aria-label"] === "Jump to 00:37");
+    expect(citations).toHaveLength(2);
+    expect(
+      view.nodes().filter((node) => node.tagName === "STRONG"),
+    ).toHaveLength(2);
+    expect(view.nodes().filter((node) => node.tagName === "H3")).toHaveLength(
+      1,
+    );
+    citations[0].trigger("click");
+    citations[1].trigger("click");
+    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(invoke).toHaveBeenLastCalledWith("player_seek_absolute", {
+      seconds: 37.42,
+    });
+    useSettingsStore().settings.general.show_summary_timestamps = false;
+    await nextTick();
+    expect(
+      view.nodes().some((node) => node.props["aria-label"] === "Jump to 00:37"),
+    ).toBe(false);
+    expect(
+      view.nodes().filter((node) => node.tagName === "STRONG"),
+    ).toHaveLength(2);
     view.unmount();
   });
   it("stream updates do not move a reader away from older content", async () => {

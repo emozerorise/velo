@@ -56,6 +56,52 @@ function transcript(segments = 3): Transcript {
 }
 
 describe('the transcribe-and-summarise chain', () => {
+  it.each(['extracting_evidence','checking_evidence','composing_summary'])('handles %s through registered progress events and preserves cached content on failure', async(stage)=>{
+    const store=useSummaryStore();
+    store.summary={path:PATH,model:'old',language:'th',markdown:'Previous summary',created_at:0,source_segments:3};
+    await store.transcribeAndSummarise();
+    emit('velo://transcript-ready',transcript());await settle();
+    emit('velo://summary-progress',{path:PATH,stage,done:0,total:1});
+    expect(store.stage).toBe(stage);expect(store.step).toBe(4);expect(store.isRunning).toBe(true);
+    await store.cancel();expect(called('summary_cancel')).toBe(true);
+    emit('velo://summary-error',{path:PATH,message:'Summary cancelled'});
+    expect(store.summary.markdown).toBe('Previous summary');expect(store.isRunning).toBe(false);
+    await store.summarise();
+    emit('velo://summary-error',{path:PATH,message:'Evidence validation failed'});
+    expect(store.summary.markdown).toBe('Previous summary');expect(store.error).toBe('Evidence validation failed');
+  });
+  it.each(['velo://summary-ready','velo://summary-error','velo://summary-progress','velo://summary-delta','velo://transcript-error'])('ignores another file terminal/progress events during a newer run (%s)', async (name) => {
+    const store = useSummaryStore();
+    store.summary = {path:PATH,model:'old',language:'th',markdown:'Previous summary',created_at:0,source_segments:3};
+    if (name === 'velo://transcript-error') await store.transcribeAndSummarise();
+    else await store.summarise();
+    emit('velo://summary-progress',{path:PATH,stage:'checking_evidence',done:0,total:1});
+    const before = store.stage;
+    emit(name,{path:'/another.wav',model:'late',language:'th',markdown:'Late result',created_at:1,source_segments:3,message:'Late failure',stage:'composing_summary',done:0,total:1,text:'Late text'});
+    expect(store.stage).toBe(before);
+    expect(store.isRunning).toBe(true);
+    expect(store.summary.markdown).toBe('Previous summary');
+    expect(store.error).toBeNull();
+    expect(store.streamed).toBe('');
+  });
+  it('can cancel source review and preserves the last complete summary on validation failure', async () => {
+    const store = useSummaryStore();
+    store.summary = { path: PATH, format: 'meeting', model: 'old', language: 'th', markdown: 'Previous summary', created_at: 0, source_segments: 3 };
+    await store.summarise();
+    emit('velo://summary-progress', { path: PATH, stage: 'reviewing', done: 0, total: 1 });
+    expect(store.isRunning).toBe(true);
+    await store.cancel();
+    expect(called('summary_cancel')).toBe(true);
+    emit('velo://summary-error', { path: PATH, message: 'Summary cancelled' });
+    expect(store.error).toBeNull();
+    expect(store.summary.markdown).toBe('Previous summary');
+    await store.summarise();
+    emit('velo://summary-error', { path: PATH, message: 'Summary validation failed' });
+    expect(store.isRunning).toBe(false);
+    expect(store.error).toBe('Summary validation failed');
+    expect(store.summary.markdown).toBe('Previous summary');
+    expect(called('summary_delete')).toBe(false);
+  });
   it('first-use transcript completion and deletion refresh chat availability without inference or draft loss', async () => {
     let available = false;
     invoke.mockImplementation(async (command: string) => {

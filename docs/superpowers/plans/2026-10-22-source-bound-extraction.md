@@ -1,6 +1,6 @@
 # Source-Bound Extraction Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for the user-selected Native execution, task by task with RED→GREEN evidence and one fresh final review. Steps use checkbox (`- [ ]`) syntax for tracking. This proposed written plan requires user review before implementation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for the user-selected Native execution, task by task with RED→GREEN evidence and one fresh final review. Steps use checkbox (`- [ ]`) syntax for tracking. The user approved this written plan on 22 October 2026; resume its Native ledger rather than repeating completed tasks.
 
 **Goal:** Preserve protected source phrases through typed extraction references without weakening semantic review, exact citations or the original nine-job acceptance gate.
 

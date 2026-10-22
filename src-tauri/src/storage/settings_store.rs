@@ -8,6 +8,8 @@ use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralSettings {
+    #[serde(default)]
+    pub font_family: FontFamily,
     pub theme: String, // "dark", "light", "system"
     pub language: String,
     pub remember_playback_position: bool,
@@ -18,6 +20,20 @@ pub struct GeneralSettings {
 
 fn default_show_summary_timestamps() -> bool {
     true
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FontFamily {
+    Sarabun,
+    IbmPlexSansThaiLooped,
+    Prompt,
+    Kanit,
+    IbmPlexSansThai,
+    NotoSansThai,
+    #[default]
+    #[serde(other)]
+    NotoSansThaiLooped,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,12 +76,24 @@ impl Default for TranscriptSettings {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SummaryFormat {
+    KeyPoints,
+    Custom,
+    #[default]
+    #[serde(other)]
+    Meeting,
+}
+
 /// Where summaries come from. `provider` picks the transport and is set
 /// explicitly rather than inferred from the URL: LM Studio speaks the OpenAI
 /// dialect on loopback, and Ollama can sit behind a remote hostname, so host
 /// and dialect are independent facts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SummarySettings {
+    #[serde(default)]
+    pub format: SummaryFormat,
     /// "ollama" | "openai" | "deepseek"
     pub provider: String,
     /// The provider's documented base URL, including a version segment
@@ -87,6 +115,7 @@ pub struct SummarySettings {
 impl Default for SummarySettings {
     fn default() -> Self {
         Self {
+            format: SummaryFormat::Meeting,
             provider: "ollama".into(),
             base_url: "http://localhost:11434".into(),
             model: "qwen3:30b-instruct".into(),
@@ -142,6 +171,7 @@ impl Default for AppSettings {
                 remember_playback_position: true,
                 auto_play_next: true,
                 show_summary_timestamps: true,
+                font_family: FontFamily::default(),
             },
             video: VideoSettings {
                 hardware_acceleration: true,
@@ -212,7 +242,88 @@ impl SettingsStore {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn font_preferences_are_backward_compatible_and_round_trip() {
+        let directory = std::env::temp_dir().join(format!(
+            "velo-font-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory).unwrap();
+        let store = super::SettingsStore {
+            file_path: directory.join("settings.json"),
+        };
+        assert_eq!(
+            store.load().general.font_family,
+            super::FontFamily::NotoSansThaiLooped
+        );
+        let mut value = serde_json::to_value(super::AppSettings::default()).unwrap();
+        value["general"]
+            .as_object_mut()
+            .unwrap()
+            .remove("font_family");
+        value["general"]["language"] = serde_json::json!("th");
+        for font in [
+            None,
+            Some("future_font"),
+            Some("noto_sans_thai"),
+            Some("sarabun"),
+            Some("noto_sans_thai_looped"),
+            Some("ibm_plex_sans_thai_looped"),
+            Some("prompt"),
+            Some("kanit"),
+            Some("ibm_plex_sans_thai"),
+        ] {
+            if let Some(font) = font {
+                value["general"]["font_family"] = serde_json::json!(font);
+            }
+            let parsed: super::AppSettings = serde_json::from_value(value.clone()).unwrap();
+            store.save(&parsed).unwrap();
+            let saved = serde_json::to_value(store.load()).unwrap();
+            let expected = match font {
+                None | Some("future_font") => "noto_sans_thai_looped",
+                Some(font) => font,
+            };
+            assert_eq!(saved["general"]["font_family"], expected);
+            assert_eq!(saved["general"]["language"], "th");
+        }
+        std::fs::remove_file(directory.join("settings.json")).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+    }
     use super::*;
+
+    #[test]
+    fn summary_format_defaults_without_resetting_existing_preferences() {
+        let mut value = serde_json::to_value(AppSettings::default()).unwrap();
+        value["summary"]["model"] = serde_json::json!("saved-model");
+        value["summary"]["instructions"] = serde_json::json!("Keep the risks");
+        value["general"]["language"] = serde_json::json!("th");
+        value["summary"].as_object_mut().unwrap().remove("format");
+        let settings: AppSettings = serde_json::from_value(value).unwrap();
+        let saved = serde_json::to_value(settings).unwrap();
+        assert_eq!(saved["summary"]["format"], "meeting");
+        assert_eq!(saved["summary"]["model"], "saved-model");
+        assert_eq!(saved["summary"]["instructions"], "Keep the risks");
+        assert_eq!(saved["general"]["language"], "th");
+    }
+
+    #[test]
+    fn chosen_summary_formats_survive_settings_round_trip() {
+        for (format, expected) in [
+            ("meeting", "meeting"),
+            ("key_points", "key_points"),
+            ("custom", "custom"),
+            ("future_format", "meeting"),
+        ] {
+            let mut value = serde_json::to_value(SummarySettings::default()).unwrap();
+            value["format"] = serde_json::json!(format);
+            let settings: SummarySettings = serde_json::from_value(value).unwrap();
+            assert_eq!(serde_json::to_value(settings).unwrap()["format"], expected);
+        }
+    }
 
     #[test]
     fn test_default_settings() {

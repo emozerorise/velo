@@ -1,5 +1,5 @@
 <template>
-  <div class="summary-body space-y-4 text-[14px] leading-[1.85] text-fg/80 select-text">
+  <div class="summary-body reading-text space-y-4 text-fg/80 select-text">
     <div
       v-for="(node, index) in nodes"
       :key="index"
@@ -12,7 +12,13 @@
         aria-hidden="true"
       />
       <div class="min-w-0 flex-1">
+        <component
+          :is="`h${Math.min(3 + node.depth, 6)}`"
+          v-if="node.type === 'subheading'"
+          class="font-semibold text-fg/90"
+        >{{ node.text }}</component>
         <SummaryLine
+          v-else
           :parts="node.parts"
           :show-timestamps="showTimestamps"
           @seek="emit('seek', $event)"

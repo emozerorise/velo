@@ -1,5 +1,16 @@
 # Contributing to Velo
 
+## Windows Preview builds
+
+Use an x64 MSVC developer shell with Rust, Node.js, CMake, LLVM/libclang and
+7-Zip installed. Run `./scripts/setup-windows.ps1` before Cargo commands.
+This verifies the pinned libmpv checksum and creates the MSVC import library.
+Run `npm ci`, then `npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json`.
+The Windows Preview workflow runs the checks and installs/launches the package
+with a clean PATH. It is not GPU/microphone acceptance on physical hardware.
+Preview data and credentials use `com.velo.preview`, not the production ID.
+Prereleases have no updater endpoints and never publish `latest.json`.
+
 Thank you for your interest in contributing to Velo! We welcome contributions from the open-source community.
 
 ---
@@ -99,8 +110,8 @@ return `void` and report their own errors -- see `dispatch()` in
 `src/stores/playerStore.ts`. Follow that shape rather than adding `void`
 at the call site, unless the promise genuinely cannot reject.
 
-Note that `cargo test` runs on macOS in CI only: the Windows runner has no
-libmpv to link against, so it is limited to `cargo fmt` and `cargo clippy`.
+`cargo test` runs on macOS and in the Windows Preview workflow. The Windows
+job prepares the pinned libmpv import library and runtime before linking.
 
 ---
 

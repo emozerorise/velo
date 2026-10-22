@@ -54,46 +54,16 @@
       <!-- Running -->
       <div
         v-else-if="store.isRunning"
-        class="flex-1 flex flex-col min-h-0 p-5 gap-4"
+        class="flex-1 flex flex-col min-h-0"
       >
-        <div class="w-full">
-          <div
-            class="flex items-center justify-between text-[11px] text-fg/60 mb-1.5"
-          >
-            <span class="flex items-center gap-1.5">
-              <Loader2 class="w-3 h-3 animate-spin text-accent" />
-              {{ stageLabel }}
-            </span>
-            <span v-if="store.chained" class="font-mono text-fg/35">{{
-              stepLabel
-            }}</span>
-          </div>
-          <div class="h-1 rounded-full bg-fg/10 overflow-hidden">
-            <div
-              class="h-full bg-blue-500 transition-[width] duration-300"
-              :class="{ 'animate-pulse w-1/3': store.progress < 0 }"
-              :style="store.progress >= 0 ? { width: percentLabel } : undefined"
-            />
-          </div>
-        </div>
-
-        <!-- The final pass streams in, so a long answer is readable as it lands. -->
-        <div
-          v-if="store.streamed"
-          class="flex-1 min-h-0 overflow-y-auto text-[12.5px] leading-relaxed text-fg/70 whitespace-pre-wrap"
-        >
-          {{ store.streamed }}
-        </div>
-        <p v-else class="flex-1 text-[11px] text-fg/35 text-center">
-          {{ t('summary.runningNote') }}
-        </p>
-
-        <button
-          class="self-center px-3 py-1.5 rounded-lg bg-fg/[0.07] hover:bg-fg/[0.12] text-fg/80 text-xs transition-colors"
-          @click="store.cancel()"
-        >
-          {{ t('summary.cancel') }}
-        </button>
+        <SummaryProgress
+          :label="stageLabel"
+          :stage="store.stage"
+          :progress="store.progress"
+          :streamed="store.streamed"
+          :format-label="t(`summary.format.${settings.settings.summary.format ?? 'meeting'}`)"
+          @cancel="store.cancel()"
+        />
       </div>
 
       <!-- Finished -->
@@ -121,6 +91,7 @@
               class="ml-auto text-[11px] text-fg/45 font-mono truncate"
               :title="store.summary?.model"
             >
+              {{ t(`summary.format.${savedFormat}`) }} ·
               {{ store.summary?.model }}
             </span>
           </div>
@@ -171,13 +142,30 @@
             >
               <Pencil class="w-3.5 h-3.5" aria-hidden="true" />
               {{ t('summary.editPrompt') }}
+              ·
+              {{
+                t(
+                  `summary.format.${settings.settings.summary.format ?? 'meeting'}`,
+                )
+              }}
             </button>
           </div>
           <p v-if="optionsError" role="alert" class="text-xs text-danger">
             {{ optionsError }}
           </p>
+          <p v-if="store.error" role="alert" class="text-xs text-danger">
+              {{ displayError }}
+          </p>
         </div>
 
+        <p
+          v-if="(store.summary?.omitted_uncertain_claims ?? 0) > 0"
+          data-testid="summary-omission"
+          role="status"
+          class="px-5 py-3 text-sm leading-relaxed text-fg/70 bg-warning/10 border-b border-warning/20"
+        >
+          {{ t('summary.omission', { count: store.summary?.omitted_uncertain_claims ?? 0 }) }}
+        </p>
         <p
           v-if="store.isStale"
           class="px-3 py-2 text-[11px] text-amber-500/90 bg-amber-500/10 border-b border-amber-500/20"
@@ -200,7 +188,11 @@
               :key="`${store.summary?.created_at}-${index}`"
             >
               <details
-                v-if="section.kind === 'topics'"
+                v-if="
+                  savedFormat === 'meeting' &&
+                  section.kind === 'topics' &&
+                  sections.some((item) => item.kind !== 'topics' && item.nodes.length > 0)
+                "
                 class="summary-card group"
               >
                 <summary
@@ -288,6 +280,10 @@
           @click="promptOpen = true"
         >
           {{ t('summary.editPrompt') }}
+          ·
+          {{
+            t(`summary.format.${settings.settings.summary.format ?? 'meeting'}`)
+          }}
         </button>
 
         <button
@@ -325,7 +321,7 @@
           v-if="store.error"
           class="w-full text-[11px] text-danger/90 break-words"
         >
-          <p>{{ store.error }}</p>
+          <p>{{ displayError }}</p>
           <p v-if="errorHint" class="mt-1 text-fg/45">{{ errorHint }}</p>
           <button
             v-if="store.apiKeyRejected"
@@ -351,13 +347,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { useChatStore } from '@/stores/chatStore';
 import {
   Check,
   Copy,
   FileAudio,
-  Loader2,
   RefreshCw,
   Sparkles,
   Maximize2,
@@ -373,6 +368,7 @@ import {
 } from '@lucide/vue';
 import SummarySectionBody from './SummarySectionBody.vue';
 import SummaryPromptEditor from './SummaryPromptEditor.vue';
+import SummaryProgress from './SummaryProgress.vue';
 import { useSummaryStore } from '@/stores/summaryStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -394,6 +390,11 @@ const emit = defineEmits<{
 const store = useSummaryStore();
 const chat = useChatStore();
 const scrollElement = ref<HTMLElement | null>(null);
+watch(() => store.isRunning, async (running) => {
+  if (!running) return;
+  await nextTick();
+  if (scrollElement.value) scrollElement.value.scrollTop = 0;
+});
 const transcripts = useTranscriptStore();
 const settings = useSettingsStore();
 const player = usePlayerStore();
@@ -422,8 +423,15 @@ const isOllama = computed(
   () =>
     (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
 );
+const displayError = computed(() => store.error === 'unsupported_summary_layout'
+  ? t('summary.unsupportedLayout') : store.error);
+const savedFormat = computed(() => store.summary?.format ?? 'meeting');
 const sections = computed(() =>
-  groupSummarySections(store.summary?.markdown ?? ''),
+  groupSummarySections(
+    store.summary?.markdown ?? '', savedFormat.value,
+    transcripts.transcript?.path === store.summary?.path
+      ? transcripts.transcript?.segments ?? [] : [],
+  ),
 );
 function sectionIcon(kind: SummarySection['kind']) {
   return {
@@ -443,6 +451,10 @@ const providerHost = computed(() => {
 
 const stageLabel = computed(() => {
   switch (store.stage) {
+    case 'writing_summary':
+      return t('summary.writingDirect');
+    case 'checking_references':
+      return t('summary.checkingReferences');
     case 'checking':
       return t('summary.checking');
     case 'extracting':
@@ -457,15 +469,18 @@ const stageLabel = computed(() => {
             total: store.mapTotal,
           })
         : t('summary.summarising');
+    case 'reviewing':
+      return t('summary.reviewing');
+    case 'extracting_evidence':
+      return t('summary.extractingEvidence');
+    case 'checking_evidence':
+      return t('summary.checkingEvidence');
+    case 'composing_summary':
+      return t('summary.composingSummary');
     default:
       return t('summary.summarising');
   }
 });
-
-const stepLabel = computed(() => t('summary.stepOf', { step: store.step }));
-const percentLabel = computed(
-  () => `${Math.round(Math.max(0, store.progress) * 100)}%`,
-);
 
 /// The two failures worth spelling out, since both have a one-line fix.
 const errorHint = computed(() => {
@@ -496,11 +511,10 @@ async function copy(text: string) {
   }
 }
 
-/// Discard, then run again -- which re-summarises only. The transcript is
-/// never redone for a second opinion.
+/// Keep the last result until a checked replacement arrives. The transcript
+/// is never redone for a second opinion.
 async function regenerate() {
   if (chat.isRunning) return;
-  await store.discard();
   await store.summarise();
 }
 
@@ -532,9 +546,6 @@ function transcribeOnly() {
   background: transparent;
   border-radius: 0;
   padding: 0;
-}
-.summary-reading :deep(.summary-body) {
-  font-size: 18px;
 }
 .summary-reading :deep(.summary-bullet) {
   width: 7px;

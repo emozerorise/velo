@@ -65,6 +65,9 @@ export class TestNode extends EventTarget {
     super();
   }
   scrollIntoView() {}
+  getRootNode(): TestNode {
+    return this.parent ? this.parent.getRootNode() : this;
+  }
   getBoundingClientRect() {
     return { x: 0, y: 0, width: 320, height: 180 };
   }

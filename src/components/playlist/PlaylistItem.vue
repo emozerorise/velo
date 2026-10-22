@@ -15,7 +15,7 @@
       </span>
 
       <!-- Title -->
-      <span class="truncate">{{ item.fileName }}</span>
+      <span class="truncate">{{ library.displayName(item.path) }}</span>
     </div>
 
     <!-- Actions (Delete) -->
@@ -35,6 +35,8 @@
 import { Trash2 } from '@lucide/vue';
 import type { PlaylistItem } from '@/types/playlist';
 import { useI18n } from '@/composables/useI18n';
+import { useLibraryStore } from '@/stores/libraryStore';
+const library = useLibraryStore();
 
 const { t } = useI18n();
 

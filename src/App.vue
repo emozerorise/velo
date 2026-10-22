@@ -111,6 +111,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useLibraryStore } from '@/stores/libraryStore';
 import { Play, FolderOpen, FolderArchive } from '@lucide/vue';
 import TopBar from '@/components/player/TopBar.vue';
 import ControlOverlay from '@/components/player/ControlOverlay.vue';
@@ -201,7 +202,12 @@ onMounted(async () => {
   await chatStore.initListeners();
   await dictationStore.initListeners();
   await settingsStore.loadSettings();
+  await useLibraryStore().initialize();
   void updates.start();
+});
+
+watch(() => playerStore.mediaInfo, media => {
+  if (media) void useLibraryStore().updateDuration(media.path, media.duration);
 });
 
 onUnmounted(() => {

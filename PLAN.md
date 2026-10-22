@@ -550,12 +550,33 @@ stateDiagram-v2
 
 ### Source of Truth Allocation
 * **libmpv (Authoritative)**: Video time, duration, track availability, playback status, hardware decode status.
-* **Rust Backend (Authoritative)**: Active playlist queue, persistence manager, native window handles.
+* **Rust Backend (Authoritative)**: Persistent project library, persistence manager, native window handles.
 * **Pinia Frontend (Authoritative)**: UI overlay visibility, modal open states, active theme, transient slider drag values.
 
 ---
 
 ## 16. Playlist Architecture
+
+### Project library (local implementation, October 2026)
+
+The current playback queue lives in Pinia (`playlistStore`); it is transient.
+The reading sidebar now browses a separate Rust-backed project library. Naming,
+grouping, pinning, searching and sorting library entries do not reorder the queue
+or rename media files. Selecting an entry adds it to the queue if necessary and
+plays by original path. Removing it from the library does not stop playback or
+delete its queue entry, media, transcript or summary.
+
+`storage/library` owns version1 `library.json` in Tauri's actual `app_data_dir`
+(bundle-identifier scoped, including isolated Previews). It stores stable IDs,
+original paths, optional display names/projects/durations, pins, timestamps and
+sort/collapse preferences. History/resume and cache identity stay path-based.
+Typed mutations are serialized and revision checked; snapshots publish only
+after atomic replacement succeeds. Corrupt or unsupported data blocks library
+writes without replacing the file or blocking direct playback. No history is
+automatically imported and restoring the library never autoplays.
+
+The following queue model describes playback separately; the earlier references
+to a Rust queue/reordering are architectural intentions, not current ownership.
 
 ### Domain Model
 ```typescript
@@ -1061,6 +1082,9 @@ headings: overview, topics discussed, decisions, action items (owner and due
 date where stated), and open questions. Every bullet is asked to carry a
 `[mm:ss]` citation.
 
+The selectable formats in §31.18 supersede the fixed five-heading requirement;
+language resolution, grounding and source citations remain common to all formats.
+
 **`summary.language` defaults to `auto`, and `auto` is resolved before any
 prompt is built** — against the language whisper reported for that recording,
 which the transcript already carries. Resolving it late does not work: the
@@ -1367,3 +1391,401 @@ build are required at the final gate. Windows surface behavior and physical
 microphone recognition require explicit platform/device evidence; mocks do
 not substitute for those checks. No version bump, release or installed-app
 replacement is authorized by this design task.
+
+### 31.18 Selectable Summary Formats (2026-10-21)
+
+Extend the existing summariser with a persisted `summary.format` choice:
+`meeting` (default), `key_points`, or `custom`. This does not change provider
+selection, credentials, token limits, source loading or the job gate.
+
+- **Meeting summary:** use supported overview, discussion, decisions, actions
+  and open-question sections. Omit sections without evidence; never invent
+  decisions or assignments to fill the template.
+- **Key points:** a short overview and key ideas from any recording, without
+  imposing meeting outcome sections.
+- **My own prompt:** the user's instructions determine focus, length and
+  structure; no preset headings, bullets or section order. Empty instructions
+  fall back to a concise, naturally structured summary. Grounding, language
+  and source-timestamp rules still apply.
+
+All three formats apply to single-pass and map-reduce jobs. Internal map
+notes retain source evidence relevant to the chosen format; their trailing
+reminder requests notes, not a final meeting summary. Final reminders repeat
+the chosen structure and citation rule without reintroducing preset headings
+in custom mode.
+
+The existing prompt editor owns format selection, editable instructions and
+format-appropriate examples. Save commits format and instructions together
+only after persistence succeeds. Opening, changing examples, Cancel and Save
+never trigger inference. Changes apply to the next explicit run across files.
+
+Each generated cache records its format. Missing/unknown format values fall
+back to meeting without resetting other settings or rewriting old caches.
+Rendering uses the cached format, not the next-run preference: only meetings
+use outcome-priority ordering and folded discussion; custom/key-point results
+keep source order and show all sections. Raw Markdown, copying and timestamp
+visibility retain their existing contracts. No version bump, push or release.
+
+### 31.19 Source Fidelity and Confirmed Spellings (2026-10-21)
+
+The single, map and reduce prompts share source-fidelity rules, repeated in
+short form after the source. Preserve modality, conditions, negations and
+scope: a configuration default is not an implementation/testing sequence,
+and a suggestion is not an agreement. Starting an action and completing it
+are distinct triggers; shortening must not move a completion effect to an
+earlier event. User instructions control focus and layout, not permission to
+invent commitments, owners or deadlines.
+
+Correct phonetic ASR spellings only when the same recording or user vocabulary
+confirms the term and its local meaning is clear. A confirmed `Default` may
+explain `ดีฟ้า` in a configuration context; the example itself is not source
+evidence. Do not infer names or fill unclear fragments, or quote an uncertain
+phonetic token as verified terminology. Omit unsupported details or state
+uncertainty. Vocabulary supplies spelling, not new facts.
+
+This changes summarisation instructions, not Whisper decoding or cached
+transcripts. Keep raw source text and timestamps untouched, retain all three
+output formats, and regenerate only on explicit request. Prompt/wire tests
+verify the request contract; they cannot establish live model adherence.
+The approved real-file rerun separately checks all three formats through the
+existing configured DeepSeek account without exporting its key.
+
+### 31.20 Reviewed Summaries and Exact Citation Navigation (2026-10-21)
+
+Historical local experiment: the free-prose runtime below is superseded by
+the Evidence Ledger experiment in §31.21. Neither experiment has passed the
+current real-file semantic acceptance gate.
+
+The user approved additional model calls for a bounded draft/review pipeline.
+Each short-recording draft is reviewed against the full supplied transcript.
+For long recordings, each map draft is reviewed against its own raw excerpt;
+reduction is reviewed against those checked notes. A review removes unsupported
+claims, contradictory outcomes, answered questions presented as unresolved and
+duplicate points. It retains the chosen meeting/key-point/custom structure;
+custom output does not inherit preset headings. Semantic review remains model
+assisted, not a factual guarantee or a replacement for source inspection.
+
+Live trials still rounded `00:30` into the nonexistent `00:31`, even in a
+repair pass. Model-facing lines therefore use opaque, stable source IDs such
+as `[S000007]`, based on the original segment index across overlapping chunks.
+The model copies IDs rather than calculating clock times. Validate IDs against
+the evidence actually supplied to each stage, then look up the corresponding
+segment start to render the existing clock-cited Markdown cache. This is an
+exact lookup, not a nearest-time substitution; unknown IDs or clock citations
+are rejected before saving. Raw transcript text/timing and the cache schema
+remain unchanged.
+
+Before saving, deterministically require source citations on every prose block
+and bullet, reject labels absent from the supplied evidence, and reject empty
+or unsupported-only output. Never round, snap to a nearby time, or silently
+delete invalid references. One review may be followed by at most one repair;
+failure, cancellation, provider errors or a context overflow leave the old
+cache intact and produce a visible error. Unchecked drafts/reviews do not
+stream into the reader. The existing ready event publishes only the checked
+result; a reviewing stage explains the extra wait. Reserve draft space during
+chunking and check actual UTF-8 request size without truncating evidence.
+Regenerate must not delete the old cache before launching this pipeline.
+Organizational headings use Markdown heading markers; repair feedback names
+an uncited block without inventing a timestamp for a heading or disguising a
+factual claim as one.
+Repeat the selected output format after additional user steering so a saved
+meeting-layout instruction cannot reintroduce meeting sections in key-point
+mode. Custom mode still follows the user's structure. Missing owner/deadline
+metadata may annotate a supported cited point, never become a standalone
+placeholder. Render nested Markdown headings inside their parent section;
+outcome-priority sorting must not detach task groups into separate cards.
+
+The reader resolves an exact canonical label to the corresponding transcript
+segment's fractional start. Only the matching source path may supply those
+segments. Missing, noncanonical, ambiguous and invented legacy labels remain
+readable text rather than clickable guesses. Source transcript bytes and the
+existing Markdown cache shape are unchanged. No dependency, provider, keychain,
+permission, version or release-policy change is needed.
+
+The reviewer alone still accepted two well-cited inferences in live trials:
+requested group behaviour was restated as an existing feature, and keeping
+data for possible future use became an unresolved question. Each reviewed
+candidate now needs a separate, compact JSON audit before publication. The
+auditor sees the whole evidence and numbered prose/bullet blocks with their
+heading ancestry, not the user's layout steering. It classifies each block
+as current, requested, proposed, agreed, open or mixed and rejects unsupported
+stance, missing conditions, inferred questions and misleading section labels.
+Supported blocks must quote raw evidence under an ID they actually cite.
+
+Locally validate the report schema, unique and complete block coverage,
+verdicts, known status values, category compatibility (including parent
+headings), and verbatim quotes under their claimed source IDs. Missing,
+malformed, rejected or ungrounded reports cannot publish. Audit failure feeds
+back into the one existing repair; the repaired candidate must pass a fresh
+audit. This bounds each chunk/final stage to one draft, one review, one audit,
+and at most one repair plus one further audit (five completions). Provider
+failures and cancellation still stop without touching the previous cache.
+The final stored/displayed format remains Markdown; only the private audit
+uses short structured JSON, not a long Thai summary encoded as JSON. Semantic
+entailment remains model-assisted despite deterministic report/quote checks.
+
+`summary_fidelity_live.rs` is ignored by default and explicitly opts into
+DeepSeek, an offered transcript/settings snapshot, the saved Keychain key and
+a new output folder. It exercises the production pipeline for all three
+formats without writing production settings or caches. Passing this harness
+proves orchestration and reference invariants, not factual truth; a human
+comparison against the full raw transcript is still required for acceptance.
+
+Acceptance remains incomplete after live trials: the audit rejects known
+adversarial examples but can still approve a natural summary that changes
+"after completing review" into "on pressing review". It also sometimes rejects
+supported future-use wording or fails to remove a noisy permission comparison
+within the one repair. The six code checks and successful bundle are not a
+source-fidelity sign-off. Keep the current work unshipped; next design review
+must address explicit event-condition/role evidence before free-form rendering,
+rather than more prompt-only retries or relaxing the existing acceptance cases.
+
+### 31.21 Evidence Ledger (local, acceptance incomplete; 2026-10-21)
+
+The approved Evidence Ledger experiment supersedes §31.20's free-prose
+draft/review/audit runtime. It extracts job-scoped candidate claims, verifies
+each field against raw source context, accepts only an ID-based layout, then
+composes Markdown deterministically. Speech act, implementation scope and
+certainty are separate axes. Protected event/permission/default fragments,
+qualifiers and roles travel together; exact unique quotes anchor them to the
+unchanged transcript. This prevents layout from rewriting admitted content,
+not extraction from admitting the wrong meaning.
+
+Input/schema/catalog bytes count against the actual provider context budget.
+Extraction packets allow six candidates, verification batches up to four.
+The logical-call ceiling is `2E + 2V + 2`, including one schema repair per
+extraction packet, one verification follow-up OR schema repair per batch,
+and one layout repair. No free-prose fallback or semantic retry loop remains.
+Cancellation/error preserves the prior cache; saving happens once after
+complete composition. Normal builds keep evidence in memory only. The
+default-off `summary-evidence-qa` feature adds a read-only observer using the
+same runner for explicitly opted-in local artifacts, excluding keys/headers.
+
+Optional `omitted_uncertain_claims` metadata leaves old caches readable; a
+notice is not a certification of retained claims. Additive progress stages
+describe extraction, evidence checking and arrangement. Custom mode supports
+whole-claim selection, paragraphs, lists and neutral predefined headings,
+not arbitrary new prose. Unsupported transformations preserve the old summary
+with a localized explanation. Literal source Markdown/clock text stays
+escaped and cannot manufacture application-owned citation controls.
+
+All six code checks and a separate default-feature Apple Silicon bundle pass,
+but **real-file acceptance has not passed**. The first live attempt failed
+the job-token protocol; after a RED→GREEN repair, a new three-format round
+used nine logical calls: meeting/custom failed strict extraction, key points
+saved an isolated sample but promoted design discussion to existing scope and
+omitted required substantive content. Accepted complete rounds are **0/3**,
+not one. Additional live calls stopped under the approved safety boundary;
+do not repeat calls or relax the fixed checklist to manufacture nine passes.
+The production transcript, summary and settings are not acceptance outputs.
+See `design-qa.md` for commands, private artifact locations and limitations.
+
+### 31.22 Simpler Source-Grounded Points (local; 2026-10-21)
+
+The approved replacement in
+`docs/superpowers/specs/2026-10-21-simple-grounded-summaries-design.md`
+supersedes §31.21's full ledger runtime, not the original-recording acceptance
+requirements. There is one production runner and no free-prose fallback.
+
+Extract short points with only text, exact evidence and required verbatim
+phrases. Rust assigns IDs. Packets contain at most twelve segments and
+3000 serialized-source UTF-8 bytes with up to two-segment overlap and six
+points; check the complete request budget as well. Deduplicate only identical
+point data. Source text, order and fractional timing remain immutable.
+
+Select whole IDs into the requested meeting/key-point/custom layout, then
+review each visible occurrence together with its selected heading. A point
+in overview and a decision section receives independent verdicts. Review
+uses full raw context when it fits, otherwise up to four occurrences with
+raw neighbours, a compact catalog and one original-source follow-up. The
+catalog is a locator, not evidence. A supported quote match validates source
+location and coverage, not semantic truth.
+
+Compose only complete supported occurrences locally, without status prefixes,
+spelling-edit chains, classification axes or a relationship graph. Omit
+empty headings and count selected unique points with no supported occurrence;
+brevity alone does not create an omission warning. No surviving content,
+malformed reports, unsupported custom layouts, overflow, cancellation and
+provider errors leave the preceding cache intact. The logical ceiling stays
+`2E + 2V + 2`; there is no semantic rewrite loop.
+
+Public commands, cache/reader schemas, exact citation navigation and progress
+values stay unchanged. Extraction and layout are preparation, placement review
+is evidence checking, and final composition is local. Normal builds keep
+evidence in job memory. The default-off QA observer uses the same runner;
+private artifact metadata is allowlisted and E/V identities use source and
+occurrence ID sets rather than repair/follow-up context.
+
+All six repository checks, additional QA/identity checks and a separate
+default-feature Apple Silicon preview build pass locally. This is not yet
+semantic acceptance: the unchanged original 53-segment recording must pass
+three consecutive complete three-format rounds on one build/source/settings
+identity. Raw results remain private and a known meaning error surviving
+review stops further live calls. See the current entry in `design-qa.md` for
+the actual acceptance outcome, not the historical experiments above.
+
+Acceptance update (22 October 2026): the post-repair live attempt made eight
+logical extraction calls across the three formats, with no layout, placement
+review or composed output. The model still paraphrased required verbatim
+phrases after repair; one packet also exceeded the six-point limit. Zero
+accepted rounds; rounds two and three were not started. This is a blocking
+extraction-contract limitation, not a Keychain wait or a semantic pass.
+
+### 31.23 Source-Bound Extraction Parts (local, acceptance incomplete; 2026-10-22)
+
+The approved scoped amendment replaces only the model-facing extraction
+point's text with ordered literal parts and point-local required-phrase
+references. Rust copies protected bytes from the immutable raw snapshot,
+then passes the same canonical text/evidence/required point to the existing
+ID layout, occurrence review and composition. No legacy-text fallback,
+semantic rewrite loop or alternative runner is added. Strict schema, unique
+supplied anchors, evidence coverage, exactly-once local references and the
+six-point limit fail closed. Closed structural feedback and its maximum
+serialized envelope fit the actual request budget before any request; one
+repair per packet and the `2E + 2V + 2` ceiling remain unchanged.
+
+Synthetic RED→GREEN regressions and all six local gates, additional QA
+checks and a separate default-feature Apple Silicon bundle pass. This proves
+the byte-preserving conversion, not sufficient evidence selection, readable
+framing or faithful topic coverage. The first new original-file round used
+21 logical calls: meeting and key points failed extraction after bounded
+repair, while custom composed an isolated result but omitted the completed-
+review removal question and violated its single-paragraph/150-word request
+(three paragraphs,227 Thai word-like units). The layout never selected that
+extracted condition, so reviewing selected occurrences could not restore it.
+Source clocks still come from original fractional starts; source/time
+semantic acceptance is not certified from valid labels alone.
+
+Accepted complete rounds remain **0/3**. Rounds two and three and final
+independent review are not complete. No further unchanged-build cloud retry
+is used to search for a lucky pass. The extraction adapter alone does not
+resolve these model/protocol and layout-coverage limits; any broader change
+requires a bounded design decision and fresh verification/acceptance. No
+production cache/settings or installed/running app was replaced. The actual
+artifacts, gate counts and preservation hashes are recorded in `design-qa.md`.
+
+### 31.24 Original-passage selection (approved local amendment; 2026-10-22)
+
+> Superseded for the main runtime by §31.25 below. Historical acceptance here
+> describes the extractive experiment, not the current prose summariser.
+
+The user accepted extractive summaries rather than another attempted prose
+repair. Extraction returns only job-scoped source ID groups. Rust copies each
+whole original row, frames it as a quotation and builds the same canonical
+text/evidence/required point used by the existing layout, occurrence review,
+composition and cache boundary. No model-written prose, spelling correction,
+quote copying, substring offset or inferred clock enters that conversion.
+An unclear ASR word remains visibly quoted, not silently interpreted as a name.
+The point limit is the number of supplied source rows, not a six/eight-bullet
+summary cap. Source IDs are unique within a packet and ordered within a group;
+invalid packets fail closed as a whole. Existing overlap deduplication remains.
+
+The placement reviewer likewise returns source IDs; the app resolves the raw
+anchors before the unchanged occurrence/heading/evidence validator. Exact
+wording is not semantic proof: selection can omit a theme and a heading can
+still promote a request to a decision. Heading review and human comparison
+with the original source remain necessary. Selection/layout still receive
+one bounded repair, without an extra prose writer or unbounded retry loop.
+
+The layout request carries each visible point only once and advertises only
+the chosen format's headings. Conflicting meeting instructions cannot expand
+the key-point schema. Custom text has no compulsory headings. An explicit
+numeric custom word ceiling (Thai `ไม่เกิน N คำ`, English `at most`, `no more
+than` or `up to N words`) is recognized locally; arbitrary prose is not treated
+as a parsed layout language. ICU4X's bundled dictionary segments Thai words
+offline. Per-point counts accompany the catalog; a layout over its ceiling
+uses the existing repair slot, with the maximum feedback envelope reserved
+before HTTP. Quotes and necessary conditions are never truncated to fit.
+Counts include selected text and headings, not application-generated clocks.
+
+Fresh original-file acceptance is recorded separately from the superseded
+failed attempts in §31.23 and from automated mock verdicts. No production
+transcript, settings, summary or installed/running app is replaced by the live
+harness; outputs go to a new private directory. No push or release is authorized.
+
+The preceding bounded run was **not accepted**: key points retain the main
+source themes and clocks; meeting placement admits an ambiguous closing
+fragment under actions, and custom selects364 then262 words despite the
+explicit150 ceiling. The length guard rejects that custom result before
+review/composition/save, rather than truncating it. No further unchanged-build
+retry or fourth prompt patch is used to manufacture a pass. Heading policy and
+the conflict between whole-excerpt coverage and the test's short-word ceiling
+need a user decision before further implementation/API work or preview launch.
+
+Follow-up approvals: the user approved removing the150-word ceiling from this acceptance
+example only, retaining one paragraph/no headings/no list and complete main
+themes/conditions. Explicit custom word ceilings supplied by users are still
+enforced. The user subsequently approved neutral meeting headings. Meeting
+layouts now accept only overview/topics; decisions/actions/open_questions are
+rejected locally before review, even if a provider would support them. Custom
+and key-point formats keep their existing neutral/no-preset contracts. Cached
+legacy Markdown is not rewritten. When topics are the only substantive section,
+the reader shows them immediately rather than folding all summary content away.
+
+The fresh original-file three-format round passes the revised criteria: literal
+original passages, complete main conditions/questions and their own source
+clocks, with no new outcome/status labels. The custom example is one paragraph
+without a word ceiling; it is not a150-word pass. This is one complete accepted
+round, not the earlier three-round reliability claim. All six gates, additional
+QA checks and a default-feature Apple Silicon bundle pass. After the live run,
+a frontend-only visibility fix is verified RED→GREEN; every frozen Rust/config/
+native-test hash stays unchanged, so no paid API rerun is used for that display
+change. A separate isolated Preview is opened on copies of the checked content;
+the original running app and production data are preserved. Actual counts,
+hashes, limitations and native navigation evidence are in `design-qa.md`.
+
+### 31.25 Direct AI summaries (approved local change; 2026-10-22)
+
+The user approved removing Evidence Ledger from the main summary path.
+`summary::pipeline::run` now asks the selected provider to write readable prose
+from the unchanged transcript. The archived `evidence_pipeline` remains for
+regression comparison; it is not called by app summary commands. No extraction,
+claim layout, placement reviewer or deterministic quotation composer runs in
+the normal path. Existing cached summaries remain readable and are not migrated.
+
+One drafting request plus one bounded prose-review request handles a transcript
+that fits. The reviewer receives the same original input and an explicitly
+untrusted draft; it returns prose, not claims, verdicts or a ledger. Longer transcripts use bounded
+overlapping source chunks, concise cited working notes and one final merge.
+Each notes/merge pass also gets one prose review against its supplied input.
+Every full request is checked against the configured byte/context budget;
+oversized source rows or merged notes fail without replacing the previous cache.
+There is no unbounded recursive reduction or semantic retry loop.
+
+The model may correct obvious ASR spelling using clear context, but must not
+invent names, roles, agreements, conditions, tasks or deadlines. Meeting mode
+uses supported meeting sections; key points uses overview/key points; custom
+mode follows the user's layout without compulsory headings. These are model
+instructions, not an application guarantee of semantic accuracy or word limits.
+
+Source IDs are copied into prose and resolved locally to original source clocks.
+Each factual paragraph/bullet needs a supplied ID; unknown IDs and model-created
+clock labels are rejected. Numeric IDs differing only by leading zeroes resolve
+to the same supplied row. One citation-format repair may use the same source
+and prior draft, followed by the same local checks. An existing ID proves only
+location, not that the associated claim is entailed. Recognized organizational
+labels can group cited bullets without a fabricated reference; arbitrary prose
+is not exempt. Reviewed output must pass the same citation checks, with no
+additional retry loop. AI review is fallible; semantic acceptance still requires
+comparison with the source. Cancellation, provider/validation/context failures
+retain the prior cache; successful saves carry no ledger omission metadata.
+
+Progress now says AI writing and timestamp-reference checking, not evidence
+verification. Live acceptance uses the same production runner, the original
+53-segment test transcript, existing saved DeepSeek credentials, and isolated
+output directories. It does not alter production data or restart a running app.
+No push or release is authorized. Fresh outcomes are recorded in `design-qa.md`.
+
+### Windows testing prerelease (2026-10-22)
+
+The user subsequently authorized publishing all accumulated work as
+`v0.9.0-beta.1`, including Windows x64 NSIS and macOS Preview installers.
+This supersedes the earlier no-push constraint for this delivery only.
+Preview uses `com.velo.preview`, a separate data/credential namespace, empty
+updater endpoints, and no updater artifacts. Stable release routing is unchanged;
+beta publishing explicitly uses prerelease and not-latest flags and rejects
+stable-channel assets. Windows dependencies are pinned by SHA-256 and the
+MSVC import library is derived from the DLL exports. CI installs into a Thai,
+space-containing temporary path and launches without a development PATH.
+Hosted launch checks do not certify GPU playback or microphone behavior;
+physical Windows acceptance is required before stable promotion.

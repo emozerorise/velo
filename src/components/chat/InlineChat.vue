@@ -1,7 +1,7 @@
 <template>
   <section
     id="workspace-chat"
-    class="w-full max-w-[69rem] mx-auto px-6 sm:px-10 py-8 space-y-5"
+    class="w-full max-w-[58rem] mx-auto px-5 sm:px-8 py-8 space-y-5"
     :aria-label="t('workspace.chatTitle')"
   >
     <header
@@ -63,7 +63,7 @@
         {{ t('chat.replaceDraft') }}
       </button>
     </div>
-    <div class="space-y-4 select-text">
+    <div class="space-y-8 sm:space-y-10 select-text">
       <ChatMessage
         v-for="message in chat.messages"
         :key="message.id"

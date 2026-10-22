@@ -2,6 +2,31 @@ import { describe, it, expect } from 'vitest';
 import { parseInline, parseSummary } from '@/utils/summaryMarkdown';
 
 describe('parseInline', () => {
+  const sources = [{ start: 30.9, end: 37.38, text: 'source' }];
+  it('seeks the exact source start, not the rounded label or a nearby interval', () => {
+    expect(parseInline('Supported [00:30]', sources)).toContainEqual({
+      type: 'stamp',
+      label: '00:30',
+      seconds: 30.9,
+    });
+    for (const label of ['00:31', '00:37', '00:60', '0:00:30']) {
+      const parts = parseInline(`Legacy [${label}]`, sources);
+      expect(parts.some((part) => part.type === 'stamp')).toBe(false);
+      expect(parts).toContainEqual({ type: 'text', text: `[${label}]` });
+    }
+  });
+  it('does not make unchecked legacy timestamps clickable while sources are absent', () => {
+    expect(parseInline('[00:30]', [])).toEqual([
+      { type: 'text', text: '[00:30]' },
+    ]);
+  });
+  it('does not guess between multiple segments carrying the same whole-second label', () => {
+    const parts = parseInline('[00:30]', [
+      ...sources,
+      { start: 30.95, end: 37.38, text: 'another segment' },
+    ]);
+    expect(parts).toEqual([{ type: 'text', text: '[00:30]' }]);
+  });
   it('turns [mm:ss] into a seekable stamp', () => {
     const parts = parseInline('เลื่อน deploy ไปศุกร์ [12:34]');
     const stamp = parts.find((p) => p.type === 'stamp');
@@ -11,13 +36,21 @@ describe('parseInline', () => {
 
   it('understands the hour form', () => {
     const parts = parseInline('[1:02:03] ต่อวาระถัดไป');
-    expect(parts[0]).toEqual({ type: 'stamp', label: '1:02:03', seconds: 3723 });
+    expect(parts[0]).toEqual({
+      type: 'stamp',
+      label: '1:02:03',
+      seconds: 3723,
+    });
   });
 
   it('keeps the text around a stamp', () => {
     const parts = parseInline('ก่อน [00:05] หลัง');
 
-    expect(parts.map((p) => ('text' in p ? p.text : p.label))).toEqual(['ก่อน ', '00:05', ' หลัง']);
+    expect(parts.map((p) => ('text' in p ? p.text : p.label))).toEqual([
+      'ก่อน ',
+      '00:05',
+      ' หลัง',
+    ]);
   });
 
   it('reads bold segments', () => {
@@ -59,7 +92,9 @@ describe('parseSummary', () => {
 
   it('keeps nesting depth', () => {
     const bullets = parseSummary(markdown).filter((n) => n.type === 'bullet');
-    expect(bullets.map((b) => (b.type === 'bullet' ? b.depth : -1))).toEqual([0, 1]);
+    expect(bullets.map((b) => (b.type === 'bullet' ? b.depth : -1))).toEqual([
+      0, 1,
+    ]);
   });
 
   it('drops the placeholder used for an empty section', () => {
@@ -71,7 +106,10 @@ describe('parseSummary', () => {
   it('survives a model that ignored the format entirely', () => {
     const nodes = parseSummary('ประชุมสั้นมาก ไม่มีอะไรต้องทำต่อ');
     expect(nodes).toEqual([
-      { type: 'paragraph', parts: [{ type: 'text', text: 'ประชุมสั้นมาก ไม่มีอะไรต้องทำต่อ' }] },
+      {
+        type: 'paragraph',
+        parts: [{ type: 'text', text: 'ประชุมสั้นมาก ไม่มีอะไรต้องทำต่อ' }],
+      },
     ]);
   });
 });

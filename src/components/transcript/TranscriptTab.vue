@@ -264,10 +264,11 @@
             {{ formatTime(item.segment.start) }}
           </span>
           <span
+            class="reading-text"
             :class="
               reading
-                ? 'block text-[18px] leading-[1.7] max-w-[80ch]'
-                : 'min-w-0 flex-1 text-[12.5px] leading-relaxed'
+                ? 'block max-w-[80ch]'
+                : 'min-w-0 flex-1'
             "
             >{{ item.segment.text }}</span
           >

@@ -2,21 +2,20 @@ import { onMounted, onUnmounted } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { usePlayerStore } from '@/stores/playerStore';
-import { usePlaylistStore } from '@/stores/playlistStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useUpdateStore } from '@/stores/updateStore';
 import { useToast } from './useToast';
 import { useI18n } from './useI18n';
+import { ingestMedia, ingestDirectory, ingestDroppedPaths } from '@/services/mediaIngestion';
 
 export function useKeyboardShortcuts({ register = false }: { register?: boolean } = {}) {
   const player = usePlayerStore();
-  const playlist = usePlaylistStore();
   const transcript = useTranscriptStore();
   const updates = useUpdateStore();
   const { showToast } = useToast();
   const { t } = useI18n();
 
-  async function openFileDialog() {
+  async function openFileDialog(projectId: string | Event | null = null) {
     try {
       const selected = await open({
         multiple: true,
@@ -33,7 +32,7 @@ export function useKeyboardShortcuts({ register = false }: { register?: boolean 
 
       if (selected) {
         const paths = Array.isArray(selected) ? selected : [selected];
-        playlist.addFiles(paths);
+        await ingestMedia(paths, typeof projectId === 'string' ? projectId : null);
       }
     } catch (e) {
       console.error('Failed to open file dialog:', e);
@@ -48,7 +47,7 @@ export function useKeyboardShortcuts({ register = false }: { register?: boolean 
       });
 
       if (selected && typeof selected === 'string') {
-        await playlist.addDirectory(selected);
+        await ingestDirectory(selected);
       }
     } catch (e) {
       console.error('Failed to open directory dialog:', e);
@@ -171,6 +170,17 @@ export function useKeyboardShortcuts({ register = false }: { register?: boolean 
   // Buttons reuse the actions, but only App owns the global listener. Auto-hide
   // remounts the controls, so registering in every consumer multiplies seeks.
   if (register) {
+    let stopDrop: (() => void) | undefined;
+    let disposed = false;
+    onMounted(async () => {
+      try {
+        const unlisten = await getCurrentWebviewWindow().onDragDropEvent(event => {
+          if (event.payload.type === 'drop') void ingestDroppedPaths(event.payload.paths).catch(() => showToast(t('library.playError')));
+        });
+        if (disposed) unlisten(); else stopDrop = unlisten;
+      } catch { /* Non-native previews do not expose drag/drop. */ }
+    });
+    onUnmounted(() => { disposed = true; stopDrop?.(); });
     onMounted(() => window.addEventListener('keydown', handleKeyDown));
     onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
   }
