@@ -5,7 +5,18 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [0.9.0-beta.1] - 2026-10-22
+
+รุ่น Pre-release สำหรับทดสอบเท่านั้น ไม่ตั้งเป็น Latest และไม่ส่งอัปเดตอัตโนมัติ
+
+### ข้อจำกัดที่ทราบ
+
+- Windows x64 ผ่านชุดตรวจและทดสอบติดตั้ง/เปิดแอปบน GitHub-hosted runner
+  ด้วย path ภาษาไทยและ clean PATH แล้ว แต่ยังไม่ใช่ผลทดสอบบนเครื่องผู้ใช้จริง
+  ต้องตรวจ GPU วิดีโอ เสียง ไมค์ DPI และบัญชีผู้ใช้ทั่วไปบน Windows 10/11 เพิ่ม
+- Preview แยกข้อมูล การตั้งค่า โมเดล และ API key จากแอปหลัก ไม่มีการย้ายข้อมูลเดิม
+- AI อาจสรุปหรือแก้คำถอดเสียงผิดได้ แม้มีขั้นทบทวนและตรวจเวลาอ้างอิง
+  ควรเทียบต้นฉบับก่อนนำผลไปใช้งานสำคัญ
 
 ### เพิ่มเข้ามา
 
@@ -458,6 +469,7 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.9.0-beta.1]: https://github.com/emozerorise/velo/releases/tag/v0.9.0-beta.1
 [0.8.0]: https://github.com/emozerorise/velo/releases/tag/v0.8.0
 [0.7.0]: https://github.com/emozerorise/velo/releases/tag/v0.7.0
 [0.6.0]: https://github.com/emozerorise/velo/releases/tag/v0.6.0
