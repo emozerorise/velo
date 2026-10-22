@@ -54,7 +54,15 @@ fn apply(data: &LibraryData, value: serde_json::Value) -> Result<LibraryData, St
     apply_mutation(data, mutation).map_err(|e| e.kind)
 }
 fn seeded() -> LibraryData {
-    apply(&LibraryData::default(), json!({"type":"add_recordings","entries":[{"id":"a","path":"/recordings/a.mp4"},{"id":"b","path":"/other/a.mp4"}],"project_id":null})).unwrap()
+    apply(&LibraryData::default(), json!({"type":"add_recordings","entries":[{"id":"a","path":fixture_path("recordings")},{"id":"b","path":fixture_path("other")}],"project_id":null})).unwrap()
+}
+fn fixture_path(folder: &str) -> String {
+    // A drive-less Unix root is not an absolute path on Windows.
+    std::env::temp_dir()
+        .join(folder)
+        .join("a.mp4")
+        .to_string_lossy()
+        .into_owned()
 }
 #[test]
 fn library_names_and_identity() {
@@ -69,9 +77,9 @@ fn library_names_and_identity() {
         renamed.recordings[0].display_name.as_deref(),
         Some("ประชุมทีม")
     );
-    assert_eq!(renamed.recordings[0].path, "/recordings/a.mp4");
+    assert_eq!(renamed.recordings[0].path, fixture_path("recordings"));
     assert_eq!(original.recordings[0].display_name, None);
-    let again=apply(&renamed,json!({"type":"add_recordings","entries":[{"id":"new","path":"/recordings/a.mp4"}],"project_id":null})).unwrap();
+    let again=apply(&renamed,json!({"type":"add_recordings","entries":[{"id":"new","path":fixture_path("recordings")}],"project_id":null})).unwrap();
     assert_eq!(again.recordings, renamed.recordings);
     for (name, valid) in [
         ("🙂".repeat(120), true),
