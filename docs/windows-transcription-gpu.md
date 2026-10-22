@@ -50,14 +50,56 @@ time includes model initialization but excludes that device setup. Results inclu
 and inference times, model, system capabilities, detected language and segments.
 Keep these reports local: they contain the recording's transcript.
 
-Compare inference time separately from total time and report cold and repeat
-GPU runs separately. CPU/GPU text agreement is not an accuracy score without
+Compare inference time separately from total time and report first and repeat
+GPU runs separately without assuming driver caches are cold. CPU/GPU text agreement is not an accuracy score without
 a human-reviewed reference transcript. Do not relabel a CPU fallback as GPU.
 
 ## Hardware acceptance
 
-Hardware: Intel Core i5-14400F (10 cores / 16 logical processors), RTX 5070.
-Input: the same local 224.576-second M4A used to reproduce slow transcription.
-Model: `ggml-large-v3-turbo-q5_0.bin` (574,041,195 bytes).
-Timing and GPU-offload results will be recorded after the release binary runs
-on this hardware; hosted CI has no RTX GPU and cannot certify performance.
+Measured on 2026-10-22: Intel Core i5-14400F (10 cores / 16 logical processors),
+NVIDIA GeForce RTX 5070, driver 621.01. The same private M4A reports 224.576
+seconds in its container; production extraction yields 225.280 seconds of mono
+16 kHz PCM in all three runs. Model: `ggml-large-v3-turbo-q5_0.bin`
+(574,041,195 bytes), language `auto`, empty prompt, beam size 5, 300-second
+chunks and 15 transcription threads.
+
+Both modes used the same release executable, source `cbb72bae58fe247633d2cbde0aadd5a2e14f9ddb`,
+built from PR merge commit `a78cd24db408107b09cf3bc5972ac19989bcad96`. Existing Preview CPU
+flags were retained: `GGML_NATIVE`, `GGML_AVX`, `GGML_AVX2`, `GGML_FMA` and
+`GGML_F16C` were all `OFF`. These ratios describe this Preview build on this
+recording. There was one full CPU run and two fresh-process GPU runs; OS and
+driver caches were not cleared.
+
+| Mode | GPU setup (s) | Extraction (s) | Transcription incl. model (s) | Pipeline total (s) | CPU / total |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| CPU | 0.00 | 0.08 | 2266.28 | 2266.37 | 1.00x |
+| RTX 5070, first run | 0.17 | 0.08 | 32.57 | 32.82 | 69.05x |
+| RTX 5070, repeat run | 0.18 | 0.08 | 11.95 | 12.22 | 185.49x |
+
+The measured region starts after executable/logging setup and ends after
+transcription, before validation and JSON writing. It includes device setup,
+extraction and model initialization, and excludes executable loading and process
+teardown. Normal desktop background apps and two-second `nvidia-smi` sampling
+remained active. The installer archive was downloaded and verified during the
+CPU run; no other Velo transcription or playback was running.
+
+Both GPU logs show a 573.40 MB `Vulkan0` model allocation and `using Vulkan0
+backend`. Sampled GPU utilization peaked at 76% on the first run and 35% on the
+repeat, with total device memory peaking at 2,610 / 2,628 MiB respectively
+(including desktop use). CPU mode explicitly logged `use gpu = 0` and CPU model
+buffers; its sampled GPU utilization peaked at 9% with at most 1,355 MiB used.
+The GPU runs produced identical text/timestamps across 49 Thai segments. CPU
+produced 36 Thai segments. Output is nonempty with ordered timestamps within the
+extracted duration; no human reference transcript was used to score accuracy.
+
+The SHA-256-verified NSIS package was also installed as Preview 0.9.0-beta.2 on
+the same PC using update mode. Its **Transcribe only** action on the original
+file persisted 49 Thai segments with the same model and empty prompt about
+31.81 seconds after the click; the result UI was observed ready
+within 50 seconds. The original model and library remained available. No summary
+request was made. Raw recordings and transcript JSON reports remain local.
+
+[Windows checks, bundle build, installed-app smoke test and artifacts](https://github.com/emozerorise/velo/actions/runs/39807521868)
+and [frontend/macOS checks](https://github.com/emozerorise/velo/actions/runs/39807522035) passed for the tested
+source revision. The benchmark artifact records both the PR head and actual
+merge revision, and local reports record media/model/executable SHA-256 hashes.
