@@ -9,6 +9,7 @@ export default mergeConfig(
       // tests keep their existing transform and do not need a DOM emulator.
       testTransformMode: {
         web: [
+          '**/modelPicker.test.ts',
           '**/fontSettings.test.ts',
           '**/libraryBrowser.test.ts',
           '**/workspaceTools.test.ts',
