@@ -40,7 +40,9 @@ and its log must also show Vulkan model/compute buffers. Check actual device
 activity with `nvidia-smi`; enumeration alone does not prove offloading.
 The example does not read/write the application's cache or contact a provider.
 It refuses to overwrite existing output and validates nonempty segments and
-ordered timestamps within the source duration. Results include both extraction
+ordered timestamps within the source duration. The total timer starts before GPU enumeration, because enumeration also creates
+the Vulkan device and loads shaders. GPU setup is recorded separately; inference
+time includes model initialization but excludes that device setup. Results include both extraction
 and inference times, model, system capabilities, detected language and segments.
 Keep these reports local: they contain the recording's transcript.
 

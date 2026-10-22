@@ -29,7 +29,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         .with_writer(std::io::stderr)
         .init();
     whisper_rs::install_logging_hooks();
+    let started = Instant::now();
+    let gpu_setup_started = Instant::now();
     let gpu_names = available_gpu_names(&args[2]);
+    let gpu_setup_seconds = gpu_setup_started.elapsed().as_secs_f64();
     if args[2] == "gpu" && gpu_names.is_empty() {
         return Err(
             "no Vulkan GPU found; refusing to label a CPU fallback as a GPU benchmark".into(),
@@ -40,11 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     if wav.exists() {
         return Err("refusing to overwrite existing benchmark audio".into());
     }
-    let started = Instant::now();
+    let extraction_started = Instant::now();
     audio::extract(media, &wav, &cancel, &|_| {})?;
     let samples = audio::read_samples(&wav)?;
     std::fs::remove_file(&wav)?;
-    let extraction_seconds = started.elapsed().as_secs_f64();
+    let extraction_seconds = extraction_started.elapsed().as_secs_f64();
     let audio_seconds = samples.len() as f64 / 16_000.0;
     let last_percent = Arc::new(AtomicUsize::new(usize::MAX));
     let inference_started = Instant::now();
@@ -87,6 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         "gpu_names": gpu_names,
         "model": model.file_name().and_then(|name| name.to_str()),
         "audio_seconds": audio_seconds,
+        "gpu_setup_seconds": gpu_setup_seconds,
         "extraction_seconds": extraction_seconds,
         "transcription_seconds": transcription_seconds,
         "total_seconds": total_seconds,
