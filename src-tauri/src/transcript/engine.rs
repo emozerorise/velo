@@ -199,3 +199,16 @@ pub fn transcribe_chunked(
     on_progress(1.0);
     Ok((detected, segments))
 }
+
+#[cfg(all(test, target_os = "windows"))]
+mod gpu_build_tests {
+    use super::*;
+
+    #[test]
+    fn windows_transcription_build_enables_gpu() {
+        assert!(
+            WhisperContextParameters::default().use_gpu,
+            "Windows transcription was built without a GPU backend"
+        );
+    }
+}
