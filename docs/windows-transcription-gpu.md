@@ -11,7 +11,7 @@ no CUDA runtime or toolkit is required on the user's machine.
 
 Install Vulkan SDK 1.4.363.0 alongside the existing Windows build prerequisites.
 Set `VULKAN_SDK` to the SDK root and add its `Bin` directory to the build PATH.
-The Windows Preview workflow pins both the SDK and installer action revision,
+The Windows Preview workflow pins the official SDK installer version and SHA-256,
 runs format/clippy/tests, builds the NSIS bundle, and checks the installed app
 with a clean PATH. A regression test rejects CPU-only Windows builds.
 

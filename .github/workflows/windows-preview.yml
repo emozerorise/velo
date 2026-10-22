@@ -35,10 +35,25 @@ jobs:
         with:
           arch: x64
       - name: Install pinned Vulkan SDK for Whisper GPU compute
-        uses: humbletim/install-vulkan-sdk@30ba978f977e81b72d091fc8888feb1fb26f9aff # v1.2
-        with:
-          version: 1.4.363.0
-          cache: true
+        shell: pwsh
+        run: |
+          $version = '1.4.363.0'
+          $installer = Join-Path $env:RUNNER_TEMP 'vulkan-sdk.exe'
+          $sdk = Join-Path $env:RUNNER_TEMP "VulkanSDK-$version"
+          Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$version/windows/vulkansdk-windows-X64-$version.exe" -OutFile $installer
+          $expected = '94a82d378f7a5e3e54c9db7d2fb7016af136e14ac0a18dbf0f2f67a36352d141'
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -ne $expected) {
+            throw 'Vulkan SDK checksum mismatch'
+          }
+          # The Qt installer contains multiple archives; 7-Zip only extracts the tools.
+          # Copy-only installation avoids changing the runner's registry or system PATH.
+          $process = Start-Process -FilePath $installer -ArgumentList @('--root', "`"$sdk`"", '--accept-licenses', '--default-answer', '--confirm-command', 'install', 'copy_only=1') -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Vulkan SDK installer failed: $($process.ExitCode)" }
+          foreach ($relative in @('Include/vulkan/vulkan.h', 'Lib/vulkan-1.lib', 'Bin/glslc.exe')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $sdk $relative))) { throw "Vulkan SDK missing $relative" }
+          }
+          "VULKAN_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append
+          (Join-Path $sdk 'Bin') | Out-File -FilePath $env:GITHUB_PATH -Append
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
