@@ -53,7 +53,35 @@ pub fn transcribe(
     cancel: &Arc<AtomicBool>,
     on_progress: ProgressFn,
 ) -> Result<(String, Vec<TranscriptSegment>)> {
-    transcribe_chunked(
+    transcribe_with_device(
+        model,
+        samples,
+        language,
+        prompt,
+        cancel,
+        on_progress,
+        TranscriptionDevice::Auto,
+    )
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum TranscriptionDevice {
+    #[default]
+    Auto,
+    Cpu,
+}
+
+/// Uses the same decoding settings on either backend for local diagnostics.
+pub fn transcribe_with_device(
+    model: &Path,
+    samples: &[f32],
+    language: &str,
+    prompt: &str,
+    cancel: &Arc<AtomicBool>,
+    on_progress: ProgressFn,
+    device: TranscriptionDevice,
+) -> Result<(String, Vec<TranscriptSegment>)> {
+    transcribe_chunked_with_device(
         model,
         samples,
         language,
@@ -61,9 +89,9 @@ pub fn transcribe(
         cancel,
         on_progress,
         CHUNK_SECONDS,
+        device,
     )
 }
-
 /// The body of [`transcribe`], with the chunk length exposed: it is what
 /// carries the prompt and offsets timestamps, and covering it at the real
 /// five-minute default would need a fixture longer than any test wants to be.
@@ -77,6 +105,29 @@ pub fn transcribe_chunked(
     on_progress: ProgressFn,
     chunk_seconds: usize,
 ) -> Result<(String, Vec<TranscriptSegment>)> {
+    transcribe_chunked_with_device(
+        model,
+        samples,
+        language,
+        prompt,
+        cancel,
+        on_progress,
+        chunk_seconds,
+        TranscriptionDevice::Auto,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn transcribe_chunked_with_device(
+    model: &Path,
+    samples: &[f32],
+    language: &str,
+    prompt: &str,
+    cancel: &Arc<AtomicBool>,
+    on_progress: ProgressFn,
+    chunk_seconds: usize,
+    device: TranscriptionDevice,
+) -> Result<(String, Vec<TranscriptSegment>)> {
     if samples.is_empty() {
         return Err(VeloError::Player("There is no audio to transcribe".into()));
     }
@@ -85,11 +136,15 @@ pub fn transcribe_chunked(
     // stderr, outside the app's tracing setup.
     LOGGING_HOOK.call_once(whisper_rs::install_logging_hooks);
 
+    let mut context_params = WhisperContextParameters::default();
+    if matches!(device, TranscriptionDevice::Cpu) {
+        context_params.use_gpu(false);
+    }
     let ctx = WhisperContext::new_with_params(
         model
             .to_str()
             .ok_or_else(|| VeloError::InvalidParameter("Non-UTF8 model path".into()))?,
-        WhisperContextParameters::default(),
+        context_params,
     )
     .map_err(|e| VeloError::Player(format!("Could not load the whisper model: {}", e)))?;
 

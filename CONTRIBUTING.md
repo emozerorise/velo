@@ -3,11 +3,19 @@
 ## Windows Preview builds
 
 Use an x64 MSVC developer shell with Rust, Node.js, CMake, LLVM/libclang and
-7-Zip installed. Run `./scripts/setup-windows.ps1` before Cargo commands.
+7-Zip and Vulkan SDK 1.4.363.0 installed. Set `VULKAN_SDK` to the SDK root
+(with `Lib/vulkan-1.lib` and `Bin/glslc.exe`), then run `./scripts/setup-windows.ps1` before Cargo commands.
 This verifies the pinned libmpv checksum and creates the MSVC import library.
 Run `npm ci`, then `npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.preview.conf.json`.
 The Windows Preview workflow runs the checks and installs/launches the package
 with a clean PATH. It is not GPU/microphone acceptance on physical hardware.
+Windows transcription compiles whisper.cpp with Vulkan GPU compute, including
+NVIDIA RTX 50-series support, and retains whisper's CPU fallback. It uses the
+application-local Vulkan loader already bundled for mpv; users do not need a
+CUDA toolkit. macOS continues to use Metal. See
+[the local benchmark procedure](docs/windows-transcription-gpu.md) to compare
+both backends with the same recording and speech model.
+
 Preview data and credentials use `com.velo.preview`, not the production ID.
 Prereleases have no updater endpoints and never publish `latest.json`.
 
