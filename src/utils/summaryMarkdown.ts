@@ -5,7 +5,7 @@
  *  keeps model output out of `v-html`, and the citations become the buttons
  *  that make a summary a way to navigate the recording. */
 
-import type { SummaryFormat } from '@/types/settings';
+import type { MeetingDetail, SummaryFormat } from '@/types/settings';
 import type { TranscriptSegment } from '@/types/transcript';
 
 export type InlinePart =
@@ -53,6 +53,7 @@ export function groupSummarySections(
   markdown: string,
   format: SummaryFormat = 'meeting',
   sources?: TranscriptSegment[],
+  meetingDetail: MeetingDetail = 'standard',
 ): SummarySection[] {
   const kinds: Record<string, SummarySection['kind']> = {
     overview: 'overview',
@@ -106,7 +107,7 @@ export function groupSummarySections(
       other: 5,
     }[section.kind];
   };
-  return format === 'meeting'
+  return format === 'meeting' && meetingDetail !== 'detailed'
     ? sections.sort((a, b) => priority(a) - priority(b))
     : sections;
 }

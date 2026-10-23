@@ -1776,6 +1776,122 @@ verification. Live acceptance uses the same production runner, the original
 output directories. It does not alter production data or restart a running app.
 No push or release is authorized. Fresh outcomes are recorded in `design-qa.md`.
 
+#### Long-recording recovery (approved local change; 2026-10-23)
+
+The source chunk budget now reserves space for the prose-review instructions
+and quoted draft, not just the first answer. Oversized joined notes are packed
+in order into groups and condensed with the same citation checks. At most four
+condensing passes are allowed; a pass that does not shrink stops immediately.
+The app never drops a note to make the input fit. Every full draft, repair and
+review request still passes the byte/context guard before leaving the machine.
+
+An explicit output-limit finish is typed separately from network, authentication
+and provider failures for all three dialects. Only that request is restarted
+once with a smaller response target against the same supplied input; interrupted
+text is never continued or saved. Output caps stay in place. Summary streams
+must now include a completion marker: nonempty EOF alone is not success.
+Cancellation is checked before every retry and compaction request.
+
+Failures leave the previous complete cache untouched. The reader labels it as
+the previous summary and localises output-limit, context and incomplete-stream
+recovery messages. First-run failures never claim an older result exists.
+Synthetic loopback tests cover 1-, 2- and 3-hour timelines in all three formats,
+request budgets, exact source clocks, finite recovery and cache preservation.
+They prove orchestration, not real-provider summary quality or a duration-only
+guarantee.
+
+Approved follow-up (23 October): a DeepSeek output-limit retry now reserves
+extra output room, up to 8192 tokens, instead of only repeating the same hard
+cap with a shorter prose target. Smaller configured windows limit that extra
+room to one quarter of the context; existing initial caps are never lowered.
+Chunk sizing reserves the recovery ceiling before the first request, and every
+retry still checks its actual source/instruction bytes. The smaller prose
+target and the one-retry boundary remain; no interrupted text is reused.
+Review space is bounded by the answer allowance rather than always taking
+half a large window; small windows keep the conservative half-window split.
+This avoids unnecessary nonshrinking compaction when checked notes already
+fit a reviewed merge. The actual serialized review still passes the same
+request guard, and true oversize notes retain bounded reduction and failure.
+Ollama/OpenAI caps, reference validation and cache boundaries are unchanged.
+The user authorised additional DeepSeek calls using the existing 2322-segment
+cache for voice_214468.aac, testing all three formats in isolated directories.
+Live results are recorded separately from synthetic passes. No push or release
+is authorised.
+
+Approved reference-format follow-up: source-ID ranges (for example
+`[S001839-S001843]`) are expanded to individual IDs only when every ID in the
+ordered range belongs to the supplied source set. Range size is checked before
+allocation. Reversed, missing, overflowing or malformed ranges remain invalid,
+even beside an otherwise valid citation. Each resulting clock still comes
+from its own original source row; clock ranges are not guessed or normalised.
+
+Acceptance limitation (23 October): the fresh real2322-segment recording run
+completes meeting and key-point modes, but custom mode fails the actual request
+context guard while reducing notes. The three-format gate remains incomplete;
+no new Preview is opened or release permitted on the strength of unit tests.
+Further work needs a reviewed actual-size context-planning approach, not another
+unbounded prompt/cap retry. Exact failed-request sizes were not captured.
+
+Approved actual-size follow-up (23 October): the user delegated the remaining
+implementation choices without another design-approval round. Consecutive
+canonical source IDs in generated notes/drafts are compacted losslessly into
+ranges on the wire only; original transcript rows, prose, ID order and claim
+boundaries are unchanged. Validation still expands only complete supplied
+ranges, and each clock comes from its original row.
+
+Review and citation-repair requests measure the fully assembled system/user
+content, including the JSON-quoted candidate, against both the initial and
+recovery budgets. If that generated candidate does not fit, only the candidate
+is omitted: a mandatory independent corrected pass still receives the complete
+same supplied source and review/repair instructions. No original source is
+truncated or silently skipped. This is a UTF-8 byte measurement against the
+existing conservative context estimate, not an exact provider tokenizer.
+Note grouping/reduction uses the compact wire size while retaining canonical
+references for local validation. Bounded retries, cancellation and atomic cache
+commit remain unchanged. Debug diagnostics record numeric byte/token counts
+and phase only, never messages, headers or credentials.
+
+Regression tests reproduce oversized review/repair candidates and expanded
+reference runs before the fix. Fifteen long-recording cases now include the
+synthetic 1/2/3-hour, three-format matrix and source-preserving follow-up checks.
+Fresh real-file acceptance uses a new isolated output directory and the same
+32768-context settings; custom mode runs first and a failure stops later modes
+to avoid unnecessary API charges. Preview remains gated on all three passing.
+
+The first actual-size run finished custom mode without a context error, but
+its nine paragraphs violated the one-paragraph test prompt and copied excessive
+source-ID runs. The run was stopped before completing the other modes. Review
+and repair now repeat a compact selected-layout contract after the untrusted
+draft (inside the measured budget), not only before it. Citation instructions
+ask for the smallest sufficient supporting ID set, without truncating references
+locally or weakening ID validation. A new emitted-request regression covers
+both review and repair; all16 long-recording cases pass, including8192-context
+fallback. A fresh all-format run is required on this updated build.
+
+The next two live attempts reject unavailable source IDs (a gapped range,
+then an individual ID outside its excerpt). The bounded citation repair now
+receives the validator's actual error-kind/reference as at most256 quoted
+characters, without copying an uncited prose block. It restarts from complete
+supplied source without the invalid candidate. Each request also repeats its
+exact allowed source-ID set, losslessly range-compressed, as identity metadata
+explicitly distinguished from evidence. This does not add an extraction,
+ledger, semantic-certification or approval stage, does not remap unknown IDs,
+and does not add repair/retry iterations. The same final reference validator
+still rejects IDs not supplied to that request. Source and metadata bytes are
+included in the actual assembled-request guard; all17 long-recording cases
+pass, including the smaller-context boundaries. Real-file acceptance remains
+required before opening Preview.
+
+Technical acceptance completed (23 October): the same frozen build completes
+custom, meeting and key-point modes on the original2322-segment
+voice_214468.aac cache with deepseek-v4-pro and32768 context. The opt-in test
+exits0 and independent checks find no internal ID leakage, no invented clock,
+and the requested one-paragraph custom layout. This supersedes the earlier
+three-format technical blockers, not the documented ASR/semantic limitations.
+The isolated Preview is opened with the tested meeting result, the original
+cached transcript and paused playback; clicking00:08 seeks to00:08. Production
+data is unchanged, and no push or release is authorised/performed.
+
 ### Windows testing prerelease (2026-10-22)
 
 The user subsequently authorized publishing all accumulated work as
@@ -1825,3 +1941,167 @@ Windows checksum, uploads its installer, then publishes the macOS manifest
 and Latest. Existing Preview assets remain unchanged. Physical acceptance
 and the enterprise installation constraint are recorded in the GPU notes and
 stable changelog; this approval does not certify every device or bypass policy.
+
+### Detailed meeting summaries and manual playback (2026-10-23)
+
+The approved Native plan adds a `standard | detailed` meeting policy without
+another summary format or an evidence-ledger path. The default is standard;
+old/unknown settings and result metadata fall back without rewriting caches.
+The direct pipeline repeats detail preservation in notes, reduction, final and
+follow-up prompts. Other formats ignore the stored meeting preference. Output
+ceilings, bounded retries/reductions, source-ID validation and atomic saving
+remain unchanged. Detail is a coverage policy, not a claim of AI correctness.
+For complete notes, reduction is skipped when the exact mandatory final,
+source-only review and worst-case bounded repair messages already fit. Pure
+message builders are shared with real requests so an optional generated draft
+reserve cannot unnecessarily force otherwise fitting evidence into reduction.
+Genuinely oversized notes retain bounded grouping/consolidation and failure.
+
+Summary settings use three native-radio cards, meeting-only detail choices,
+static output guidance and an initially folded extra-instruction editor.
+Examples ask before replacing nonempty text. Only explicit Save persists the
+transaction; it never invokes AI. The reader follows cached-result metadata:
+detailed discussion opens in source section order; legacy/standard remains
+outcome-first and folded. The modal keeps a local scroll region and reachable
+footer and uses the existing en/th strings, font and theme system.
+
+Loading sets mpv pause before `loadfile`, including replacement and resume;
+the FILE_LOADED event mirrors actual pause instead of assuming Playing.
+Only explicit Play starts a newly loaded file. Seek still moves five seconds,
+but its redundant visible numerals are removed while accessible names/tooltips
+remain. No new queue/EOF autoplay behavior is introduced.
+
+Implementation/acceptance details live in
+`docs/superpowers/plans/2026-10-23-detailed-meeting-manual-playback.md` and
+`design-qa.md`. All work remains local; production app/data and publication
+are outside this task's authority.
+
+### 31.27 Complete source-owned summary parts (local; acceptance incomplete, 2026-10-23)
+
+The production runner now uses a single frozen transcript/settings snapshot and
+one shared generation session. A fitting small source keeps its direct path.
+Larger sources are partitioned on whole original rows (24KiB target, optional
+two-row boundary context); each row has exactly one owner and stable original
+source IDs. Output-limit recovery starts a fresh request, never appends partial
+text; bounded initial splitting keeps at most32 terminal parts, depth3, and
+128 physical requests for the entire job.
+
+The writer produces complete final-form parts rather than intermediate notes.
+A layout-only custom contract is frozen once; strict global quotas are rejected
+for multipart jobs rather than multiplied or satisfied by dropping source.
+Two bounded original-source sweeps compare every terminal candidate against
+every raw review window. The first gathers routes to whole-part replacement
+with full flagged source windows; the second must be stable. Independent12KiB
+review windows plus whole boundary rows limit remote context without cutting
+source. Routing IDs are transient control data, not a fact/evidence ledger.
+
+The app composes the final body locally from independently validated complete
+parts. Built-in layouts get one short reviewed overview, also included in the
+second source sweep; custom one-paragraph output receives no imposed headings.
+Only exact text/reference/destination duplicates can collapse. There is no
+global full-body AI rewrite. Original clocks are rendered at the final atomic
+save; failed/cancelled jobs retain the previous cache and chat context.
+
+The UI reports writing/checking/replacement/assembly stages without claiming
+an overall percentage. All are cancellable and count as the summary step in a
+chained run. Bounded failures are localized, including explicit old-result
+wording only when an earlier result exists. No new dependencies or persisted
+claim schema were added; archived evidence code is not the active runner.
+
+Local checks and native paused-loading fixtures pass, but real acceptance is
+NOT complete: on the unchanged2322-row voice_214468 transcript, the custom
+case failed summary_layout_unsupported during whole-part replacement after44
+DeepSeek requests. The remaining three variants were not billed, no result
+was saved, and the new Preview was not opened. This is a format-validation
+failure, not proof of source-semantic correctness or of general1–3h support.
+The approved fail-fast boundary remains; no automatic paid rerun or cap bump.
+
+See docs/superpowers/plans/2026-10-23-complete-part-summary.md and design-qa.md
+for the execution record. All changes remain uncommitted/local.
+
+Approved replacement-format follow-up: repeat the frozen layout and owned
+interval after the untrusted review/repair draft, and measure that exact
+ending in preflight. Already-cited plain paragraphs may join by whitespace,
+as in the existing final single-paragraph composer; no words, references,
+headings or lists are removed to fake compliance. Invalid generated shapes
+have a different localized failure from unsupported user layouts. Structural
+diagnostics contain counts, never rejected prose or credentials.
+
+DeepSeek control requests now use native JSON Output via response_format
+json_object; normal prose/chat and non-DeepSeek dialects are unchanged. This
+is a syntax constraint, not schema/identity/semantic certification. Strict
+routing validation and both source sweeps remain. See the official guide at
+https://api-docs.deepseek.com/guides/json_mode/ . No retry/part/call cap grew.
+
+The user narrowed the new paid acceptance to custom, meeting and key points.
+The layout fix passes its actual replacement phase, but acceptance still
+fails: the final frozen build's custom result reaches second-sweep window5
+and is flagged unstable after59 calls. Meeting and key points are not billed.
+No cache is saved or Preview opened. A routing flag alone cannot distinguish
+an actual missed condition from a reviewer false positive; investigate that
+with explicit diagnostic artifacts before altering fidelity criteria or
+adding another rewrite loop. Local gates pass; this is not a completed handoff.
+
+Targeted diagnostic follow-up (user-approved private test artifacts): raw
+partial-window routing flags are provisional, not material-error verdicts.
+The captured second sweep flags the closing go-live part from an unrelated
+early requirements window. Two focused comparisons with complete original
+ownership find no cross-window contradiction; this does not certify every
+ASR repair or date in those candidates. Before replacing or rejecting a routed
+part, confirm it once against its complete original supplied/owned rows and
+the whole flagged windows. Overview confirmation uses cited original rows
+with boundary context, never generated notes as evidence. Malformed routing,
+oversize context, exhausted global128-call budget or cancellation still fails
+without saving. A confirmed second-sweep material problem still stops the job;
+false signals cannot skip the remaining source-window/candidate comparisons.
+This adds a bounded read-only confirmation within each sweep, not a third
+rewrite loop, evidence ledger or higher request/recovery limit.
+
+
+### 31.28 Direct-first summary (2026-10-23; supersedes 31.27)
+
+The user explicitly replaced AI review/rewrite gates with a simple generation
+path. The exact source plus prompt/output reserve is checked first; fitting
+input uses one request. Larger input is partitioned on whole source rows by
+request capacity, without the previous fixed 24KiB target. Each excerpt is
+summarized once, then all chronological excerpt summaries are combined once.
+There is no layout-classification call, citation repair, consistency sweep,
+whole-part replacement, AI confirmation, or recursive note reduction.
+
+An output-limit response is never saved or fed into a follow-up. Source-only
+requests may split into smaller row ranges (32 terminal parts, depth 3, total
+64 requests maximum). A single indivisible row or an overflowing final
+combination fails without another model call. Non-limit provider errors and
+invalid references fail immediately. Existing cache data stays intact until
+one successful atomic save. Source IDs still resolve to original timestamps;
+this structural validation does not certify semantics or completeness.
+
+DeepSeek gets 4096 tokens for excerpt summaries and 8192 for the final answer,
+capped at one quarter of the configured context; other provider limits stay
+unchanged. The existing conservative UTF-8 budget includes actual instructions
+and output reserve. No settings, provider endpoint, dependency or release
+version changes. Superseded review-protocol tests are replaced by public
+pipeline regressions for request count, full source coverage, bounded splitting,
+provider errors, citation scope, final overflow, cancellation and atomic saves.
+
+Implementation plan: docs/superpowers/plans/2026-10-23-simple-summary.md.
+Live acceptance results are recorded in design-qa.md; mocked tests are not
+semantic accuracy evidence. No push or release is authorized.
+
+
+Final-combination reference normalization (same simple path): a generated
+reference absent from the supplied notes is removed locally, without changing
+prose or inventing a replacement ID. The existing validator then requires a
+supplied reference in every factual block; an unreferenced block still fails.
+Direct/excerpt responses retain strict validation. This handles reference
+formatting without an AI repair request and does not certify claim support.
+
+
+When built-in meeting/key-point excerpt summaries cannot fit one final request,
+or that final answer reaches its output cap, the app now renders the already
+complete excerpts in chronological numbered sections. It retains every word
+and valid reference and does not call a reduction model. Custom layouts still
+fail explicitly if their single final answer cannot fit, rather than silently
+changing the requested layout. Excerpt prompts aim for2000 tokens without
+truncating source or making another repair call. This bounds unnecessary
+output-limit splits while the existing4096-token excerpt cap remains.

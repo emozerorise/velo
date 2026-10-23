@@ -80,8 +80,13 @@ const legacySteps = [
   "summary.progressArrange",
 ] as const;
 const direct = computed(() => !['extracting_evidence', 'checking_evidence', 'composing_summary', 'reviewing'].includes(props.stage ?? ''));
-const steps = computed(() => direct.value ? ['summary.progressRead', 'summary.writingDirect', 'summary.checkingReferences'] as const : legacySteps);
+const multipart = computed(() => ['writing_parts', 'checking_consistency', 'replacing_parts', 'assembling_summary'].includes(props.stage ?? ''));
+const steps = computed(() => multipart.value
+  ? ['summary.writingPartsLabel', 'summary.assemblingParts', 'summary.checkingReferences'] as const
+  : direct.value ? ['summary.progressRead', 'summary.writingDirect', 'summary.checkingReferences'] as const : legacySteps);
 const activeStep = computed(() => {
+  if (props.stage === 'assembling_summary') return 1;
+  if (props.stage === 'checking_consistency' || props.stage === 'replacing_parts') return 1;
   if (props.stage === 'checking_references') return 2;
   if (props.stage === 'writing_summary' || props.stage === 'reducing') return 1;
   if (props.stage === "composing_summary") return 2;

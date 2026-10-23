@@ -65,29 +65,8 @@ impl PlayerManager {
         info!("Loading file: {} (resume at {:?})", path, start_time);
         *self.state.lock() = PlaybackState::Loading;
 
-        if let Some(pos) = start_time {
-            let start_arg = format!("start={}", pos);
-
-            // mpv 0.38 inserted a playlist index as `loadfile`'s third
-            // argument, moving per-file options to the fourth. Passing the
-            // options where the index now belongs makes mpv reject the whole
-            // command, so a file with a saved position simply refuses to open.
-            // Try the current form first and fall back for older libmpv,
-            // rather than picking one and breaking half the installs.
-            if self
-                .core
-                .command(&["loadfile", path, "replace", "-1", &start_arg])
-                .is_err()
-            {
-                self.core
-                    .command(&["loadfile", path, "replace", &start_arg])?;
-            }
-        } else {
-            self.core.command(&["loadfile", path, "replace"])?;
-        }
-
-        self.platform.lock().prevent_sleep(true);
-        Ok(())
+        self.platform.lock().prevent_sleep(false);
+        super::loading::load_paused(&self.core, path, start_time)
     }
 
     pub fn play(&self) -> Result<()> {
@@ -202,5 +181,108 @@ impl Drop for PlayerManager {
         unsafe {
             crate::player::render::destroy()
         };
+    }
+}
+
+#[cfg(test)]
+mod manual_loading_tests {
+    use super::*;
+    use crate::player::ffi::{mpv_event_id, mpv_wait_event};
+    use std::time::{Duration, Instant};
+
+    fn fixture() -> Option<(PlayerManager, String)> {
+        let path = std::env::var("VELO_TEST_MEDIA").ok()?;
+        assert!(std::path::Path::new(&path).is_file());
+        let manager = PlayerManager::new().unwrap();
+        manager.core.initialize(None).unwrap();
+        manager.core.set_property_string("vo", "null").unwrap();
+        manager.core.set_property_double("volume", 0.0).unwrap();
+        Some((manager, path))
+    }
+
+    fn loaded(manager: &PlayerManager) {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while Instant::now() < deadline {
+            unsafe {
+                let event = mpv_wait_event(manager.core.raw_handle(), 0.1);
+                if !event.is_null() && (*event).event_id == mpv_event_id::MPV_EVENT_FILE_LOADED {
+                    return;
+                }
+            }
+        }
+        panic!("mpv did not load the fixture within 20 seconds");
+    }
+
+    fn assert_paused(manager: &PlayerManager) {
+        assert_eq!(manager.core.get_property_bool("pause"), Some(true));
+        assert!(matches!(
+            super::super::events::loaded_state(&manager.core),
+            PlaybackState::Paused
+        ));
+        let before = manager.core.get_property_double("time-pos").unwrap();
+        std::thread::sleep(Duration::from_millis(250));
+        let after = manager.core.get_property_double("time-pos").unwrap();
+        assert!(
+            (after - before).abs() < 0.05,
+            "paused position advanced: {before} -> {after}"
+        );
+    }
+
+    #[test]
+    fn newly_loaded_file_waits_for_play() {
+        let Some((manager, path)) = fixture() else {
+            return;
+        };
+        manager.load_file(&path, None).unwrap();
+        loaded(&manager);
+        assert_paused(&manager);
+    }
+
+    #[test]
+    fn replacing_a_playing_file_loads_paused() {
+        let Some((manager, path)) = fixture() else {
+            return;
+        };
+        manager.load_file(&path, None).unwrap();
+        loaded(&manager);
+        manager.play().unwrap();
+        assert_eq!(manager.core.get_property_bool("pause"), Some(false));
+        assert_eq!(
+            super::super::events::loaded_state(&manager.core),
+            PlaybackState::Playing
+        );
+        manager.load_file(&path, Some(30.0)).unwrap();
+        loaded(&manager);
+        assert_paused(&manager);
+    }
+
+    #[test]
+    fn resume_waits_for_explicit_play_and_seeking_does_not_start_it() {
+        let Some((manager, path)) = fixture() else {
+            return;
+        };
+        manager.load_file(&path, Some(30.0)).unwrap();
+        loaded(&manager);
+        assert_paused(&manager);
+        assert!(manager.core.get_property_double("time-pos").unwrap() >= 29.0);
+        manager.seek_absolute(60.0).unwrap();
+        // A seek moves the clock asynchronously even while paused. Wait for
+        // that requested jump before measuring whether playback advances.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while (manager.core.get_property_double("time-pos").unwrap_or(0.0) - 60.0).abs() > 0.1 {
+            assert!(Instant::now() < deadline, "seek did not reach its target");
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_paused(&manager);
+        manager.play().unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if manager.core.get_property_double("time-pos").unwrap_or(0.0) > 60.1 {
+                manager.pause().unwrap();
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        panic!("explicit Play did not advance the recording");
     }
 }

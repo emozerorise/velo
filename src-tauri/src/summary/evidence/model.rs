@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub struct EvidenceModel<'a> {
     pub input: &'a JobInput,
     pub cancel: &'a AtomicBool,
-    pub observer: &'a dyn super::super::pipeline::EvidenceObserver,
+    pub observer: &'a dyn super::super::evidence_pipeline::EvidenceObserver,
 }
 impl EvidenceModel<'_> {
     pub fn check_cancel(&self) -> Result<()> {

@@ -11,6 +11,8 @@ pub mod chunk;
 pub mod credentials;
 mod evidence;
 pub mod evidence_pipeline;
+mod generation;
+mod parts;
 pub mod pipeline;
 pub mod prompt;
 pub mod store;

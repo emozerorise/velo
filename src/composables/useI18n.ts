@@ -13,7 +13,7 @@ const messages: Record<Locale, Messages> = { en, th };
 
 // Module-level so every component shares one locale and re-renders together
 // when it changes. The settings store owns what it is set to.
-const locale = ref<Locale>('en');
+const locale = ref<Locale>('th');
 
 function isSupported(value: string): value is Locale {
   return SUPPORTED_LOCALES.some((l) => l.code === value);

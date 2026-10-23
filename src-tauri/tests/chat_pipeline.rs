@@ -528,6 +528,7 @@ fn summary_without_cloud_key_remains_readable() {
     let root = Fixture::new();
     let store = SummaryStore::open(root.0.join("summaries")).unwrap();
     let summary = Summary {
+        meeting_detail: Default::default(),
         format: Default::default(),
         path: root.media(),
         model: "synthetic".into(),
@@ -574,6 +575,7 @@ async fn chat_never_writes_summary_or_transcript_cache() {
         .unwrap();
     summaries
         .save(&Summary {
+            meeting_detail: Default::default(),
             format: Default::default(),
             path: alias,
             model: "synthetic".into(),
@@ -706,6 +708,7 @@ fn canonical_cache_miss_uses_latest_alias_without_migrating_files() {
             .unwrap();
         summaries
             .save(&Summary {
+                meeting_detail: Default::default(),
                 format: Default::default(),
                 path,
                 language: "en".into(),

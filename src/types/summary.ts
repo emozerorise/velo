@@ -1,8 +1,9 @@
-import type { SummaryFormat } from './settings';
+import type { MeetingDetail, SummaryFormat } from './settings';
 
 export interface Summary {
   /** Older caches predate format selection and use the meeting layout. */
   format?: SummaryFormat;
+  meeting_detail?: MeetingDetail;
   path: string;
   model: string;
   language: string;
@@ -27,7 +28,8 @@ export interface SummaryStatus {
 
 export type SummaryStage = 'mapping' | 'reducing' | 'reviewing'
   | 'extracting_evidence' | 'checking_evidence' | 'composing_summary'
-  | 'writing_summary' | 'checking_references';
+  | 'writing_summary' | 'checking_references'
+  | 'writing_parts' | 'checking_consistency' | 'replacing_parts' | 'assembling_summary';
 
 /** Every step the one-click run passes through, in order. */
 export type ChainStage =

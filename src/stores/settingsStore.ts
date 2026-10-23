@@ -8,6 +8,7 @@ import {
 import type {
   AppSettings,
   SummaryFormat,
+  MeetingDetail,
   TranscriptionDevice,
 } from "@/types/settings";
 import { setLocale } from "@/composables/useI18n";
@@ -31,10 +32,10 @@ export const useSettingsStore = defineStore("settings", () => {
     general: {
       font_family: defaultFont,
       theme: "dark",
-      language: "en",
+      language: "th",
       remember_playback_position: true,
       auto_play_next: true,
-      show_summary_timestamps: true,
+      show_summary_timestamps: false,
     },
     video: {
       hardware_acceleration: true,
@@ -59,6 +60,7 @@ export const useSettingsStore = defineStore("settings", () => {
     },
     summary: {
       format: "meeting",
+      meeting_detail: "standard",
       provider: "ollama",
       base_url: "http://localhost:11434",
       model: "qwen3:30b-instruct",
@@ -134,6 +136,7 @@ export const useSettingsStore = defineStore("settings", () => {
   }
   async function saveSummaryOptions(options: {
     format?: SummaryFormat;
+    meeting_detail?: MeetingDetail;
     showTimestamps?: boolean;
     instructions?: string;
   }): Promise<boolean> {
@@ -150,6 +153,7 @@ export const useSettingsStore = defineStore("settings", () => {
       if (options.instructions !== undefined)
         next.summary.instructions = options.instructions;
       if (options.format !== undefined) next.summary.format = options.format;
+      if (options.meeting_detail !== undefined) next.summary.meeting_detail = options.meeting_detail;
       try {
         await settingsService.save(next);
         // Commit only these fields after disk succeeds; a failed save must not
@@ -161,6 +165,8 @@ export const useSettingsStore = defineStore("settings", () => {
           settings.value.summary.instructions = options.instructions;
         if (options.format !== undefined)
           settings.value.summary.format = options.format;
+        if (options.meeting_detail !== undefined)
+          settings.value.summary.meeting_detail = options.meeting_detail;
         return true;
       } catch (error) {
         console.error("Failed to save summary options:", error);

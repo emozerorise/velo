@@ -85,7 +85,7 @@ export const useSummaryStore = defineStore('summary', () => {
   const step = computed(() => {
     if (!chained.value || stage.value === null) return 0;
     const at = CHAIN_STEPS.indexOf(
-      ['reducing', 'reviewing', 'extracting_evidence', 'checking_evidence', 'composing_summary', 'writing_summary', 'checking_references'].includes(stage.value) ? 'mapping' : stage.value,
+      ['reducing', 'reviewing', 'extracting_evidence', 'checking_evidence', 'composing_summary', 'writing_summary', 'checking_references', 'writing_parts', 'checking_consistency', 'replacing_parts', 'assembling_summary'].includes(stage.value) ? 'mapping' : stage.value,
     );
     return at < 0 ? 0 : at + 1;
   });
@@ -95,7 +95,7 @@ export const useSummaryStore = defineStore('summary', () => {
     if (stage.value === 'extracting' || stage.value === 'transcribing') {
       return transcripts.progress;
     }
-    if (stage.value === 'mapping' && mapTotal.value > 0) {
+    if (['mapping', 'reducing'].includes(stage.value ?? '') && mapTotal.value > 0) {
       return mapped.value / mapTotal.value;
     }
     return -1;
@@ -311,7 +311,11 @@ export const useSummaryStore = defineStore('summary', () => {
         running === 'checking_evidence' ||
         running === 'composing_summary' ||
         running === 'writing_summary' ||
-        running === 'checking_references'
+        running === 'checking_references' ||
+        running === 'writing_parts' ||
+        running === 'checking_consistency' ||
+        running === 'replacing_parts' ||
+        running === 'assembling_summary'
       ) {
         await summaryService.cancel();
       } else {

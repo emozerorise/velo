@@ -19,6 +19,16 @@ pub const OBSERVE_MUTE: u64 = 5;
 pub const OBSERVE_SPEED: u64 = 6;
 pub const OBSERVE_EOF: u64 = 7;
 
+pub(super) fn loaded_state(core: &MpvCore) -> PlaybackState {
+    // Loading a file no longer implies Play; mirror mpv even when no new
+    // pause-property event follows FILE_LOADED (for example on replacement).
+    if core.get_property_bool("pause") == Some(false) {
+        PlaybackState::Playing
+    } else {
+        PlaybackState::Paused
+    }
+}
+
 pub struct EventLoop {
     running: Arc<AtomicBool>,
 }
@@ -81,8 +91,7 @@ impl EventLoop {
                                 };
 
                                 let _ = app_handle.emit("velo://media-loaded", &media_info);
-                                let _ =
-                                    app_handle.emit("velo://player-state", PlaybackState::Playing);
+                                let _ = app_handle.emit("velo://player-state", loaded_state(&core));
 
                                 // Fetch tracks
                                 Self::emit_tracks(&core, &app_handle);

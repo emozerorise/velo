@@ -19,7 +19,7 @@ pub struct GeneralSettings {
 }
 
 fn default_show_summary_timestamps() -> bool {
-    true
+    false
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,6 +89,15 @@ pub enum SummaryFormat {
     Meeting,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MeetingDetail {
+    Detailed,
+    #[default]
+    #[serde(other)]
+    Standard,
+}
+
 /// Where summaries come from. `provider` picks the transport and is set
 /// explicitly rather than inferred from the URL: LM Studio speaks the OpenAI
 /// dialect on loopback, and Ollama can sit behind a remote hostname, so host
@@ -97,6 +106,8 @@ pub enum SummaryFormat {
 pub struct SummarySettings {
     #[serde(default)]
     pub format: SummaryFormat,
+    #[serde(default)]
+    pub meeting_detail: MeetingDetail,
     /// "ollama" | "openai" | "deepseek"
     pub provider: String,
     /// The provider's documented base URL, including a version segment
@@ -119,6 +130,7 @@ impl Default for SummarySettings {
     fn default() -> Self {
         Self {
             format: SummaryFormat::Meeting,
+            meeting_detail: MeetingDetail::Standard,
             provider: "ollama".into(),
             base_url: "http://localhost:11434".into(),
             model: "qwen3:30b-instruct".into(),
@@ -170,10 +182,10 @@ impl Default for AppSettings {
             version: 1,
             general: GeneralSettings {
                 theme: "dark".into(),
-                language: "en".into(),
+                language: "th".into(),
                 remember_playback_position: true,
                 auto_play_next: true,
-                show_summary_timestamps: true,
+                show_summary_timestamps: false,
                 font_family: FontFamily::default(),
             },
             video: VideoSettings {
@@ -325,6 +337,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn meeting_detail_round_trips_and_legacy_values_do_not_reset_other_settings() {
+        for (detail, expected) in [
+            (None, "standard"),
+            (Some("future"), "standard"),
+            (Some("detailed"), "detailed"),
+        ] {
+            let mut raw = serde_json::to_value(AppSettings::default()).unwrap();
+            raw["summary"]["model"] = serde_json::json!("existing-model");
+            raw["summary"]["instructions"] = serde_json::json!("Existing personal instructions");
+            raw["general"]["language"] = serde_json::json!("th");
+            raw["summary"]
+                .as_object_mut()
+                .unwrap()
+                .remove("meeting_detail");
+            if let Some(detail) = detail {
+                raw["summary"]["meeting_detail"] = serde_json::json!(detail);
+            }
+            let settings: AppSettings = serde_json::from_value(raw).unwrap();
+            let saved = serde_json::to_value(settings).unwrap();
+            assert_eq!(saved["summary"]["meeting_detail"], expected);
+            assert_eq!(saved["summary"]["model"], "existing-model");
+            assert_eq!(
+                saved["summary"]["instructions"],
+                "Existing personal instructions"
+            );
+            assert_eq!(saved["general"]["language"], "th");
+        }
+    }
+
+    #[test]
     fn summary_format_defaults_without_resetting_existing_preferences() {
         let mut value = serde_json::to_value(AppSettings::default()).unwrap();
         value["summary"]["model"] = serde_json::json!("saved-model");
@@ -439,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn legacy_settings_show_summary_timestamps_without_resetting_preferences() {
+    fn legacy_settings_hide_summary_timestamps_without_resetting_preferences() {
         let mut legacy = serde_json::to_value(AppSettings::default()).unwrap();
         legacy["general"]
             .as_object_mut()
@@ -449,7 +491,7 @@ mod tests {
         legacy["general"]["language"] = serde_json::json!("th");
         let parsed: AppSettings = serde_json::from_value(legacy).unwrap();
         let saved = serde_json::to_value(parsed).unwrap();
-        assert_eq!(saved["general"]["show_summary_timestamps"], true);
+        assert_eq!(saved["general"]["show_summary_timestamps"], false);
         assert_eq!(saved["general"]["language"], "th");
         assert_eq!(saved["summary"]["instructions"], "Keep the agreed owner");
     }

@@ -316,6 +316,7 @@ describe("inline chat handlers", () => {
     view.unmount();
   });
   it("a chat citation seeks to the absolute source time instead of adding an offset", () => {
+    useSettingsStore().settings.general.show_summary_timestamps = true;
     usePlayerStore().currentTime = 134;
     const view = mountView(
       ChatMessage,
@@ -341,6 +342,7 @@ describe("inline chat handlers", () => {
     view.unmount();
   });
   it("formatted headings and bold list citations keep seeking and the shared timestamp toggle", async () => {
+    useSettingsStore().settings.general.show_summary_timestamps = true;
     const view = mountView(
       ChatMessage,
       {
@@ -549,7 +551,7 @@ describe("inline chat handlers", () => {
     );
     const dialog = view.nodes().find((node) => node.props.role === "dialog");
     expect(dialog?.props["aria-modal"]).toBe("true");
-    expect(dialog?.props["aria-label"]).toBe("Your summary prompt");
+    expect(dialog?.props["aria-label"]).toBe("Summary settings");
     const close = view
       .nodes()
       .find(
