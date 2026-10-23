@@ -77,6 +77,7 @@ async fn run_inner(
     observer.record("composed", &serde_json::json!({"markdown":markdown}))?;
     model.check_cancel()?;
     let summary = Summary {
+        meeting_detail: Default::default(),
         format: resolved.settings.format,
         path: resolved.path,
         model: resolved.settings.model,

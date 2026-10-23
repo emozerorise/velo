@@ -92,6 +92,7 @@
               :title="store.summary?.model"
             >
               {{ t(`summary.format.${savedFormat}`) }} ·
+              <span v-if="savedFormat === 'meeting' && savedDetail === 'detailed'" data-testid="saved-summary-detail">{{ t('summary.detail.detailed') }} ·</span>
               {{ store.summary?.model }}
             </span>
           </div>
@@ -153,9 +154,14 @@
           <p v-if="optionsError" role="alert" class="text-xs text-danger">
             {{ optionsError }}
           </p>
-          <p v-if="store.error" role="alert" class="text-xs text-danger">
-              {{ displayError }}
-          </p>
+          <div
+            v-if="store.error"
+            role="alert"
+            class="rounded-xl border border-warning/25 bg-warning/10 px-4 py-3 text-sm leading-relaxed"
+          >
+            <p class="font-semibold text-fg/90">{{ t('summary.previousShown') }}</p>
+            <p class="mt-1 text-fg/65">{{ displayError }}</p>
+          </div>
         </div>
 
         <p
@@ -194,6 +200,7 @@
                   sections.some((item) => item.kind !== 'topics' && item.nodes.length > 0)
                 "
                 class="summary-card group"
+                :open="savedDetail === 'detailed'"
               >
                 <summary
                   class="flex items-center gap-2 p-4 cursor-pointer list-none text-sm font-semibold text-fg/85 focus-visible:outline focus-visible:outline-accent rounded-2xl"
@@ -406,7 +413,7 @@ const copied = ref(false);
 const promptOpen = ref(false);
 const optionsError = ref('');
 const showTimestamps = computed(
-  () => settings.settings.general.show_summary_timestamps !== false,
+  () => settings.settings.general.show_summary_timestamps === true,
 );
 async function toggleTimestamps() {
   if (settings.summaryOptionsSaving) return;
@@ -423,14 +430,34 @@ const isOllama = computed(
   () =>
     (store.status?.provider ?? settings.settings.summary.provider) === 'ollama',
 );
-const displayError = computed(() => store.error === 'unsupported_summary_layout'
-  ? t('summary.unsupportedLayout') : store.error);
+const displayError = computed(() => {
+  const error = store.error ?? '';
+  const boundedErrors = {
+    summary_work_limit: 'summary.workLimit',
+    summary_review_unstable: 'summary.reviewUnstable',
+    summary_review_invalid: 'summary.reviewInvalid',
+    summary_layout_unsupported: 'summary.layoutUnsupportedParts',
+    summary_part_layout_invalid: 'summary.partLayoutInvalid',
+    summary_no_supported_content: 'summary.noSupportedContent',
+  } as const;
+  if (Object.hasOwn(boundedErrors, error))
+    return t(boundedErrors[error as keyof typeof boundedErrors]);
+  if (error === 'unsupported_summary_layout') return t('summary.unsupportedLayout');
+  if (error === 'summary_output_limit' || error.includes('reached the output limit'))
+    return t('summary.outputLimit');
+  if (error === 'summary_context_limit' || error.includes('context budget'))
+    return t('summary.contextLimit');
+  if (error.includes('ended before completion')) return t('summary.incomplete');
+  return error;
+});
 const savedFormat = computed(() => store.summary?.format ?? 'meeting');
+const savedDetail = computed(() => store.summary?.meeting_detail ?? 'standard');
 const sections = computed(() =>
   groupSummarySections(
-    store.summary?.markdown ?? '', savedFormat.value,
+    summaryForCopy(store.summary?.markdown ?? '', showTimestamps.value), savedFormat.value,
     transcripts.transcript?.path === store.summary?.path
       ? transcripts.transcript?.segments ?? [] : [],
+    savedDetail.value,
   ),
 );
 function sectionIcon(kind: SummarySection['kind']) {
@@ -450,7 +477,19 @@ const providerHost = computed(() => {
 });
 
 const stageLabel = computed(() => {
+  const total = Math.max(1, store.mapTotal);
+  const done = Math.min(total, Math.max(1, store.mapped + 1));
   switch (store.stage) {
+    case 'writing_parts':
+      return t('summary.writingParts', { done, total });
+    case 'checking_consistency':
+      return t('summary.checkingConsistency', { done, total });
+    case 'replacing_parts':
+      return t('summary.replacingParts');
+    case 'assembling_summary':
+      return t('summary.assemblingParts');
+    case 'reducing':
+      return t('summary.reducing', { done: store.mapped + 1, total: store.mapTotal });
     case 'writing_summary':
       return t('summary.writingDirect');
     case 'checking_references':

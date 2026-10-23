@@ -77,6 +77,7 @@ pub enum Frame {
     Done,
     DoneText(String),
     Failed(&'static str),
+    OutputLimit(&'static str),
 }
 
 pub trait ChatDialect: Send + Sync {
@@ -144,6 +145,9 @@ impl ChatDialect for Ollama {
 
         let message = &value["message"];
         if value["done"].as_bool().unwrap_or(false) {
+            if value["done_reason"].as_str() == Some("length") {
+                return Frame::OutputLimit("The model reached the output limit");
+            }
             return match message["content"].as_str() {
                 Some(text) if !text.is_empty() => Frame::DoneText(text.to_string()),
                 _ => Frame::Done,
@@ -226,6 +230,7 @@ impl ChatDialect for OpenAi {
 
         let delta = &value["choices"][0]["delta"];
         match value["choices"][0]["finish_reason"].as_str() {
+            Some("length") => return Frame::OutputLimit("The provider reached the output limit"),
             Some("stop") => {
                 return match delta["content"].as_str() {
                     Some(text) if !text.is_empty() => Frame::DoneText(text.to_string()),
@@ -295,7 +300,7 @@ impl ChatDialect for DeepSeek {
             .and_then(|payload| serde_json::from_str::<Value>(payload.trim()).ok());
         if let Some(value) = value.as_ref() {
             match value["choices"][0]["finish_reason"].as_str() {
-                Some("length") => return Frame::Failed(
+                Some("length") => return Frame::OutputLimit(
                     "DeepSeek reached the output limit. The partial summary was not saved; try a more concise summary in Extra instructions."
                 ),
                 Some("content_filter") => return Frame::Failed(
@@ -426,7 +431,14 @@ fn model_error(code: ModelErrorCode, message: impl Into<String>) -> VeloError {
     }
 }
 fn legacy_error(error: VeloError) -> VeloError {
-    VeloError::Summary(error.to_string())
+    // Summary recovery needs the category, not a match against vendor wording.
+    match error {
+        error @ VeloError::Model {
+            code: ModelErrorCode::OutputLimit,
+            ..
+        } => error,
+        _ => VeloError::Summary(error.to_string()),
+    }
 }
 
 fn transport_error(e: reqwest::Error) -> VeloError {
@@ -513,7 +525,7 @@ pub async fn stream_chat(
         dialect.body(req),
         &req.model,
         CancelSignal::Legacy(cancel),
-        false,
+        true,
         on_text,
         on_thinking,
     )
@@ -657,6 +669,9 @@ async fn stream_body(
                 Frame::Done => {}
                 Frame::Failed(message) => {
                     return Err(model_error(ModelErrorCode::Provider, message))
+                }
+                Frame::OutputLimit(message) => {
+                    return Err(model_error(ModelErrorCode::OutputLimit, message))
                 }
                 Frame::Text(text) | Frame::DoneText(text) => {
                     let text = match stripper.as_mut() {

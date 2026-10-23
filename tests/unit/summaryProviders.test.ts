@@ -22,6 +22,7 @@ describe('summary provider presets', () => {
     const selected = selectSummaryProvider(current, 'deepseek');
     expect(selected).toEqual({
       format: 'custom',
+      meeting_detail: 'standard',
       provider: 'deepseek',
       base_url: 'https://api.deepseek.com',
       model: 'deepseek-flash',

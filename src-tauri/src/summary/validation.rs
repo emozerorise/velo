@@ -91,6 +91,7 @@ pub fn blocks(markdown: &str) -> Vec<Block> {
     result
 }
 
+#[cfg(test)]
 pub fn source_labels(source: &str) -> BTreeSet<&str> {
     source
         .lines()
@@ -111,7 +112,7 @@ pub fn note_labels(notes: &str) -> BTreeSet<&str> {
             (label.contains(':')
                 || label
                     .strip_prefix('S')
-                    .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit())))
+                    .is_some_and(|id| id.as_bytes().first().is_some_and(u8::is_ascii_digit)))
             .then_some(label)
         })
         .collect()
@@ -141,24 +142,90 @@ pub fn validate(markdown: &str, labels: &BTreeSet<&str>) -> std::result::Result<
     Ok(())
 }
 
-/// Numeric identity is unchanged by leading zeroes; never infer a missing source.
+/// Numeric identity and complete supplied ranges are exact, not guessed sources.
 pub fn canonical_references(markdown: &str, labels: &BTreeSet<&str>) -> String {
     let mut result = markdown.to_owned();
     for label in note_labels(markdown) {
-        let Some(digits) = label.strip_prefix('S') else {
+        let number = |part: &str| -> Option<usize> {
+            let digits = part.trim().strip_prefix('S')?;
+            if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            digits.parse().ok().filter(|n| *n > 0)
+        };
+        let mut parts = label.split(['-', '–', '—']);
+        let Some(start) = parts.next().and_then(number) else {
             continue;
         };
-        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        let end = match parts.next() {
+            Some(part) => match number(part) {
+                Some(end) if parts.next().is_none() => end,
+                _ => continue,
+            },
+            None => start,
+        };
+        // Bound allocation before iterating a model-supplied numeric range.
+        let Some(count) = end.checked_sub(start).and_then(|n| n.checked_add(1)) else {
+            continue;
+        };
+        if count > labels.len() {
             continue;
         }
-        let Some(index) = digits.parse::<usize>().ok().and_then(|n| n.checked_sub(1)) else {
-            continue;
-        };
-        let canonical = chunk::source_id(index);
-        if labels.contains(canonical.as_str()) {
-            result = result.replace(&format!("[{label}]"), &format!("[{canonical}]"));
+        let canonical: Vec<_> = (start..=end).map(|n| chunk::source_id(n - 1)).collect();
+        if canonical.iter().all(|id| labels.contains(id.as_str())) {
+            let expanded = canonical
+                .iter()
+                .map(|id| format!("[{id}]"))
+                .collect::<Vec<_>>()
+                .join(" ");
+            result = result.replace(&format!("[{label}]"), &expanded);
         }
     }
+    result
+}
+
+/// Wire-only compression of adjacent canonical IDs; no prose or source is lost.
+#[cfg(test)]
+pub fn compact_references(markdown: &str) -> String {
+    fn id(text: &str) -> Option<(usize, &str)> {
+        let (label, rest) = text.strip_prefix('[')?.split_once(']')?;
+        let n = label.strip_prefix('S')?.parse::<usize>().ok()?;
+        (n > 0 && chunk::source_id(n - 1) == label).then_some((n, rest))
+    }
+    let mut result = String::with_capacity(markdown.len());
+    let mut rest = markdown;
+    while let Some(index) = rest.find('[') {
+        result.push_str(&rest[..index]);
+        rest = &rest[index..];
+        let Some((start, after)) = id(rest) else {
+            result.push('[');
+            rest = &rest[1..];
+            continue;
+        };
+        let mut end = start;
+        let mut remaining = after;
+        loop {
+            let next = remaining.trim_start_matches([' ', '\t']);
+            match id(next) {
+                Some((n, after)) if end.checked_add(1) == Some(n) => {
+                    end = n;
+                    remaining = after;
+                }
+                _ => break,
+            }
+        }
+        if end > start {
+            result.push_str(&format!(
+                "[{}-{}]",
+                chunk::source_id(start - 1),
+                chunk::source_id(end - 1)
+            ));
+        } else {
+            result.push_str(&rest[..rest.len() - after.len()]);
+        }
+        rest = remaining;
+    }
+    result.push_str(rest);
     result
 }
 
@@ -202,6 +269,51 @@ pub(crate) fn source_clock(id: &str, segments: &[TranscriptSegment]) -> Option<S
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn wire_compaction_preserves_claim_boundaries_order_and_every_reference() {
+        let labels = BTreeSet::from(["S000001", "S000002", "S000003", "S000004"]);
+        let raw = "First [S000001] [S000002] [S000003]\n\nOther [S000004]\nThen [S000002] [S000001] [S000001]";
+        let compact = compact_references(raw);
+        assert_eq!(
+            compact,
+            "First [S000001-S000003]\n\nOther [S000004]\nThen [S000002] [S000001] [S000001]"
+        );
+        assert_eq!(canonical_references(&compact, &labels), raw);
+        assert_eq!(
+            compact_references("First [S000001]\n[S000002] words [S000003]"),
+            "First [S000001]\n[S000002] words [S000003]"
+        );
+        assert_eq!(
+            compact_references("[S000001] [S999999] [00:37] [S0] [S000001-S999999]"),
+            "[S000001] [S999999] [00:37] [S0] [S000001-S999999]"
+        );
+    }
+    #[test]
+    fn source_ranges_expand_only_when_every_id_was_supplied() {
+        let labels = BTreeSet::from(["S001839", "S001840", "S001841", "S001842", "S001843"]);
+        for range in ["S001839-S001843", "S1839 – S1843", "S1839—S1843"] {
+            let result = canonical_references(&format!("ประเด็น [{range}]"), &labels);
+            assert_eq!(
+                result,
+                "ประเด็น [S001839] [S001840] [S001841] [S001842] [S001843]"
+            );
+            assert!(validate(&result, &labels).is_ok());
+        }
+        let gaps = BTreeSet::from(["S001839", "S001843"]);
+        for text in [
+            "ประเด็น [S001839-S001843]",
+            "ประเด็น [S001843-S001839]",
+            "ประเด็น [S001839-S99999999999999999999999999]",
+            "ประเด็น [S001839-S001843] [S001839]",
+            "ประเด็น [S001839-] [S001839]",
+            "ประเด็น [S001839-S001840-S001843] [S001839]",
+            "ประเด็น [S0-S001843] [S001839]",
+        ] {
+            let result = canonical_references(text, &gaps);
+            assert!(validate(&result, &gaps).is_err(), "{text}");
+        }
+    }
+
     #[test]
     fn organizational_labels_need_no_fabricated_reference_but_claims_still_do() {
         let labels = BTreeSet::from(["S000001"]);

@@ -13,6 +13,18 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 describe('summary reading options', () => {
+  it('persists detail with format and instructions atomically, without calling a model', async () => {
+    const store = useSettingsStore();
+    expect(await store.saveSummaryOptions({format: 'meeting', meeting_detail: 'detailed', instructions: 'Keep the reasons'})).toBe(true);
+    expect(vi.mocked(invoke).mock.calls.map(([c]) => c)).toEqual(['settings_save']);
+    expect(vi.mocked(invoke).mock.calls[0][1]).toMatchObject({ settings: {summary: {format: 'meeting', meeting_detail: 'detailed', instructions: 'Keep the reasons'}} });
+    expect(store.settings.summary.meeting_detail).toBe('detailed');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('Disk full'));
+    expect(await store.saveSummaryOptions({meeting_detail: 'standard', instructions: 'Unsaved'})).toBe(false);
+    expect(store.settings.summary.meeting_detail).toBe('detailed');
+    expect(store.settings.summary.instructions).toBe('Keep the reasons');
+  });
   it('saves format and prompt together without invoking a model', async () => {
     const store = useSettingsStore();
     expect(
@@ -98,6 +110,7 @@ describe('summary reading options', () => {
   });
   it('keeps the saved prompt and view preference when persistence fails', async () => {
     const store = useSettingsStore();
+    store.settings.general.show_summary_timestamps = true;
     vi.spyOn(console, 'error').mockImplementation(() => {});
     vi.mocked(invoke).mockRejectedValueOnce(new Error('Disk full'));
     expect(
@@ -136,7 +149,7 @@ describe('summary reading options', () => {
       expect(body).toContain(
         locale === 'th' ? 'ประชุมทีมพัฒนา' : 'Development meeting',
       );
-      expect(body).toContain(locale === 'th' ? 'บันทึก prompt' : 'Save prompt');
+      expect(body).toContain(locale === 'th' ? 'บันทึกการตั้งค่า' : 'Save settings');
       expect(invoke).not.toHaveBeenCalled();
     },
   );

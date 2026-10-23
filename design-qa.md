@@ -616,3 +616,640 @@ com.velo.extractive-preview/0.8.0. Original app data is not linked into the prev
   host-locale name sorting remains unchanged. Native corrupt-copy recovery was
   not part of this follow-up; automated storage corruption coverage still passes.
   No push or release.
+
+### Long-recording output/context recovery — 2026-10-23 (live acceptance incomplete)
+
+- Continued on codex/long-summary-recovery, preserving the pre-existing local
+  changes. User approved one DeepSeek output-limit restart with additional
+  output room up to8192 tokens and real three-format tests, without publishing.
+- RED: the real request-boundary test observed the old4096/2048 retry caps.
+  GREEN: DeepSeek recovery gets8192 at32768 context, or4096 at16384; other
+  dialects retain their limits. Recovery reuses identical supplied source,
+  never interrupted text; repeated limits stop after two calls and preserve
+  the cache. Cancellation before recovery starts no further request.
+- The first authorised real follow-up at verified/ failed meeting mode with
+  summary_context_limit after mapping7/7 and nonshrinking note reduction.
+  Stopped the remaining run rather than claiming three-format success.
+  Its artifacts are under /private/tmp/velo-long-summary-live.B6kTPn/verified/.
+- A second RED regression reproduced unnecessary reduction even though the
+  notes plus a bounded draft fit a reviewed merge. Review reservation now uses
+  the bounded answer allowance rather than half a large context, retaining the
+  half-window split for small contexts and the actual serialized-request guard.
+  All12 long-recording tests pass, including synthetic1/2/3-hour timelines in
+  all three formats, complete source coverage and original start/tail clocks.
+- Fresh gates: cargo fmt and fmt --check, Clippy --all-targets -- -D warnings,
+  full cargo test --no-fail-fast, typecheck, lint,319 Vitest tests/35 files,
+  22 Node release checks, version consistency, frontend build and isolated
+  aarch64 macOS app bundle all exit0. Hardware/provider-dependent tests remain
+  opt-in; these generic-suite results are not real audio/AI quality evidence.
+- Final-source pipeline SHA256:
+  0408f6d7394743108f782f4984a344388e4d57468cb33f4c80f9100f9bf85630.
+  Transcript: /Users/emozerorise/Downloads/voice_214468.aac, existing2322-segment
+  cache through6252.52s, SHA256
+  cf41864409f61b2ab126a953e1e3037d1530ac1e4963846400d9b674576dfe3b.
+  Main and Preview transcript files match byte-for-byte; neither was rewritten.
+- After user Keychain approval, final/ failed meeting mode on the model's
+  source-ID range [S001839-S001843], not on an output-limit completion. Stopped
+  that old run when the user approved a narrow range-format correction.
+- RED/GREEN regressions now expand a range only when every ordered source ID
+  exists in the supplied set; missing/reversed/overflowing/malformed ranges
+  remain invalid even next to a valid citation. Each expanded ID resolves its
+  own original clock; the integration case checks00:37,00:43 and1:00:02 without
+  a citation-repair call. Full Rust/Clippy and frontend gates pass afterward.
+- Current validation SHA256:
+  65809b25bbf55e88354ba0d00e4ed6d5f00b9d0ae97c05df4056541951cf8b17.
+  The latest live runner uses deepseek-v4-pro at api.deepseek.com,32768 context,
+  the existing Keychain key, original transcript and isolated range-verified/.
+  Meeting generation completes (9300 UTF-8 bytes,316 references/304 unique
+  source clocks,5 headings). Key points completes (15896 UTF-8 bytes,324
+  references/319 unique clocks,2 headings). Every rendered clock belongs to the
+  original transcript; no internal ID leaks. These are source-location/shape
+  checks, not a guarantee that every model-written claim is entailed.
+- Custom mode reads6/6 chunks, enters reducing0/2, then fails before the final
+  answer with: Summary exceeds the context budget; increase the context window.
+  Previous summary unchanged. The actual serialized request guard stops the
+  job; no custom result/cache is saved. The three-format live test exits101
+  after980.06s with Failed formats: [custom]. See range-verified/custom-error.txt
+  and inspect.mjs in /private/tmp/velo-long-summary-live.B6kTPn/.
+- The bounded output/context changes therefore do NOT complete the requested
+  real-file acceptance. Stop further API patches/runs for a context-budget
+  design review rather than weaken citation checks, discard source or search
+  for a lucky pass. The request planner still estimates draft bytes, while the
+  final guard measures the actual quoted/canonicalized draft; ID expansion can
+  grow that draft beyond the estimate. Exact failing request sizes were not
+  captured, so no claim is made about their numeric breakdown.
+- All six code gates and the isolated aarch64 bundle pass; the pre-existing
+  STATIC_VCRUNTIME bundle-build deprecation warning remains. The final bundle
+  has a verified local ad-hoc resource signature, not Apple notarization. It
+  was NOT opened because the user's three-format precondition is unmet. No
+  source audio upload, production cache replacement, push or release.
+
+### Actual-size follow-up — 2026-10-23 (real-file technical acceptance complete)
+
+- User delegated the remaining fix choices and authorised additional API calls,
+  retaining the three-format real-file gate before opening Preview. No further
+  design-approval loop, push or release is part of this follow-up.
+- RED/GREEN: oversized quoted review and citation-repair candidates previously
+  hit the request guard. Expanded consecutive source IDs also inflated review
+  requests. New tests preserve the complete supplied source and exercise both
+  a valid independent review and rejection/cache preservation on invalid IDs.
+- Generated notes/drafts compact adjacent consecutive canonical IDs on the
+  wire only, without crossing claim/newline boundaries. Original transcript
+  rows and final clock lookup are unchanged. Fully assembled follow-ups are
+  measured for initial and recovery limits; if necessary only the generated
+  candidate is excluded, and an independent corrected pass still receives all
+  the same source and review/repair instructions. Byte estimates are not an
+  exact provider tokenizer. Numeric-only diagnostics expose request sizes.
+- Fresh local gates exit0: cargo fmt/fmt-check, Clippy all-targets with warnings
+  denied, full cargo test --no-fail-fast (optional hardware/provider cases remain
+  opt-in), typecheck, lint,319 Vitest tests/35 files,22 release checks, version
+  consistency and git diff --check. All15 long-recording regressions pass,
+  including the synthetic1/2/3-hour matrix across all three formats.
+- Native aarch64 app bundle builds and passes local ad-hoc resource-signature
+  verification. Existing STATIC_VCRUNTIME deprecation warning remains. The
+  bundle is Velo Long Summary Recovery Preview.app with isolated Preview data
+  and updater endpoints disabled; it is not opened before live acceptance.
+- Frozen pipeline SHA256:
+  ef4509759472c98465d61b0793cac67baa0bba9e30c4e487c0c7dc8879134c65.
+  Validation SHA256:
+  d111a5f2ad9463b7ed2da65c0ebfacf8bc9badd59a89c854eb0a0efa41adb187.
+- The new real run writes only to
+  /private/tmp/velo-actual-context.DDU0BQ/results, uses the unchanged2322-segment
+  voice_214468.aac cache and32768-context deepseek-v4-pro settings, and runs
+  custom first with stop-on-failure. Keychain access was approved by the user.
+  Acceptance remains pending until the process exits and all three outputs are
+  checked; local mock tests alone are not a real-file pass.
+
+- That run generated custom without a context-limit failure, but independent
+  inspection found9 paragraphs rather than the requested1, with excessive ID
+  ranges. It was stopped (exit130) during the next mode instead of claiming
+  three-format acceptance. Outputs remain under actual-context.DDU0BQ.
+- RED: emitted review/repair requests ended with an untrusted candidate after
+  the selected layout. GREEN: a compact selected-layout contract is repeated
+  after that candidate and included in the budget check. Repeating the entire
+  source reminder exceeded the8192-context regression; the compact contract
+  avoids that duplication. All16 long-recording cases and the full Rust suite
+  pass afterward; Clippy/fmt and frontend/release gates also exit0.
+- The next frozen build has pipeline SHA256
+  841455599ae5302263558c06eaa1db7ee7d9204696b44cf669c1eaa0d5cfd107,
+  unchanged validation hash, and prompt SHA256
+  140e0db4bedbba5c47b4a261788ab3e91a11a4a8261f386615860ea50edf8f86.
+  New live results use /private/tmp/velo-final-layout.FtIVPL/results. No source
+  rows or final references are removed to fit; source-ID ranges remain valid
+  only when every included ID belongs to the supplied source.
+
+- final-layout.FtIVPL exits101 in custom citation repair: the model emits
+  [S000087-S000096], a range not fully present in the supplied notes. No custom
+  summary is committed; later modes are skipped. Validation is deliberately
+  NOT relaxed to accept unseen IDs from elsewhere in the recording.
+- RED/GREEN: the repair request previously discarded the validator's actual
+  error and gave only a generic instruction. It now includes bounded, JSON-
+  quoted error-kind/reference feedback, without reattaching rejected prose,
+  and asks for individual supplied IDs rather than potentially gapped ranges.
+  Review keeps the trailing layout contract. All17 long regressions, the full
+  Rust suite, fmt-check, warning-denying Clippy, typecheck, lint and319 frontend
+  tests pass. The live harness now also stops on the custom paragraph mismatch.
+- Latest frozen pipeline SHA256:
+  675001db19514c16f0d641367b882b748bc6e7f033d6364124f186c95c4bbf0f;
+  prompt SHA256:
+  d570c3cbb210cf84f108849fc17be40bf9f94bc54500475057a2cff9ca6ed5cd;
+  validation remains unchanged. Fresh actual results use
+  /private/tmp/velo-final-reference.Bt1VbT/results. No extra repair/retry loop
+  or provider-context setting change was added.
+
+- final-reference.Bt1VbT exits101 during custom mapping2/6 after the bounded
+  citation repair still emits unavailable[S000098]. No result/cache is saved,
+  and the remaining formats do not run. Repeated prompt-only retries stop here.
+- The follow-up makes source identity explicit rather than accepting/remapping
+  guessed IDs: each request repeats its exact allowed ID set as losslessly
+  compressed identity metadata, not evidence. The one citation repair restarts
+  from complete supplied source without the invalid candidate. RED/GREEN
+  emitted-request tests cover both removal of that anchor and the exact ID
+  choices. No extraction/ledger/audit loop or additional retry is introduced.
+- Current frozen pipeline SHA256:
+  679d27684b371b3aedbe79455294a3983b46922a99394d2523bcae697d59b2cf.
+  Prompt/validation hashes remain as above. Full Rust, Clippy/fmt, frontend
+  gates and all17 long cases pass, and the matching isolated native bundle
+  builds and verifies its local ad-hoc resource signature. Live outputs use
+  /private/tmp/velo-reference-choices.DQRtwa/results.
+- Custom completes on this build:34706 UTF-8 bytes,235 references/235 unique
+  original source clocks,0 headings and1 paragraph as requested. The actual
+  review observes a44376-byte draft (35842 quoted compact bytes) that would
+  exceed the recovery budget with source; it excludes only the generated draft
+  and completes from the same43801-byte supplied source. The review/recovery
+  request has46945 user bytes and at most2646 system bytes against73728 allowed
+  bytes. Neither source nor references are silently truncated.
+- Manual opening/ending review also finds noisy ASR terms in the custom prose.
+  Original-clock membership and successful generation do not certify every
+  claim or fix the source transcription. The remaining two formats are still
+  pending at this checkpoint; Preview has not been opened.
+
+Final same-build acceptance:
+
+| Format | UTF-8 bytes | References | Unique original clocks | Headings | Paragraph blocks |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Meeting |9324|92|85|5|5|
+| Key points |14857|166|159|2|28|
+| Custom |34706|235|235|0|1|
+
+- The real test exits0 (674.41s). Independent inspect.mjs exits0 with3/3
+  formats,2322 source segments per result, the correct original media path,
+  Thai language and deepseek-v4-pro. Every rendered clock belongs to an
+  original source start, and no internal ID leaks. The custom test prompt's
+  single paragraph/no headings/no lists is preserved. The complete answers,
+  caches and numeric-only diagnostics remain under reference-choices.DQRtwa.
+- These are successful generation, reference-location and shape checks, not
+  a guarantee of semantic entailment. Manual opening/ending and full meeting
+  reading still finds noisy ASR names/terms and potentially overconfident
+  categories; those require source review and are not represented as fixed by
+  this output/context work. No audio listening/transcription-quality pass is
+  claimed. Optional hardware/provider suites remain opt-in.
+- Opened the matching Velo Long Summary Recovery Preview.app only after3/3
+  passed. Verified bundle identifier com.velo.preview, isolated updater-disabled
+  config and local ad-hoc resource signature. Main and Preview transcript
+  SHA256 still match the original cf41864409f61b2ab126a953e1e3037d1530ac1e4963846400d9b674576dfe3b.
+- Preview summary cache was empty; copied only the successful meeting cache
+  using no-overwrite, then compared it byte-for-byte with the tested result.
+  Native UI displays voice_214468.aac,01:44:12,meeting/deepseek-v4-pro and its
+  summary. Confirmed the cached transcript opening matches the original and
+  returned to summary view. Clicked00:08 and observed00:08/01:44:12; playback
+  remains paused, transcript/chat closed and player open for the user.
+- A clock with multiple original segments in the same floored second remains
+  plain text under the existing conservative reader rule rather than guessing
+  which segment to seek. Membership checks above do not certify every clock
+  as an unambiguous clickable target. No validation rule was weakened.
+- Final local gates: cargo fmt/fmt-check, cargo clippy --all-targets -- -D
+  warnings, full cargo test --no-fail-fast, typecheck, lint,319 Vitest tests/35
+  files,22 release checks, version consistency and git diff --check exit0.
+  All17 long-recording cases pass; native aarch64 bundle build exits0 with only
+  the pre-existing STATIC_VCRUNTIME deprecation warning. No production cache,
+  transcript, audio or app was replaced. No commit, push or release.
+
+## Detailed meeting settings and manual playback — 2026-10-23
+
+Approved scope: Native sequential implementation, real voice_214468.aac
+acceptance with additional DeepSeek calls, then matching Preview. No push or
+release. Existing dirty long-summary recovery work is retained.
+
+Local evidence:
+
+- RED→GREEN: three real-mpv fixture tests for fresh load, playing-file
+  replacement and resume/seek/explicit Play. Repeated with both the original
+  AAC and the existing 3:44 MP4. Tests mute audio and use null video; they
+  verify native pause and clock behavior, not a subjective listening test.
+- Self-review found FILE_LOADED still emitted Playing unconditionally. All
+  three fixture assertions failed against that event policy; the corrected
+  production helper mirrors mpv pause and reports Playing only after Play.
+- Settings/result tests cover missing/unknown detail→standard and unrelated
+  settings preserved. Saved-result metadata, not next-run settings, controls
+  detailed layout. Transactional save failure retains saved options and draft.
+- Emitted-request tests cover detailed policy through draft/review/repair and
+  the synthetic1/2/3-hour matrix, including source rows, original clocks,
+  recovery budget, bounded reduction and cancellation/cache safety. Custom
+  and key-point modes ignore stored meeting detail.
+- UI tests cover three format radios, independent detail selection, advanced
+  disclosure, example-overwrite confirmation, no inference on Save, focus
+  wrap/Escape/restoration, standard/detailed reading and transport actions.
+  A read-only guidance disclosure explicitly participates in modal Tab focus.
+- Full frontend suite:330 tests/37 files. Rust suite:250 reported passes,
+  including environment-gated test functions which skip work when not opted
+  in; only the explicit fixture/cloud runs establish those real boundaries.
+  fmt, Clippy -D warnings, typecheck, lint and22 release-policy checks pass.
+
+First real acceptance (not a success):
+
+- Isolated `/private/tmp/velo-detailed-meeting.hZKQUl/results`; the detailed
+  case was intentionally first. It stopped with summary_context_limit after
+  649.61s, saved no partial summary and prevented the other three billed cases.
+- Numeric traces show six completed raw chunks followed by repeatedly similar
+  reduction groups. Detailed note preservation reused raw-excerpt wording,
+  so the model barely consolidated existing notes. A failing request-boundary
+  assertion reproduces the missing reduction-specific instruction.
+- Correction adds a detailed-only consolidation instruction and soft UTF-8
+  writing target divided across groups. It asks to remove repetition, not
+  material reasons/conditions. No hard cutting, source dropping, output-cap
+  increase, new retries/passes or changes to other formats. Existing failure
+  and cache protections remain if a provider cannot follow this guidance.
+- Fresh full checks and a second isolated real acceptance are required below;
+  the first failed run is retained as diagnostic evidence.
+
+Synthetic browser layout acceptance (not a native zoom claim):
+
+- A local-only fixture mounts the real SummaryPromptEditor with3330 characters
+  of synthetic Thai draft text. Native command invocation is disabled; no
+  credentials, production data, settings write or model requests are used.
+- Light/dark at760x550 and at an equivalent380x275 CSS viewport scaled2x
+  retain the fixed footer and scrollable body. At380x275 the footer occupies
+  y197.25–248.25; document scrollWidth380 equals clientWidth380. No horizontal
+  overflow; advanced instructions and the full draft remain reachable.
+- Real browser ArrowLeft changes the native format radio from custom to key
+  points. Tab from Save wraps to Close. Custom exposes the advanced editor;
+  applying One paragraph asks for confirmation and Keep retains all3330
+  characters. This supplements unit focus/draft tests, not a claim that the
+  desktop app provides a200% zoom setting. Native Preview checks remain below.
+
+Second real acceptance and exact-size regression:
+
+- `results-consolidation` also ends with summary_context_limit (600.30s),
+  before any complete result or other format. The soft consolidation target
+  alone does not establish reliable reduction; no success is claimed for it.
+- A new local fixture produces two complete24KB notes. The exact mandatory
+  final/source-only-review requests fit the unchanged32768-token window,
+  but the heuristic reserve for an optional draft forced reduction and failed.
+  The regression reproduces this failure before the correction.
+- Detailed mode now tests the actual mandatory draft, source-only review and
+  worst-case bounded citation-repair messages before asking AI to reduce.
+  These reuse the same source/allowed-ID/instruction builders as real calls,
+  including JSON diagnostic expansion and both output ceilings. A generated
+  candidate remains optional; complete note content is never cut to fit.
+- The regression succeeds in exactly6 calls (two mapped pieces and the final
+  reviewed merge), with no reduction calls. All20 long cases pass, including
+  genuine over-budget reduction, non-progress/four-pass stops, source-ID
+  rejection and previous-cache preservation. Other formats retain their
+  existing reduction decision. Fresh full gates and frozen-build real
+  acceptance still follow; this is not a provider/model-cap increase.
+
+Exact-fit frozen-build live acceptance in progress:
+
+- Pipeline SHA256 c1273f8a05c55dd8840b99f4a94a66fa493715ba4e9a1cdba7b495f2701bf1ac;
+  prompt45b44351fc9cc244b2535c13d08de31a3e11beb1c581efeaa6df957b9d22085f;
+  validationd111a5f2ad9463b7ed2da65c0ebfacf8bc9badd59a89c854eb0a0efa41adb187.
+- `results-exact-fit/meeting_detailed.json` completes with18567 UTF-8 bytes,
+  146 references/126 unique original clocks,5 headings and correct detailed
+  metadata. It reaches final composition directly from51719 user bytes,
+  without unnecessary reduction. Bounded output/citation recovery and the
+  source-only review remain inside the existing73728-byte recovery budget.
+- Manual reading compares the original00:00–00:55,15:00–16:50,30:40–32:15,
+  42:50–44:30,52:20–53:25,1:26:00–1:27:58 and closing excerpts. Retained
+  examples include requirement-based bug/request tracing, change-impact
+  assessment and backup/restore/location conditions. This is materially more
+  than simply repeating a short overview.
+- Quality limitations remain visible in the unedited AI output: noisy opening
+  terminology, some software/system names and the date28/final phrase are not
+  independently established by ASR. Some conditional/template qualifications
+  can still be compressed away. Clock membership does not prove entailment;
+  this is not a claim that every name, date, category or sentence is correct.
+  Users must review uncertain passages against audio before making decisions.
+- The other three variants and native handoff checks are pending at this point.
+  The user separately authorised backing up the existing Preview-only summary
+  before displaying this tested detailed result, after all variants complete.
+
+All-format sizing correction / acceptance reuse ruling:
+
+- The exact-fit checkpoint's custom case was interrupted after it repeated
+  unnecessary reductions. No custom result was saved or represented as passing.
+  The same local48KB-note regression fails for standard mode before enabling
+  the exact fit check in every format; all four variants pass afterward, in
+  six requests each. All20 long tests and fresh full Rust/Clippy gates pass.
+- Final pipeline SHA2568351e709463219476b34e6f048f478b386453d3c28af3a9e0b46464baa0866ac.
+  Prompt and validator hashes above are unchanged. The only change to the
+  accepted detailed branch is removing an always-true detailed-mode condition
+  around the identical fit predicate (plus renaming that private helper).
+  Its provider messages, limits and execution behavior are unchanged.
+- Native execution ruling avoids billing this equivalent accepted detailed
+  case again. Keep its original artifact/hash, and explicitly run only custom,
+  standard meeting and key points under `results-remaining` on the final guard.
+  This is not an identical-source-hash four-case run; the two checkpoints and
+  independent artifact checks must remain visible in the handoff evidence.
+- The summary entry button now matches the dialog name: Summary settings /
+  ตั้งค่าการสรุป. Both locale SSR assertions failed before the copy change,
+  then the complete330-test frontend suite, typecheck and lint passed.
+
+Final checkpoint for this turn — NOT full acceptance:
+
+- `deepseek_remaining_variants` stops after480.26s at custom with
+  summary_output_limit. Exact fitting succeeds (no reduction loop): final
+  draft receives45054 user bytes; its citation repair receives46933 bytes.
+  The repair reaches both4096 and8192 output ceilings and remains incomplete.
+  No complete custom result/cache is saved. Standard meeting and key points
+  are intentionally not billed after this failure. Current-generation
+  acceptance is therefore1/4 generated,1 failed,2 not run, not four passes.
+- The accepted detailed result still has the ASR/interpretation qualifications
+  noted above. Neither a successful terminal response nor source-clock
+  membership certifies every semantic claim.
+- Stop paid testing here; no further ceiling increase, content cutting,
+  additional retry, provider change or speculative prompt rerun. Finishing
+  the custom request while preserving its requested coverage requires a
+  separately approved output strategy beyond the present fixed-ceiling plan.
+- Local gates pass:251 reported Rust passes (opt-in functions may skip their
+  work),330 frontend tests/37 files, typecheck, lint, fmt-check, strict Clippy,
+ 22 release-policy checks, version consistency and diff-check. Real native
+  fixture checks explicitly pass3 AAC and3 MP4 cases.20 long-recording tests
+  include1/2/3-hour all-format request/limit/cache contracts.
+- The final updater-disabled aarch64 Preview builds and verifies its local
+  ad-hoc resource signature. It has NOT been launched, and native-window
+  acceptance is pending, because the approved real-file acceptance gate has
+  not passed. The previously running Preview is left alone. The conditional
+  backup/cache-replacement approval has NOT been exercised. No production or
+  Preview source/cache/key was replaced. No commit, push or release.
+
+## 2026-10-23 — Complete-part implementation: local gates pass, live gate fails
+
+- Implemented the approved Native plan's Tasks1–5 without delegated agents,
+  commits, push, release or automatic updater changes. Final review so far is
+  author self-review, not independent review. Earlier failures above remain
+  historical evidence and are not counted as acceptance for this build.
+- Frozen summary/harness hash:
+  5aeb3de27896cdc656254d35df57c2ca4b7878aac4f93167babe1dab4cf023c7.
+  Source SHA256 remains
+  cf41864409f61b2ab126a953e1e3037d1530ac1e4963846400d9b674576dfe3b;
+  all2322 transcript rows are unchanged. Main settings now select OpenAI, so
+  the live test used unchanged Preview DeepSeek/deepseek-v4-pro/32768 settings
+  and the previously authorized same-host Keychain key. No settings/key copy
+  or OpenAI submission was made.
+- Fresh local gates: fmt-check, strict all-target Clippy, cargo test285 reported
+  passes/0 failures/4 explicitly ignored, typecheck, lint, Vitest338 tests across
+ 38 files,24 release-policy/artifact checks, version consistency and diff-check.
+  The separately opted-in real AAC and MP4 manual-loading checks each ran3/3;
+  file load/replacement/resume/seek stayed paused until explicit Play.
+- The21 long-recording tests include a successful1/2/3h ×4variant matrix with
+  original-row wire coverage, escaped Thai data, exact clocks and bounded
+  requests. A separate denser3h fixture exceeds the unchanged128-call budget
+  and fails safely while keeping the old cache. Duration alone is not a
+  guarantee for arbitrary transcript density.
+- Native runner tests cover whole-part assembly, remote conditions and later
+  answers, source-scoped citations, empty results, cancellation, interrupted
+  sweeps, second-sweep instability, and failed atomic rename retaining old
+  cache bytes. Mock protocol success is not a model-quality certification.
+- UI fixture uses actual SummaryTab/SummaryProgress in an isolated localhost
+  640×400 iframe. Writing/checking stages have no fabricated percent; Cancel
+  remains reachable, Tab focuses it and Enter calls summary_cancel. Localized
+  old-result warning remains visible with a long paragraph;1:01:00 citation
+  controls wrap and can be scrolled into view. The existing native app was
+  never closed for this check. SSR/unit tests cover first-failure wording,
+  changed totals, wrong-path events, late ready after cancel and reader state.
+- The new acceptance verifier rejects missing/failed variants, wrong clocks/
+  metadata/layout/identity/call bounds, leaked IDs and absent source-review
+  notes. It correctly returns passed:false for the actual failed run; it is
+  an artifact gate, not a semantic truth oracle.
+- Actual run root: /private/tmp/velo-complete-parts.RxA551/acceptance.
+  Custom wrote9 initial complete parts, completed the17-window first sweep,
+  flagged6 for replacement and failed layout validation on a replacement
+  after44 physical requests (summary_layout_unsupported). No completed
+  summary artifact/cache was saved. Standard meeting, key points and detailed
+  meeting were NOT attempted; source-semantic acceptance is NOT claimed.
+  Rejected generated prose was not persisted, so the exact rejected structure
+  (e.g. paragraph breaks versus headings) cannot be inferred from this record.
+- Stop paid testing under the approved fail-fast rule. Do not silently relax
+  the custom layout, retry the job, reuse older successes or claim four passes.
+  Next debugging work needs a precise local rejection-shape diagnostic and a
+  proven layout correction before another authorized four-case run.
+- The updater-disabled aarch64 Velo Complete Parts Preview builds; local
+  ad-hoc resource signing/deep strict verify passes (not Developer ID signing).
+  It has NOT been launched because acceptance failed. The old Preview, its
+  summary cache, production app/data and conditional backup approval remain
+  untouched. Task6 and the previous integrated handoff stay incomplete.
+
+## 2026-10-23 — Replacement layout fixed; consistency acceptance still pending
+
+- The user authorized local repair and new paid acceptance in three formats,
+  not a new release. Preserved the dirty checkout and every prior feature.
+- Behavioral RED→GREEN reproduces (1) missing per-part ownership/layout after
+  the untrusted draft, (2) plain cited paragraphs rejected before one-paragraph
+  whitespace assembly and (3) a generated invalid shape misreported as an
+  unsupported user prompt. Plain joining preserves words/IDs and bills no
+  formatting retry; headings/lists/fences are not silently stripped. Exact
+  same ending participates in preflight and actual review/repair requests.
+- First frozen live build
+  babadeaa800e3005b9bfeb1529ebf5fedb89ebf75a74b2f12c3a321239eda9d4:
+  custom writes9 parts, completes17 first-sweep windows and4 replacements.
+  The original layout failure does not recur. Second-sweep window3 fails
+  routing validation at47 physical requests. No result is saved; other formats
+  are not attempted. Root: /private/tmp/velo-layout-fix.eictNv/acceptance.
+  The exact malformed routing response was intentionally not persisted, so
+  do not assert whether this was JSON syntax, schema, a duplicate or an ID.
+- Wire RED→GREEN then proves native JSON mode was absent from controls.
+  Added response_format=json_object only to DeepSeek control requests, not
+  prose/chat or other providers. Strict routing/schema/ID checks remain.
+  Private rejection logs give serde category/position or unknown/duplicate/
+  count, never raw source/replies/credentials. This is a syntax hardening,
+  not proof of the prior rejected reply's exact cause or a truth oracle.
+- Final frozen build
+  b58aecedb314b0321a8ae9dba8bf2043c9a727d986070ddf433bc81098e3481e:
+  fmt-check, strict all-target Clippy, Rust289 reported passes/0 failures/4
+  explicitly ignored, typecheck/lint, frontend338 tests/38 files,25 release/
+  artifact checks, version consistency and whitespace check pass. Opt-in
+  tests are not represented as live passes. Real muted native AAC and MP4
+  paused-loading/replacement/resume/seek checks each run3/3 on this code.
+- Second isolated live root:
+  /private/tmp/velo-layout-fix.eictNv/json-controls-acceptance.
+  Original transcript hash remains
+  cf41864409f61b2ab126a953e1e3037d1530ac1e4963846400d9b674576dfe3b,
+  2322 rows, Preview's DeepSeek/deepseek-v4-pro/32768 settings. The user
+  directly unlocked each Keychain dialog; no key was printed/copied to logs.
+  Explicit required scope is custom/meeting/key_points, not silently missing
+  a detailed case. The verifier tests reject incomplete or smaller scopes.
+- Custom writes9 parts, finishes17 first-sweep windows, revises9 parts without
+  the old layout error and starts sweep2. Window5 returns a valid correction
+  flag, yielding summary_review_unstable at59 calls. No malformed-JSON error
+  occurs in this run. This flag does NOT prove which claim is wrong: the
+  current routing object contains no rationale. It may reflect a genuine
+  missed condition or a reviewer false positive. Do not claim semantic success.
+- This follow-up uses106 real requests total (47+59) on two locally verified
+  builds, each fail-fast. Meeting and key points are NOT run; accepted formats
+  are0/3. No completed summary/cache is saved. The artifact verifier correctly
+  reports passed:false. Stop further paid requests under this bounded gate.
+- Updater-disabled Velo Layout Fix Preview builds and deep strict local
+  resource verification passes after ad-hoc signing. It is NOT launched,
+  because the required acceptance failed. No production/Preview settings,
+  transcript, summary cache, library or credential was replaced. Existing app
+  remains untouched. No commit, push, tag, release or automatic update.
+- Next work requires targeted diagnostics that can compare the flagged
+  candidate and original excerpts before changing the consistency policy;
+  another blind prompt/cap/retry change would not establish fidelity. Native
+  author self-review only; no claim of independent review or completed Task6.
+
+
+## Direct-first summary simplification — 2026-10-23
+
+User approval supersedes prior complete-part/sweep acceptance requirements.
+The active runner sends fitting raw transcripts once; oversized input gets
+whole-row excerpt summaries plus one combination. AI review, repair and
+consistency/replacement calls are removed. Invalid or incomplete results do
+not replace old cached summaries.
+
+Local regression evidence: /private/tmp/velo-simple-red.log (4 expected
+behavior failures), /private/tmp/velo-simple-green.log (5 passes). Extended
+boundary tests characterize existing cache/provider protections under the new
+pipeline; they are not claimed as additional RED/GREEN cycles. Full Rust run:
+246 passes, 0 failures, 5 ignored; optional fixture functions may skip work.
+Frontend: 338 passes, typecheck and lint pass. Clippy all-targets -D warnings,
+fmt check, version check and release script tests pass. The new build is
+isolated under com.velo.simple-summary-preview with no updater endpoints.
+
+Original voice_214468 transcript SHA-256 remains
+cf41864409f61b2ab126a953e1e3037d1530ac1e4963846400d9b674576dfe3b,
+2322 rows. Initial live command was rejected by automatic approval review
+before execution because the transcript export to DeepSeek required explicit
+payload/destination consent. No API call was made by that rejected command.
+Live acceptance is pending that consent; do not infer success from local tests.
+
+
+The user then explicitly authorized sending the original transcript to
+https://api.deepseek.com with deepseek-v4-pro for all three paid tests.
+The live process started and is waiting for macOS Keychain permission; no
+credentials are printed. Separately, the opt-in original-transcript loopback
+regression passed all three formats at four calls each (three excerpt calls
+and one combination); every original quoted row was present. This verifies
+request shaping only, not model content. Log:
+/private/tmp/velo-simple-summary/original-local.log.
+
+The isolated Velo Simple Summary Preview.app bundle builds successfully.
+Its local ad-hoc resource signature was refreshed after bundling; deep strict
+verification passes. This is not Developer ID signing or publication.
+
+
+### Live follow-through after Keychain authorization
+
+Initial run: custom completed in4 requests (three excerpts + one combination).
+Meeting reached6 requests because one truncated excerpt was split, then failed
+local final-reference validation at S000767 (not supplied in the notes).
+Key-points was not called in that run. This is recorded in
+/private/tmp/velo-simple-summary/acceptance/run.json; failed answer text was
+not saved, so its exact context cannot be retrospectively assessed.
+
+A narrow loopback test reproduced unsupported final IDs (reference-red.log).
+The fix removes only unsupplied final-combination references and then runs the
+same per-block validator. It does not rewrite prose, substitute another ID,
+accept an entirely unreferenced block, or ask AI to fix anything. The full
+Rust suite passes247 tests,0 failures,6 ignored; Clippy passes and the isolated
+Preview rebuild succeeds. The new live run covers meeting/key_points only;
+custom remains the prior successful artifact with its own original build hash.
+This is explicitly a mixed-build acceptance record, not a claim of one frozen
+build generating all three artifacts. User approved the paid destination and
+unlocked Keychain for the rebuilt test executable.
+
+Source spot checks: custom covers component discussion26:53–29:03, collection
+register31:12–32:11, traceability52:21–53:25 and impact/cost authority1:26–1:28.
+Component wording remains an interpretation of noisy speech; some late proper
+terms are still garbled. No claim of full semantic fidelity follows from
+reference membership or these spot checks. Do not bill extra review passes.
+
+
+Second real meeting attempt:13 requests, with repeated output-limit source
+splits into8 terminal excerpts; all excerpts completed, but their combined
+notes exceeded final context before a final request could be sent. No semantic
+review/repair was called. Key-points was again not reached by the old harness.
+Log: /private/tmp/velo-simple-summary/reference-live.log.
+
+Two loopback tests reproduced context/output-limit assembly failure, then
+passed with lossless local built-in assembly. When one final answer cannot
+fit, completed meeting/key-point excerpts are presented in chronological
+sections without another model call, discarded content or recursive reduction.
+Custom contracts are not silently changed. Excerpt wording now asks for a
+2000-token target below its4096 cap; all original rows are still supplied.
+Full Rust suite:249 passes,0 failures,6 ignored. Preview rebuilt and local
+ad-hoc deep strict verification passed. Live harness now runs each selected
+remaining variant once and records errors, rather than starving key-points
+behind a meeting failure. Final attempt is waiting for Keychain authorization.
+
+
+Final acceptance after Keychain approval (2026-10-23): meeting and key_points
+completed, each with3 excerpt calls +1 combination call, no splits, review,
+repair or local-assembly fallback in this run. Generation time excluding
+Keychain: meeting125s, key_points121s. Custom retained its earlier4-call88s
+artifact. All three pass saved/cache equality,2322 source-segment identity,
+format checks and timestamp membership against the original source. Report:
+/private/tmp/velo-simple-summary/validation.json. Final live test:1 passed,
+0 failed. Final Clippy passed after the harness change. No further paid runs.
+Total physical paid requests across these attempts:31 (12 in successful
+artifacts,19 in the two failed meeting attempts). This is not a cost estimate.
+
+Manual source spot-checks include the opening project-plan exception, component
+discussion27:30–29:03, traceability52:21–53:25, impact assessment1:26–1:28
+and go-live deadline1:42–1:43. Main themes are present, but semantic acceptance
+is qualified: the meeting output calls the opening record “version control
+record” while the transcript is garbled and the key-points output interprets
+it as Validation Record. Component definitions also blur source/component
+versus built software. Both outputs carry garbled proper terms from ASR;
+key-points is lengthy because the saved user instruction requests detail.
+Reference membership verifies navigable timestamps, not factual entailment.
+No claim of sentence-level accuracy or exhaustive semantic coverage is made,
+and no model review loop was added to disguise these limitations.
+
+The isolated Velo Simple Summary Preview.app bundle is available under
+src-tauri/target/aarch64-apple-darwin/release/bundle/macos/. It was built and
+ad-hoc verified locally, not installed or launched. No push, tag or release.
+
+
+2026-10-23 Preview UI follow-up: the transcription-device status was the
+only unpainted strip between opaque reader/header surfaces in a transparent
+webview. Added its own opaque surface background. New settings default to Thai
+and hide summary timestamps (both Rust and frontend); saved explicit choices
+are preserved. Hidden summary rendering strips timestamp tokens before parsing
+so unsupported/duplicate source times do not remain as plain text. Cached
+markdown is unchanged and showing timestamps still enables valid navigation.
+The navigation test reproduced both initially visible citations and leaked
+plain-text timestamps before the fixes. English-specific UI fixtures now set
+their locale explicitly, and citation tests explicitly enable timestamps.
+The user's running Preview already has Thai/hidden timestamps saved. Its chat
+is memory-only; no forced restart was performed to avoid losing that session.
+
+UI follow-up validation:338 frontend tests and249 Rust tests passed (6 live/
+optional tests ignored); typecheck, lint, cargo fmt and diff checks passed.
+The first sandboxed Rust run failed4 evidence tests at loopback bind with
+PermissionDenied; the complete authorized local-mock rerun passed. Preview
+bundle rebuilt successfully with the final hidden-text fix. No new paid API
+calls, push or release. Native visual confirmation of the new GPU background
+remains for the next launch; the existing running process was left intact.
+
+
+Pre-push review, 2026-10-23: user confirmed the rebuilt Preview works normally.
+Reviewed the combined working-tree changes in summary routing/generation,
+bounded partitioning, reference rendering, transport completion, settings
+compatibility, summary options and manual playback. No new blocking defect
+identified in this review. Fresh checks:338 frontend tests,249 Rust tests
+(6 optional ignored),25 release-tooling tests; typecheck, lint, cargo fmt,
+Clippy --all-targets -D warnings and diff whitespace checks all passed.
+The3 opt-in manual-loading tests additionally ran against the original local
+voice_214468.aac with muted libmpv and passed (open, replace, resume/seek/play).
+No paid API calls were made for this preflight.
+
+All version sources still agree on0.9.0, already released; changes remain in
+the unreleased changelog. Before a new release, choose a new version and use
+the version script after the feature merge, then merge the release commit
+before tagging. Windows and Intel macOS packaging were not executed locally;
+the release workflow must validate those artifacts. The working tree has45
+modified tracked files and18 new files, including required source/test
+modules; committing only tracked changes would omit required modules.
+No commit, push, tag or release performed during this preflight.

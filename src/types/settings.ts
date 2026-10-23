@@ -38,9 +38,11 @@ export interface TranscriptSettings {
 }
 
 export type SummaryFormat = 'meeting' | 'key_points' | 'custom';
+export type MeetingDetail = 'standard' | 'detailed';
 
 export interface SummarySettings {
   format: SummaryFormat;
+  meeting_detail: MeetingDetail;
   /** 'ollama' | 'openai' | 'deepseek' — explicit transport, never inferred from the URL. */
   provider: string;
   base_url: string;

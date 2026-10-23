@@ -79,6 +79,10 @@ describe('source-aware summary navigation', () => {
     const view = mountView(SummaryTab, {}, getActivePinia()!);
     const button = () =>
       view.nodes().find((node) => node.props['aria-label'] === 'Jump to 00:30');
+    expect(button()).toBeUndefined();
+    expect(view.nodes().some((node) => node.text.includes('[00:31]'))).toBe(false);
+    useSettingsStore().settings.general.show_summary_timestamps = true;
+    await nextTick();
     expect(button()).toBeDefined();
     expect(
       view.nodes().some((node) => node.props['aria-label'] === 'Jump to 00:31'),

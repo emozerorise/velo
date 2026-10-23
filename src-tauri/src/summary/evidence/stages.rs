@@ -385,7 +385,7 @@ mod tests {
         EvidenceModel {
             input: job,
             cancel,
-            observer: &super::super::super::pipeline::NoopObserver,
+            observer: &super::super::super::evidence_pipeline::NoopObserver,
         }
     }
     #[tokio::test]
@@ -519,7 +519,7 @@ mod tests {
     #[tokio::test]
     async fn extraction_reserves_every_feedback_before_http() {
         struct Requests(AtomicUsize);
-        impl crate::summary::pipeline::EvidenceObserver for Requests {
+        impl crate::summary::evidence_pipeline::EvidenceObserver for Requests {
             fn record(&self, event: &str, _payload: &Value) -> Result<()> {
                 if event == "request" {
                     self.0.fetch_add(1, Ordering::Relaxed);

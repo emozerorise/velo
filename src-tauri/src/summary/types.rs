@@ -1,6 +1,6 @@
 //! Serializable summary types shared with the frontend.
 
-use crate::storage::settings_store::SummaryFormat;
+use crate::storage::settings_store::{MeetingDetail, SummaryFormat};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9,6 +9,8 @@ pub struct Summary {
     /// reorder an existing custom summary. Older caches are meetings.
     #[serde(default)]
     pub format: SummaryFormat,
+    #[serde(default)]
+    pub meeting_detail: MeetingDetail,
     pub path: String,
     /// The model that wrote it, so a disappointing summary can be judged
     /// against what produced it.
@@ -44,7 +46,8 @@ pub struct SummaryStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct SummaryProgress {
     pub path: String,
-    /// "mapping" | "reducing" | "reviewing"
+    /// Writing/review stages include writing_parts, checking_consistency,
+    /// replacing_parts and assembling_summary. Counts are local, not overall percent.
     pub stage: String,
     pub done: usize,
     pub total: usize,
@@ -67,6 +70,24 @@ pub struct SummaryFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_detail_is_metadata_and_legacy_results_remain_standard() {
+        for (detail, expected) in [
+            (None, "standard"),
+            (Some("detailed"), "detailed"),
+            (Some("future"), "standard"),
+        ] {
+            let mut raw = serde_json::json!({"path":"/old.wav", "model":"old", "language":"th", "markdown":"Saved prose", "created_at":42, "source_segments":3});
+            if let Some(detail) = detail {
+                raw["meeting_detail"] = serde_json::json!(detail);
+            }
+            let parsed: Summary = serde_json::from_value(raw).unwrap();
+            let saved = serde_json::to_value(parsed).unwrap();
+            assert_eq!(saved["meeting_detail"], expected);
+            assert_eq!(saved["markdown"], "Saved prose");
+        }
+    }
 
     #[test]
     fn old_cached_summaries_keep_their_text_and_default_to_meetings() {

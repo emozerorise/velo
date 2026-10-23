@@ -27,7 +27,7 @@ import { Play } from '@lucide/vue';
 import { useI18n } from '@/composables/useI18n';
 
 const props = withDefaults(defineProps<{ parts: InlinePart[]; showTimestamps?: boolean }>(), {
-  showTimestamps: true,
+  showTimestamps: false,
 });
 const prose = computed(() => props.parts.filter((part) => part.type !== 'stamp'));
 const citations = computed(() => props.parts.filter((part) => part.type === 'stamp'));

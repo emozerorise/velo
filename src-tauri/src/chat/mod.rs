@@ -92,7 +92,7 @@ fn transport_failure(error: VeloError) -> ChatFailure {
             ModelErrorCode::Context => ChatErrorCode::Context,
             ModelErrorCode::Timeout => ChatErrorCode::Timeout,
             ModelErrorCode::Empty => ChatErrorCode::Empty,
-            ModelErrorCode::Incomplete => ChatErrorCode::Incomplete,
+            ModelErrorCode::Incomplete | ModelErrorCode::OutputLimit => ChatErrorCode::Incomplete,
             ModelErrorCode::Cancelled => ChatErrorCode::Cancelled,
         },
         _ => ChatErrorCode::Provider,

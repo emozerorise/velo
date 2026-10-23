@@ -11,9 +11,10 @@
       <button
         class="p-2 rounded-lg text-fg/70 hover:text-fg hover:bg-fg/5"
         :aria-label="t('toast.seekBackward', { seconds: 5 })"
+        :title="t('toast.seekBackward', { seconds: 5 })"
         @click="player.seek(-5, true)"
       >
-        <RotateCcw class="w-5 h-5" /><span class="text-[10px]">5</span>
+        <RotateCcw class="w-5 h-5" />
       </button>
       <button
         class="w-14 h-14 shrink-0 rounded-full bg-blue-500 hover:bg-blue-400 text-white flex items-center justify-center"
@@ -30,9 +31,10 @@
       <button
         class="p-2 rounded-lg text-fg/70 hover:text-fg hover:bg-fg/5"
         :aria-label="t('toast.seekForward', { seconds: 5 })"
+        :title="t('toast.seekForward', { seconds: 5 })"
         @click="player.seek(5, true)"
       >
-        <RotateCw class="w-5 h-5" /><span class="text-[10px]">5</span>
+        <RotateCw class="w-5 h-5" />
       </button>
       <div
         class="flex-1 min-w-[80px]"

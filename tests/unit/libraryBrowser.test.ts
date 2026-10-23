@@ -1,4 +1,5 @@
-import { expect, it, vi } from 'vitest';
+import { setLocale } from '@/composables/useI18n';
+import { beforeEach, expect, it, vi } from 'vitest';
 import { createPinia } from 'pinia';
 import { nextTick } from 'vue';
 import { mountView, TestNode } from './helpers/mountView';
@@ -9,6 +10,7 @@ import ReadingSidebar from '@/components/playlist/ReadingSidebar.vue';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useLibraryStore } from '@/stores/libraryStore';
 import { emptyLibrary } from '@/types/library';
+beforeEach(() => setLocale('en'));
 const ipc=vi.hoisted(()=>({invoke:vi.fn()}));
 vi.mock('@tauri-apps/api/core',()=>ipc);
 it.each(['create','project'])('pointer-opened %s editor restores focus even when Safari does not focus clicks',async(kind)=>{

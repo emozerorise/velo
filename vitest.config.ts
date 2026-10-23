@@ -21,6 +21,7 @@ export default mergeConfig(
           "**/dictationControl.test.ts",
           "**/summaryFormatControls.test.ts",
           "**/summaryNavigation.test.ts",
+          "**/readingTransport.test.ts",
         ].map((pattern) =>
           normalizePath(
             path.resolve(__dirname, "tests/unit", path.basename(pattern)),

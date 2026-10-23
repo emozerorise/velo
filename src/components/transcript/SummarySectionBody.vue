@@ -35,7 +35,7 @@ import type { SummarySection } from '@/utils/summaryMarkdown';
 import { useI18n } from '@/composables/useI18n';
 
 withDefaults(defineProps<{ nodes: SummarySection['nodes']; showTimestamps?: boolean }>(), {
-  showTimestamps: true,
+  showTimestamps: false,
 });
 const emit = defineEmits<{ (e: 'seek', seconds: number): void }>();
 const { t } = useI18n();

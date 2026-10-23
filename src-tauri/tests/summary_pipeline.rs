@@ -404,6 +404,35 @@ async fn deepseek_does_not_treat_a_token_limit_as_a_complete_summary() {
 }
 
 #[tokio::test]
+async fn summaries_reject_nonempty_streams_without_a_completion_marker() {
+    for provider in ["deepseek", "openai", "ollama"] {
+        let frame = if provider == "ollama" {
+            ollama_frame("unfinished but nonempty", false)
+        } else {
+            "data: {\"choices\":[{\"delta\":{\"content\":\"unfinished but nonempty\"},\"finish_reason\":null}]}\n\n".into()
+        };
+        let (base, _) = spawn_server(200, vec![frame], Duration::ZERO);
+        let result = transport::stream_chat(
+            transport::dialect_for(provider).as_ref(),
+            &base,
+            None,
+            &request(),
+            &AtomicBool::new(false),
+            |_| {},
+            || {},
+        )
+        .await;
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("ended before completion"),
+            "{provider}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn deepseek_does_not_accept_an_empty_answer_after_done() {
     let (base, _) = spawn_server(
         200,

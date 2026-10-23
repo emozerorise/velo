@@ -2,7 +2,7 @@
   <p
     v-if="store.execution"
     role="status"
-    class="shrink-0 px-6 py-2 text-xs border-b border-fg/10"
+    class="bg-surface shrink-0 px-6 py-2 text-xs border-b border-fg/10"
     :class="store.execution.fallback ? 'text-amber-500' : 'text-fg/55'"
   >
     {{ label }}
