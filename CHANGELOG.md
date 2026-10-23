@@ -5,7 +5,7 @@
 รูปแบบอ้างอิงจาก [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 และใช้เลขเวอร์ชันตาม [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
-## [ยังไม่เผยแพร่]
+## [0.9.1] - 2026-10-23
 
 ### เพิ่มเข้ามา
 
@@ -526,6 +526,7 @@
   ในสโตร์มีครบแล้ว แต่ยังไม่มีจุดไหนเรียกใช้ระหว่างเล่น และ `lastPosition`
   ของรายการใน playlist ไม่เคยถูกตั้งค่า
 
+[0.9.1]: https://github.com/emozerorise/velo/releases/tag/v0.9.1
 [0.9.0]: https://github.com/emozerorise/velo/releases/tag/v0.9.0
 [0.9.0-beta.2]: https://github.com/emozerorise/velo/releases/tag/v0.9.0-beta.2
 [0.9.0-beta.1]: https://github.com/emozerorise/velo/releases/tag/v0.9.0-beta.1
