@@ -16,12 +16,14 @@ pub struct Artifacts {
 }
 impl Artifacts {
     pub fn new(dir: PathBuf) -> Result<Self> {
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
         #[cfg(unix)]
-        {
+        let builder = {
             use std::os::unix::fs::DirBuilderExt;
+            let mut builder = builder;
             builder.mode(0o700);
-        }
+            builder
+        };
         builder
             .create(&dir)
             .map_err(|_| VeloError::Storage("Diagnostic directory must be new".into()))?;
